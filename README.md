@@ -2,7 +2,9 @@
 
 当前版本：v0.1.0，功能测试骨架。目标模块的具体功能尚待确认。
 
-用户提供的目标环境：OPPO Find X8s、Android 15、原版 KernelSU，管理器版本显示为 `32601-2`，通过修补 `init_boot` 安装。上述信息尚未通过设备命令验证。
+用户提供的目标环境：OPPO Find X8s、Android 15、原版 KernelSU，管理器版本显示为 `32601-2`，通过修补 `init_boot` 安装。ADB 已确认型号属性 PKT110、Android 15、系统版本 PKT110_15.0.1.610(CN01)；KernelSU 版本和安装方式仍为用户提供的信息。
+
+已完成侧边实体键识别：输入设备为 `gpio-keys`，Linux 输入键码为 **735（0x02DF，BTN_TRIGGER_HAPPY32）**。实测证据和后续开发约束见 [侧边按键识别结果](diagnostics/侧边按键识别结果.md)。短按、长按等具体动作尚待确定。
 
 这是 Android 上的 KernelSU 用户空间模块工程，使用 Shell 脚本；不涉及 MCU、BSP 或内核编译。
 
