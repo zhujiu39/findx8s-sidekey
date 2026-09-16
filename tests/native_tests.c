@@ -86,7 +86,17 @@ int main(int argc, char **argv)
     char error[256], text[CONFIG_CAP], decoded[4];
     assert(config_parse(valid, &config, error, sizeof(error)));
     assert(config.enabled && config.actions[0].kind == ACTION_HOME);
+    assert(config.haptic); /* 旧配置升级默认开启，其他动作不变。 */
     assert(!strcmp(config.actions[2].argument, "echo hi"));
+    snprintf(text, sizeof(text), "%shaptic=0\n", valid);
+    assert(config_parse(text, &config, error, sizeof(error)) && !config.haptic);
+    assert(config.actions[0].kind == ACTION_HOME && !strcmp(config.actions[2].argument, "echo hi"));
+    snprintf(text, sizeof(text), "%shaptic=1\n", valid);
+    assert(config_parse(text, &config, error, sizeof(error)) && config.haptic);
+    snprintf(text, sizeof(text), "%shaptic=2\n", valid);
+    assert(!config_parse(text, &config, error, sizeof(error)));
+    snprintf(text, sizeof(text), "%shaptic=0\nhaptic=1\n", valid);
+    assert(!config_parse(text, &config, error, sizeof(error)));
     assert(!config_parse("version=1\n", &config, error, sizeof(error)));
     snprintf(text, sizeof(text), "%senabled=0\n", valid);
     assert(!config_parse(text, &config, error, sizeof(error)));
@@ -97,6 +107,6 @@ int main(int argc, char **argv)
     assert(!hex_decode("xxxx", decoded, sizeof(decoded)));
     assert(!hex_decode("41424344", decoded, sizeof(decoded)));
     assert(hex_decode("414243", decoded, sizeof(decoded)) && !strcmp(decoded, "ABC"));
-    puts("PASS: 9 gesture scenarios and strict config / hex validation");
+    puts("PASS: 9 gesture scenarios, strict config / hex validation and haptic upgrade compatibility");
     return 0;
 }

@@ -1,6 +1,6 @@
 id=oppo_sidekey
 name=侧键自定义 · Find X8s
-version=v0.3.0
-versionCode=30
+version=v0.3.1
+versionCode=31
 author=Local Developer
-description=WebUI 自定义短按、双击和长按；新增系统手电筒、最高公开亮度档位和状态同步。
+description=WebUI 自定义短按、双击和长按；支持触发震动反馈、系统手电筒、最高公开亮度档位和状态同步。

@@ -20,6 +20,7 @@ void config_defaults(Config *c)
 {
     if (!c) return;
     memset(c, 0, sizeof(*c));
+    c->haptic = true;
     c->long_ms = 600;
     c->double_ms = 280;
 }
@@ -66,7 +67,7 @@ static bool number(const char *text, uint32_t minimum, uint32_t maximum, uint32_
  */
 bool config_parse(const char *text, Config *config, char *error, size_t error_cap)
 {
-    const char *keys[] = {"version", "enabled", "long_ms", "double_ms", "single", "double", "long", "single_arg", "double_arg", "long_arg"};
+    const char *keys[] = {"version", "enabled", "long_ms", "double_ms", "single", "double", "long", "single_arg", "double_arg", "long_arg", "haptic"};
     if (!text || !config || !error || !error_cap) return false;
     Config next;
     config_defaults(&next);
@@ -80,7 +81,7 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
         if (!equal) goto invalid;
         *equal++ = 0;
         int key = -1;
-        for (int i = 0; i < 10; i++) if (!strcmp(keys[i], line)) key = i;
+        for (int i = 0; i < 11; i++) if (!strcmp(keys[i], line)) key = i;
         if (key < 0 || (seen & (1u << key))) goto invalid;
         seen |= 1u << key;
         uint32_t value = 0;
@@ -93,9 +94,13 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
             for (int i = 0; i < ACTION_COUNT; i++) if (!strcmp(equal, action_names[i])) action = i;
             if (action < 0) goto invalid;
             next.actions[key - 4].kind = (ActionKind)action;
+        } else if (key == 10) {
+            if (!number(equal, 0, 1, &value)) goto invalid;
+            next.haptic = value != 0;
         } else if (!hex_decode(equal, next.actions[key - 7].argument, ARG_CAP)) goto invalid;
     }
-    if (seen != 1023) goto invalid;
+    /* 旧版本没有 haptic 字段，升级时保留动作并使用默认开启的反馈。 */
+    if ((seen & 1023) != 1023) goto invalid;
     for (int i = 0; i < 3; i++) {
         Action *a = &next.actions[i];
         if (a->kind == ACTION_APP) {
@@ -138,7 +143,7 @@ bool config_write(const char *directory, const Config *config)
     snprintf(temp, sizeof(temp), "%s.%ld.tmp", path, (long)getpid());
     FILE *file = fopen(temp, "w");
     if (!file) return false;
-    fprintf(file, "version=1\nenabled=%d\nlong_ms=%u\ndouble_ms=%u\n", config->enabled, config->long_ms, config->double_ms);
+    fprintf(file, "version=1\nenabled=%d\nhaptic=%d\nlong_ms=%u\ndouble_ms=%u\n", config->enabled, config->haptic, config->long_ms, config->double_ms);
     const char *names[] = {"single", "double", "long"};
     for (int i = 0; i < 3; i++) fprintf(file, "%s=%s\n", names[i], action_names[config->actions[i].kind]);
     for (int i = 0; i < 3; i++) {
@@ -166,7 +171,7 @@ void json_string(FILE *output, const char *text)
 
 void config_json(FILE *out, const Config *c)
 {
-    fprintf(out, "{\"enabled\":%s,\"long_ms\":%u,\"double_ms\":%u,\"actions\":[", c->enabled ? "true" : "false", c->long_ms, c->double_ms);
+    fprintf(out, "{\"enabled\":%s,\"haptic\":%s,\"long_ms\":%u,\"double_ms\":%u,\"actions\":[", c->enabled ? "true" : "false", c->haptic ? "true" : "false", c->long_ms, c->double_ms);
     for (int i = 0; i < 3; i++) {
         if (i) fputc(',', out);
         fputs("{\"type\":", out); json_string(out, action_names[c->actions[i].kind]);

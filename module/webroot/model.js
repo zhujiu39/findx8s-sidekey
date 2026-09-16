@@ -8,11 +8,12 @@ export const actions = [
   ['app', '启动应用'], ['keycode', '发送 Android 按键'], ['shell', '自定义 Shell 命令'],
 ];
 export const gestureIds = ['single', 'double', 'long'];
-export const defaultConfig = () => ({enabled: false, long_ms: 600, double_ms: 280,
+export const defaultConfig = () => ({enabled: false, haptic: true, long_ms: 600, double_ms: 280,
   actions: gestureIds.map(() => ({type: 'none', argument: ''}))});
 
 export function validate(config) {
   if (typeof config.enabled !== 'boolean') throw new Error('接管开关无效');
+  if (typeof config.haptic !== 'boolean') throw new Error('震动反馈开关无效');
   if (!Number.isInteger(config.long_ms) || config.long_ms < 250 || config.long_ms > 2000)
     throw new Error('长按时间应在 250～2000 毫秒之间');
   if (!Number.isInteger(config.double_ms) || config.double_ms < 150 || config.double_ms > 600)
@@ -36,7 +37,7 @@ export function hex(text) {
 }
 export function serialize(config) {
   validate(config);
-  const lines = ['version=1', `enabled=${Number(config.enabled)}`, `long_ms=${config.long_ms}`, `double_ms=${config.double_ms}`];
+  const lines = ['version=1', `enabled=${Number(config.enabled)}`, `haptic=${Number(config.haptic)}`, `long_ms=${config.long_ms}`, `double_ms=${config.double_ms}`];
   gestureIds.forEach((id, i) => lines.push(`${id}=${config.actions[i].type}`));
   gestureIds.forEach((id, i) => lines.push(`${id}_arg=${hex(config.actions[i].argument)}`));
   return lines.join('\n') + '\n';

@@ -39,7 +39,7 @@ function updateArgument(id) {
   block.querySelector('p').textContent = type === 'app' ? '可在下方运行状态中读取已安装应用包名。' : type === 'keycode' ? '使用 Android KeyEvent 编码，不是底层 Linux 输入键码。' : '使用系统 Shell 执行，最长 10 秒；只运行你确认过的命令。';
 }
 function formConfig() {
-  return {enabled: $('enabled').checked, long_ms: Number($('long-ms').value), double_ms: Number($('double-ms').value),
+  return {enabled: $('enabled').checked, haptic: $('haptic').checked, long_ms: Number($('long-ms').value), double_ms: Number($('double-ms').value),
     actions: gestureIds.map(id => { const type = $(`action-${id}`).value; return {type, argument: type === 'shell' ? $(`shell-${id}`).value : ['app','keycode'].includes(type) ? $(`value-${id}`).value.trim() : ''}; })};
 }
 function dirty() { return JSON.stringify(formConfig()) !== JSON.stringify(saved); }
@@ -53,7 +53,7 @@ function updateDirty() {
 }
 function fill(config) {
   validate(config); saved = structuredClone(config);
-  $('enabled').checked = config.enabled; $('long-ms').value = config.long_ms; $('double-ms').value = config.double_ms;
+  $('enabled').checked = config.enabled; $('haptic').checked = config.haptic; $('long-ms').value = config.long_ms; $('double-ms').value = config.double_ms;
   gestureIds.forEach((id, i) => {
     $(`action-${id}`).value = config.actions[i].type;
     $(`value-${id}`).value = config.actions[i].argument;
@@ -124,7 +124,7 @@ async function packages() {
   finally { $('reload-apps').disabled = false; }
 }
 buildCards();
-['enabled', 'long-ms', 'double-ms'].forEach(id => $(id).addEventListener('input', updateDirty));
+['enabled', 'haptic', 'long-ms', 'double-ms'].forEach(id => $(id).addEventListener('input', updateDirty));
 $('save').addEventListener('click', save);
 $('refresh').addEventListener('click', () => { notice(''); refresh(!dirty()); });
 $('reload-apps').addEventListener('click', packages);

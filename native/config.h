@@ -14,7 +14,7 @@ typedef enum {
     ACTION_TORCH, ACTION_COUNT
 } ActionKind;
 typedef struct { ActionKind kind; char argument[ARG_CAP]; } Action;
-typedef struct { bool enabled; uint32_t long_ms, double_ms; Action actions[3]; } Config;
+typedef struct { bool enabled, haptic; uint32_t long_ms, double_ms; Action actions[3]; } Config;
 extern const char *const action_names[ACTION_COUNT];
 void config_defaults(Config *config);
 bool config_parse(const char *text, Config *config, char *error, size_t error_cap);

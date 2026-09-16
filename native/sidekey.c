@@ -2,6 +2,7 @@
 #include "config.h"
 #include "gesture.h"
 #include "torch.h"
+#include "haptic.h"
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -271,6 +272,7 @@ static void poll_action(void)
 static void cancel_actions(void)
 {
     queue_size = 0;
+    haptic_stop();
     if (action_pid > 0) {
         (void)kill(-action_pid, SIGKILL);
         /* 不阻塞等待子进程；下一次调度回收，退出时由系统接管回收。 */
@@ -278,6 +280,20 @@ static void cancel_actions(void)
         action_result_override = 130;
         last_result = 130;
     }
+}
+
+static void feedback_poll(void)
+{
+    int code = haptic_poll(monotonic_ms());
+    if (code) log_event("震动反馈失败，vibrator_manager 退出码 %d；动作继续执行", code);
+}
+
+static void feedback_trigger(void)
+{
+    if (!config.haptic) return;
+    feedback_poll();
+    int code = haptic_trigger(monotonic_ms());
+    if (code) log_event("无法创建震动反馈请求，错误 %d；动作继续执行", code);
 }
 
 static void on_gesture(GestureKind kind, void *context)
@@ -288,7 +304,7 @@ static void on_gesture(GestureKind kind, void *context)
     log_event("识别手势：%s", last_gesture);
     Action *action = &config.actions[kind];
     if (action->kind != ACTION_NONE) {
-        if (queue_size < QUEUE_CAP) queue[queue_size++] = *action;
+        if (queue_size < QUEUE_CAP) { queue[queue_size++] = *action; feedback_trigger(); }
         else error_message("动作队列已满，本次动作未执行");
     }
     write_status();
@@ -379,13 +395,14 @@ static int run_daemon(void)
             write_status();
         }
         poll_action();
+        feedback_poll();
         if (!action_pid && queue_size) {
             Action action = queue[0];
             memmove(queue, queue + 1, (--queue_size) * sizeof(Action));
             start_action(&action); write_status();
         }
         uint64_t deadline = gesture_deadline(&gesture);
-        int wait_ms = action_pid > 0 || queue_size ? 100 : 500;
+        int wait_ms = action_pid > 0 || queue_size || haptic_active() ? 100 : 500;
         if (check_at <= now) wait_ms = 0;
         else if (check_at - now < (uint64_t)wait_ms) wait_ms = (int)(check_at - now);
         if (input_fd >= 0 && deadline < now + (uint64_t)wait_ms) wait_ms = deadline > now ? (int)(deadline - now) : 0;
@@ -535,11 +552,15 @@ int main(int argc, char **argv)
         int kind = -1;
         for (int i = 0; i < 3; i++) if (!strcmp(argv[3], gesture_names[i])) kind = i;
         if (kind < 0) return 2;
+        if (config.actions[kind].kind != ACTION_NONE) feedback_trigger();
         start_action(&config.actions[kind]);
         while (action_pid && monotonic_ms() - action_started < ACTION_TIMEOUT_MS + 1000) {
-            poll_action(); usleep(50000);
+            poll_action(); feedback_poll(); usleep(50000);
         }
         if (action_pid > 0) { cancel_actions(); last_result = 124; }
+        uint64_t feedback_until = monotonic_ms() + 2500;
+        while (haptic_active() && monotonic_ms() < feedback_until) { feedback_poll(); usleep(50000); }
+        haptic_stop();
         printf("{\"result\":%d}\n", last_result);
         return last_result == 0 ? 0 : 1;
     }

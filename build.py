@@ -19,7 +19,7 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '0.3.0'
+VERSION = '0.3.1'
 
 
 def run(arguments):
@@ -112,7 +112,7 @@ def main():
     sources = ['native/gesture.c', 'native/config.c']
     common = ['-Wall', '-Wextra', '-Werror', '-std=c11', '-I', 'native']
     run([zig, 'cc', '-target', 'aarch64-linux-musl', '-static', '-O2', *common,
-         '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', 'native/torch.c', *sources, '-o', MODULE / 'bin/sidekey'])
+         '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', 'native/torch.c', 'native/haptic.c', *sources, '-o', MODULE / 'bin/sidekey'])
     validate_elf(MODULE / 'bin/sidekey')
     build_torch()
     test_binary = BUILD / ('native_tests.exe' if os.name == 'nt' else 'native_tests')
@@ -124,7 +124,7 @@ def main():
     run([node, '--test', 'tests/webui.test.js'])
     fixture = run([node, '--input-type=module', '-e',
         "import {defaultConfig,serialize} from './module/webroot/model.js';"
-        "const c=defaultConfig();c.enabled=true;c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
+        "const c=defaultConfig();c.enabled=true;c.haptic=false;c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
         "process.stdout.write(serialize(c));"])
     fixture_path = BUILD / 'config-fixture.conf'
     fixture_path.write_bytes(fixture.encode('utf-8'))
@@ -133,6 +133,8 @@ def main():
         raise RuntimeError('前后端配置往返验证失败')
     if decoded['actions'][0]['type'] != 'torch':
         raise RuntimeError('手电筒动作配置往返验证失败')
+    if decoded['haptic'] is not False:
+        raise RuntimeError('震动开关配置往返验证失败')
     LOG.append('通过：WebUI → C 配置解析 → JSON，中文、引号、换行保持一致。')
     bash = shutil.which('bash') or (r'C:\Program Files\Git\bin\bash.exe' if os.name == 'nt' else None)
     if not bash or not Path(bash).exists():
@@ -154,7 +156,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_系统手电筒与状态同步')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_触发震动反馈')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -186,8 +188,12 @@ def main():
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
         f'安装文件：`test_oppo_sidekey_v{VERSION}.zip`，在 KernelSU 管理器中覆盖安装并重启。'
         '升级保留配置；进入 WebUI 将长按从旧 Shell 改为“切换手电筒（系统最高亮度）”，保存设置。'
+        '新增“触发时震动”默认开启；可在 WebUI 的手感调节中关闭并保存。'
         '升级前先用旧长按动作关灯，避免遗留直接写入硬件的状态。\n\n'
-        '本次实现：CameraManager 系统手电筒、最高公开亮度档位、系统状态回调同步、'
+        '本次新增：有效手势触发时请求一次 35 ms 系统震动，默认开启、WebUI 可关闭，'
+        '长按只在达到阈值时触发一次。反馈使用独立子进程，不阻塞输入或动作，失败只记录日志。'
+        '震动遵循系统震动和勿扰设置，表示手势已接收，不代表后续动作必定成功。\n\n'
+        '保留功能：CameraManager 系统手电筒、最高公开亮度档位、系统状态回调同步、'
         '按需启动的 Java 服务、父进程退出联动清理、手电筒状态和诊断日志。'
         '不伪造控制中心状态，不修改系统文件或 SELinux 模式。\n\n'
         '目标：OPPO Find X8s（PKT110）、Android 15、KernelSU；已实测侧键为 gpio-keys / 735。'
@@ -197,7 +203,7 @@ def main():
         '包内包含 musl 运行时，许可证保存在模块 LICENSES 目录。\n\n'
         '验证：本机 Java 状态机、C 手势、配置解析、前后端往返、JavaScript、Shell 语法、ELF、DEX 和 ZIP 检查通过；'
         '界面检查见验证记录。\n\n'
-        '**实机边界：用户选择自行安装。新增系统手电筒服务尚未在该机验证；'
+        '**实机边界：用户选择自行安装。系统手电筒服务和本次震动反馈尚未在该机验证；'
         'ColorOS 的 app_process 权限、亮度能力、控制中心图标和锁屏行为仍需实测。** '
         '如果系统只开放 1 档，就使用系统默认亮度，不绕过系统温控限制。\n\n'
         '恢复：WebUI 关闭接管并保存，或在管理器禁用模块后重启。卸载会停止监听并删除自身配置。'
