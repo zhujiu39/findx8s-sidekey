@@ -1,2 +1,6 @@
 __pycache__/
 /交付文件/
+/tools/
+/build/
+/module/bin/
+node_modules/

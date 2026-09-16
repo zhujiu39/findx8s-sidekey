@@ -1,6 +1,6 @@
-id=ksu_dev_starter
-name=KernelSU 开发示例
-version=v0.1.0
-versionCode=1
+id=oppo_sidekey
+name=侧键自定义 · Find X8s
+version=v0.2.0
+versionCode=20
 author=Local Developer
-description=开发骨架：记录启动环境，通过操作按钮查看信息；待接入具体功能。
+description=通过 WebUI 自定义侧边键的短按、双击和长按；支持系统操作、启动应用与 Shell 命令。

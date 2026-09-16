@@ -1,74 +1,87 @@
-# KernelSU 模块开发骨架
+# 侧键自定义 · OPPO Find X8s
 
-当前版本：v0.1.0，功能测试骨架。目标模块的具体功能尚待确认。
+版本：**v0.2.0 功能测试版**。适用目标为 OPPO Find X8s（PKT110）、Android 15、ARM64、KernelSU。
 
-用户提供的目标环境：OPPO Find X8s、Android 15、原版 KernelSU，管理器版本显示为 `32601-2`，通过修补 `init_boot` 安装。ADB 已确认型号属性 PKT110、Android 15、系统版本 PKT110_15.0.1.610(CN01)；KernelSU 版本和安装方式仍为用户提供的信息。
+模块通过 WebUI 自定义侧边键的短按、双击、长按。启用时以 `EVIOCGRAB` 独占输入设备，替换系统原有的侧键功能；暂停时释放设备，让系统恢复接收。
 
-已完成侧边实体键识别：输入设备为 `gpio-keys`，Linux 输入键码为 **735（0x02DF，BTN_TRIGGER_HAPPY32）**。实测证据和后续开发约束见 [侧边按键识别结果](diagnostics/侧边按键识别结果.md)。短按、长按等具体动作尚待确定。
+## 安装与使用
 
-这是 Android 上的 KernelSU 用户空间模块工程，使用 Shell 脚本；不涉及 MCU、BSP 或内核编译。
+1. 将交付目录中的 **`test_oppo_sidekey_v0.2.0.zip`** 传到手机。
+2. 打开 KernelSU 管理器，在模块页面从本地安装该 ZIP，然后重启手机。
+3. 在模块卡片中打开 **WebUI**。如果管理器没有显示 WebUI 入口，先检查管理器版本及安装结果。
+4. 为短按、双击、长按选择动作，必要时填写包名、Android 按键码或 Shell 命令。
+5. 打开“接管侧边键”，点击“保存设置”。状态应变为“侧键已接管”。
+6. 在“运行状态与日志”查看识别结果；各手势旁的“测试”用于执行已保存的动作。
 
-## 示例行为
+首次安装默认**暂停接管**，三个动作均为“不执行动作”。开关和动作设置都在点击保存后应用。配置通常在半秒内生效，WebUI 状态约每 2.5 秒更新一次。
 
-- 安装：检查 KernelSU 安装环境并设置脚本权限。
-- 开机：`service.sh` 在 late_start 阶段查询一次基础环境，保存到模块自己的 `runtime/startup.log`。
-- 操作按钮：`action.sh` 显示当前环境和最近一次开机记录。
-- 日志每次开机覆盖，不包含序列号或账号，不上传信息。
-- 无常驻进程，无系统属性修改，无 system 文件挂载。
+只安装模块 ZIP，不安装 `源码与测试.zip`；不通过 Recovery 刷入。无需重新修补 boot/init_boot，不依赖元模块、Zygisk 或联网服务。
 
-`service.sh` 执行时 Android 可能尚未完全启动，所以日志中的开机完成属性可以为 `0` 或空。
+## 可选动作
 
-## 源码结构
+| 类型 | 支持内容 |
+| --- | --- |
+| 导航与系统 | 桌面、返回、最近任务、通知栏、快捷设置、截屏、息屏、相机 |
+| 媒体 | 播放／暂停、上一首、下一首、音量增减、切换媒体静音 |
+| 启动应用 | 输入应用包名；可从 WebUI 读取当前用户的已安装包名 |
+| Android 按键 | 指定 Android KeyEvent 编码，例如 3 为主页 |
+| 自定义 Shell | 输入自己的命令，以模块 Root 身份运行 |
+| 不执行动作 | 启用接管后对应手势不会执行任何动作 |
+
+启动应用示例：`com.android.settings`。Shell 示例：`input keyevent 3`。
+
+自定义参数最多 512 个 UTF-8 字节。单次动作最长 10 秒，超时会结束整个动作进程组；动作返回后也清理该进程组中的后台子进程，因此本功能不用于启动长期常驻脚本。动作队列最多等待 4 项，超出会在日志中记录。
+
+## 手势规则
+
+- **短按**：关闭双击动作时松开即执行；设置双击动作后，等待双击间隔结束再执行。
+- **双击**：第一次松开到第二次按下之间不超过设定窗口；第二次松开时执行。若第二次按住达到长按阈值，则只触发长按。
+- **长按**：按住达到阈值时执行一次，松开不再触发短按，即使驱动没有重复事件也能识别。
+- 长按阈值为 250～2000 ms，默认 600 ms；双击窗口为 150～600 ms，默认 280 ms。
+- 修改并保存配置会取消尚未完成的手势和排队动作；已按住的键需要先松开再操作。
+
+## 暂停、恢复与卸载
+
+- 临时恢复原功能：在 WebUI 关闭接管，点击保存。
+- 停用模块：在 KernelSU 管理器禁用模块。正常运行中的监听程序会检查禁用标记并退出；如状态不确定，重启手机即可。
+- 卸载：在管理器卸载并按提示重启。卸载脚本停止监听，删除模块自身的数据目录。
+- 监听进程退出后，内核自动释放它持有的输入设备独占权。
+
+如果页面显示“接管失败”或“未找到输入设备”，先保持关闭接管，将 WebUI 下方日志反馈用于适配。不需要放宽整个系统的 SELinux 策略。
+
+## 设备依据与验证范围
+
+已通过手机 ADB 实测 `gpio-keys`、键码 **735（0x02DF，BTN_TRIGGER_HAPPY32）**，目前设备节点为 `/dev/input/event0`。程序按设备名称和支持的键码重新查找，不固定节点编号；如果同一节点还承载其他按键，则拒绝独占。
+
+735 是 Linux 输入键码，不能直接当作 Android KeyEvent 编码。原始证据见 [侧边按键识别结果](diagnostics/侧边按键识别结果.md)。
+
+**本版本已完成本地编译、自动测试和浏览器界面检查，尚未刷入手机验证。** 用户选择自行安装；KernelSU WebUI 桥接、独占接管、系统动作、自启和卸载需要安装后确认。系统策略可能限制锁屏启动应用、截图等动作。本地记录见 [模块本地验证](diagnostics/模块本地验证.md)。
+
+## 工程与构建
 
 ```text
-module/
-├── module.prop       模块名称、ID、版本等元数据
-├── customize.sh      安装入口，由安装器加载
-├── service.sh        开机晚期执行一次
-├── action.sh         管理器的操作按钮入口
-├── skip_mount        声明不挂载 system
-└── scripts/
-    └── info.sh       查询 Android 基础环境
-build.py              校验并生成可安装 ZIP、源码快照和校验值
+native/                原生监听、手势状态机、配置解析
+module/bin/sidekey     构建生成的 ARM64 静态程序
+module/webroot/        离线 WebUI
+module/scripts/       配置与服务入口
+module/LICENSES/      静态运行时许可
+tests/                C、JavaScript 测试
+diagnostics/          设备实测证据与本地验证记录
+build.py              编译、测试、打包与 SHA256 输出
 ```
 
-所有模块文本文件使用 UTF-8 无 BOM 编码、LF 换行。模块脚本使用 `MODDIR=${0%/*}` 定位自身目录。
-
-## 构建和安装
-
-在 Windows PowerShell 中执行：
+依赖：Python 3、Node.js、Git Bash、Zig 0.15.2。首次安装编译器：
 
 ```powershell
-python build.py
+python build.py --bootstrap
 ```
 
-产物位于 `交付文件/时间_test_KernelSU开发骨架/`，每次构建新建目录。
+已有编译器时运行 `python build.py`；也可通过环境变量 `ZIG` 指定可执行文件。编译目标为 `aarch64-linux-musl` 静态 ELF，按 16 KB 页面对齐，无需手机安装额外运行时。
 
-1. 将 `test_ksu_dev_starter.zip` 传到手机。
-2. 在 KernelSU 管理器的模块页面选择从本地安装 ZIP。
-3. 查看安装结果，成功后重启手机。
-4. 点击本模块的“操作”按钮，检查当前环境和启动日志。
-5. 要移除示例，在管理器中卸载并按提示重启。
+每次构建在 `交付文件/时间_test_v0.2.0_侧键自定义WebUI/` 新建目录，包含安装包、源码与测试、使用说明、验证记录、构建日志及 SHA256。
 
-ZIP 根目录必须直接包含 `module.prop`，不能在外面再套一层 `module/` 文件夹。不要通过 Recovery 安装此 ZIP。
+模块 ID：`oppo_sidekey`。持久配置与日志：`/data/adb/oppo_sidekey/`，目录权限 0700，升级保留，卸载删除。配置使用严格解析的文本格式，参数按 UTF-8 十六进制存储，原子替换写入；没有直接加载配置为 Shell 脚本。
 
-## 后续接入功能
+此项目不修改系统 keylayout，不修改内核或系统分区，不上传设备信息。第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-- 开机执行的短任务：从 `service.sh` 调用独立脚本。
-- 必须等 Android 完成开机的任务：确认 KernelSU 版本支持后使用 `boot-completed.sh`。
-- 手动执行：从 `action.sh` 调用独立脚本。
-- 配置界面：确认功能需求后增加 `webroot/` WebUI。
-- 系统文件覆盖：确认安装版本及挂载实现后再增加 `system/`；当前官方版本要求提供挂载能力的元模块。
-
-涉及设备节点、按键事件、厂商设置或后台控制时，必须先确认目标设备和预期行为，再实现业务逻辑。
-
-## 验证边界
-
-`build.py` 校验模块文件、编码、换行、元数据和 ZIP 完整性，不模拟 Android，也不代表实机功能验证通过。
-目前尚未在手机上验证安装、开机执行、操作按钮和卸载。是否支持某个 KernelSU 分支或旧版本，需根据实际版本确认。
-
-## 官方资料
-
-- [模块开发指南](https://kernelsu.org/guide/module.html)
-- [模块 WebUI](https://kernelsu.org/guide/module-webui.html)
-- [元模块说明](https://kernelsu.org/guide/metamodule.html)
+官方接口依据：[KernelSU 模块](https://kernelsu.org/guide/module.html)、[WebUI](https://kernelsu.org/guide/module-webui.html)。
