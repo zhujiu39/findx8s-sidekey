@@ -1,0 +1,6 @@
+id=ksu_dev_starter
+name=KernelSU 开发示例
+version=v0.1.0
+versionCode=1
+author=Local Developer
+description=开发骨架：记录启动环境，通过操作按钮查看信息；待接入具体功能。
