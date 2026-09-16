@@ -38,6 +38,14 @@ test('内置动作及应用包名可以序列化', () => {
   assert.doesNotThrow(() => validate(config)); assert.match(serialize(config), /enabled=1/);
 });
 
+test('系统手电筒不需要 Shell 参数，并保持旧配置兼容', () => {
+  const config = defaultConfig();
+  config.actions[2] = {type: 'torch', argument: ''};
+  assert.match(serialize(config), /long=torch\n/);
+  config.actions[2].argument = '4';
+  assert.throws(() => validate(config), /不需要参数/);
+});
+
 test('KernelSU 回调协议可读取数据并清理回调', async () => {
   globalThis.window = {ksu: {exec(command, options, callback) {
     assert.equal(options, '{}'); assert.match(command, /control\.sh/);

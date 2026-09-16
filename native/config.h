@@ -11,7 +11,7 @@ typedef enum {
     ACTION_QUICK_SETTINGS, ACTION_SCREENSHOT, ACTION_SCREEN_OFF, ACTION_PLAY_PAUSE,
     ACTION_NEXT, ACTION_PREVIOUS, ACTION_VOLUME_UP, ACTION_VOLUME_DOWN,
     ACTION_MUTE, ACTION_CAMERA, ACTION_APP, ACTION_KEYCODE, ACTION_SHELL,
-    ACTION_COUNT
+    ACTION_TORCH, ACTION_COUNT
 } ActionKind;
 typedef struct { ActionKind kind; char argument[ARG_CAP]; } Action;
 typedef struct { bool enabled; uint32_t long_ms, double_ms; Action actions[3]; } Config;

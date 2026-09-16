@@ -13,7 +13,7 @@
 const char *const action_names[ACTION_COUNT] = {
     "none", "home", "back", "recents", "notifications", "quick_settings",
     "screenshot", "screen_off", "play_pause", "next", "previous", "volume_up",
-    "volume_down", "mute", "camera", "app", "keycode", "shell"
+    "volume_down", "mute", "camera", "app", "keycode", "shell", "torch"
 };
 
 void config_defaults(Config *c)

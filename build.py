@@ -19,6 +19,7 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
+VERSION = '0.3.0'
 
 
 def run(arguments):
@@ -66,6 +67,40 @@ def validate_elf(path):
     LOG.append(f'通过：ARM64 静态 ELF、无动态解释器、16 KB 段对齐；{len(data)} 字节。')
 
 
+def build_torch():
+    sdk = ROOT / 'tools/android'
+    def find(pattern):
+        matches = sorted(sdk.glob(pattern))
+        if not matches:
+            raise RuntimeError('缺少 Android 编译工具，请先运行 python bootstrap_android.py')
+        return matches[0]
+    java = find('jdk/*/bin/java.exe')
+    javac = find('jdk/*/bin/javac.exe')
+    android_jar = find('platform/*/android.jar')
+    d8 = find('build-tools/*/lib/d8.jar')
+    classes = BUILD / 'torch-classes'
+    classes.mkdir(exist_ok=True)
+    # 每次使用新的临时目录，避免已删除的 Java 类混入当前 DEX。
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix='classes-', dir=classes) as temporary:
+        sources = sorted((ROOT / 'android').rglob('*.java'))
+        run([javac, '-J-Dfile.encoding=UTF-8', '-J-Dstdout.encoding=UTF-8', '-J-Dstderr.encoding=UTF-8',
+             '--release', '8', '-Xlint:-options', '-encoding', 'UTF-8', '-classpath', android_jar,
+             '-d', temporary, *sources, ROOT / 'tests/TorchControllerTest.java'])
+        java_options = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8']
+        run([java, *java_options, '-cp', temporary, 'TorchControllerTest'])
+        output = MODULE / 'lib/torch.jar'
+        output.parent.mkdir(exist_ok=True)
+        run([java, *java_options, '-cp', d8, 'com.android.tools.r8.D8', '--release', '--min-api', '33',
+             '--lib', android_jar, '--output', output,
+             *sorted((Path(temporary) / 'cn').rglob('*.class'))])
+    with zipfile.ZipFile(output) as jar:
+        data = jar.read('classes.dex')
+        if not data.startswith(b'dex\n') or jar.testzip() is not None:
+            raise RuntimeError('手电筒 DEX 校验失败')
+        LOG.append(f'通过：Android API 35 编译、纯 Java 状态测试、D8 DEX 校验；DEX {len(data)} 字节。')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--bootstrap', action='store_true')
@@ -77,8 +112,9 @@ def main():
     sources = ['native/gesture.c', 'native/config.c']
     common = ['-Wall', '-Wextra', '-Werror', '-std=c11', '-I', 'native']
     run([zig, 'cc', '-target', 'aarch64-linux-musl', '-static', '-O2', *common,
-         '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', *sources, '-o', MODULE / 'bin/sidekey'])
+         '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', 'native/torch.c', *sources, '-o', MODULE / 'bin/sidekey'])
     validate_elf(MODULE / 'bin/sidekey')
+    build_torch()
     test_binary = BUILD / ('native_tests.exe' if os.name == 'nt' else 'native_tests')
     run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', *sources, '-o', test_binary])
     run([test_binary])
@@ -88,24 +124,26 @@ def main():
     run([node, '--test', 'tests/webui.test.js'])
     fixture = run([node, '--input-type=module', '-e',
         "import {defaultConfig,serialize} from './module/webroot/model.js';"
-        "const c=defaultConfig();c.enabled=true;c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
+        "const c=defaultConfig();c.enabled=true;c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
         "process.stdout.write(serialize(c));"])
     fixture_path = BUILD / 'config-fixture.conf'
     fixture_path.write_bytes(fixture.encode('utf-8'))
     decoded = json.loads(run([test_binary, fixture_path]))
     if decoded['actions'][2]['argument'] != "printf '%s' '你好'\necho test":
         raise RuntimeError('前后端配置往返验证失败')
+    if decoded['actions'][0]['type'] != 'torch':
+        raise RuntimeError('手电筒动作配置往返验证失败')
     LOG.append('通过：WebUI → C 配置解析 → JSON，中文、引号、换行保持一致。')
     bash = shutil.which('bash') or (r'C:\Program Files\Git\bin\bash.exe' if os.name == 'nt' else None)
     if not bash or not Path(bash).exists():
         raise RuntimeError('未找到 Bash，无法执行 Shell 语法检查')
     files = sorted(path for path in MODULE.rglob('*') if path.is_file())
     required = {'module.prop', 'skip_mount', 'customize.sh', 'service.sh', 'action.sh',
-                'uninstall.sh', 'scripts/control.sh', 'bin/sidekey', 'webroot/index.html'}
+                'uninstall.sh', 'scripts/control.sh', 'bin/sidekey', 'lib/torch.jar', 'webroot/index.html'}
     if not required.issubset({path.relative_to(MODULE).as_posix() for path in files}):
         raise RuntimeError('模块文件不完整')
     for path in files:
-        if path.parts[-2] != 'bin':
+        if path.parts[-2] not in ('bin', 'lib'):
             data = path.read_bytes()
             data.decode('utf-8')
             if b'\r' in data or data.startswith(b'\xef\xbb\xbf'):
@@ -116,9 +154,9 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + '_test_v0.2.0_侧键自定义WebUI')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_系统手电筒与状态同步')
     delivery.mkdir(parents=True, exist_ok=False)
-    package = delivery / 'test_oppo_sidekey_v0.2.0.zip'
+    package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
         for path in files:
             name = path.relative_to(MODULE).as_posix()
@@ -136,28 +174,32 @@ def main():
                 raise RuntimeError('模块 ZIP 与源码不一致')
     LOG.append('通过：ZIP 根目录、完整性、权限标志及文件内容校验。')
     with zipfile.ZipFile(delivery / '源码与测试.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-        paths = [ROOT / name for name in ['README.md', 'build.py', 'package.json', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md']]
-        paths += [path for directory in ['native', 'tests', 'module', 'diagnostics'] for path in (ROOT / directory).rglob('*') if path.is_file()]
+        paths = [ROOT / name for name in ['README.md', 'build.py', 'bootstrap_android.py', 'package.json', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md']]
+        paths += [path for directory in ['native', 'android', 'tests', 'module', 'diagnostics'] for path in (ROOT / directory).rglob('*') if path.is_file()]
         for path in sorted(paths):
             archive.write(path, path.relative_to(ROOT).as_posix())
     shutil.copyfile(ROOT / 'README.md', delivery / '使用说明.md')
     shutil.copyfile(ROOT / 'diagnostics/模块本地验证.md', delivery / '验证记录.md')
     (delivery / '构建日志.txt').write_text('\n'.join(LOG), encoding='utf-8')
     (delivery / '交付说明.md').write_text(
-        '# 侧键自定义 v0.2.0 测试版\n\n'
+        f'# 侧键自定义 v{VERSION} 测试版\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '安装文件：`test_oppo_sidekey_v0.2.0.zip`，在 KernelSU 管理器的模块页面选择安装。'
-        '首次安装后重启，打开 WebUI 配置动作，开启接管并保存。\n\n'
-        '本次实现：ARM64 原生独占监听、短按／双击／长按、WebUI、持久配置、'
-        '动作超时、停止与恢复原功能、状态日志。默认暂停接管，三个动作均为不执行。\n\n'
+        f'安装文件：`test_oppo_sidekey_v{VERSION}.zip`，在 KernelSU 管理器中覆盖安装并重启。'
+        '升级保留配置；进入 WebUI 将长按从旧 Shell 改为“切换手电筒（系统最高亮度）”，保存设置。'
+        '升级前先用旧长按动作关灯，避免遗留直接写入硬件的状态。\n\n'
+        '本次实现：CameraManager 系统手电筒、最高公开亮度档位、系统状态回调同步、'
+        '按需启动的 Java 服务、父进程退出联动清理、手电筒状态和诊断日志。'
+        '不伪造控制中心状态，不修改系统文件或 SELinux 模式。\n\n'
         '目标：OPPO Find X8s（PKT110）、Android 15、KernelSU；已实测侧键为 gpio-keys / 735。'
         '无需刷入新的 boot 或 init_boot，无需元模块或 Zygisk。\n\n'
-        '构建：Zig C 编译为 ARM64 静态 ELF，16 KB 段对齐；命令与真实结果见构建日志。'
+        '构建：Zig C 编译为 ARM64 静态 ELF，16 KB 段对齐；JDK 编译与 Android D8 生成手电筒 DEX。'
+        '命令与真实结果见构建日志。'
         '包内包含 musl 运行时，许可证保存在模块 LICENSES 目录。\n\n'
-        '验证：本机 C 手势、配置解析、前后端往返、JavaScript、Shell 语法、ELF 和 ZIP 检查通过；'
+        '验证：本机 Java 状态机、C 手势、配置解析、前后端往返、JavaScript、Shell 语法、ELF、DEX 和 ZIP 检查通过；'
         '界面检查见验证记录。\n\n'
-        '**实机边界：用户选择自行安装。本版本尚未在手机上验证独占接管、KernelSU WebUI 桥接、'
-        '系统动作、重启自启、禁用及卸载。** 锁屏动作、截图和启动应用受系统策略限制。\n\n'
+        '**实机边界：用户选择自行安装。新增系统手电筒服务尚未在该机验证；'
+        'ColorOS 的 app_process 权限、亮度能力、控制中心图标和锁屏行为仍需实测。** '
+        '如果系统只开放 1 档，就使用系统默认亮度，不绕过系统温控限制。\n\n'
         '恢复：WebUI 关闭接管并保存，或在管理器禁用模块后重启。卸载会停止监听并删除自身配置。'
         '没有系统文件覆盖、外部资源或烧录地址。\n', encoding='utf-8')
     sums = '\n'.join(f'{sha256(p.read_bytes()).hexdigest()}  {p.name}' for p in sorted(delivery.iterdir()) if p.is_file())

@@ -4,6 +4,7 @@ export const actions = [
   ['screenshot', '截屏'], ['screen_off', '息屏'], ['play_pause', '播放 / 暂停'],
   ['next', '下一首'], ['previous', '上一首'], ['volume_up', '增大音量'],
   ['volume_down', '减小音量'], ['mute', '切换媒体静音'], ['camera', '打开相机'],
+  ['torch', '切换手电筒（系统最高亮度）'],
   ['app', '启动应用'], ['keycode', '发送 Android 按键'], ['shell', '自定义 Shell 命令'],
 ];
 export const gestureIds = ['single', 'double', 'long'];

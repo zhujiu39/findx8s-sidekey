@@ -3,4 +3,5 @@ __pycache__/
 /tools/
 /build/
 /module/bin/
+/module/lib/
 node_modules/

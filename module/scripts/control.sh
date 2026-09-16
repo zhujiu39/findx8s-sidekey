@@ -29,6 +29,7 @@ case "$1" in
         ;;
     test)
         case "$2" in single|double|long) ;; *) exit 2 ;; esac
+        start_service || exit $?
         exec "$BINARY" test "$DATA" "$2"
         ;;
     *) echo "不支持的操作" >&2; exit 2 ;;

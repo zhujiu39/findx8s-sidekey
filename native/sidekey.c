@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "config.h"
 #include "gesture.h"
+#include "torch.h"
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -38,6 +39,7 @@ static int32_t action_result_override;
 static Action queue[QUEUE_CAP];
 static uint32_t queue_size;
 static bool daemon_context;
+static pid_t torch_pid;
 
 static uint64_t monotonic_ms(void)
 {
@@ -90,8 +92,8 @@ static void write_status(void)
     fputs(",\"error\":", file); json_string(file, last_error);
     fputs(",\"last_gesture\":", file); json_string(file, last_gesture);
     fputs(",\"last_action\":", file); json_string(file, last_action);
-    fprintf(file, ",\"count\":%u,\"last_result\":%d,\"busy\":%s,\"updated_ms\":%llu}\n",
-            gesture_count, last_result, action_pid > 0 ? "true" : "false", (unsigned long long)monotonic_ms());
+    fprintf(file, ",\"count\":%u,\"last_result\":%d,\"busy\":%s,\"torch_pid\":%ld,\"updated_ms\":%llu}\n",
+            gesture_count, last_result, action_pid > 0 ? "true" : "false", (long)torch_pid, (unsigned long long)monotonic_ms());
     bool good = !ferror(file);
     if (fclose(file) != 0) good = false;
     if (good) (void)rename(temp, path);
@@ -200,6 +202,12 @@ static void execute_action(const Action *action)
         execl("/system/bin/am", "am", "start", "--user", "current", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER", "-p", action->argument, (char *)NULL); break;
     case ACTION_SHELL:
         execl("/system/bin/sh", "sh", "-c", action->argument, (char *)NULL); break;
+    case ACTION_TORCH: {
+        char message[768];
+        int result = torch_toggle(data_dir, message, sizeof(message));
+        log_event("手电筒：%s", message);
+        _exit(result);
+    }
     case ACTION_NONE: _exit(0);
     default: _exit(126);
     }
@@ -364,6 +372,10 @@ static int run_daemon(void)
                     sync_dropped = false;
                 }
             }
+            bool needs_torch = false;
+            for (int i = 0; i < 3; i++)
+                if (config.actions[i].kind == ACTION_TORCH) needs_torch = true;
+            torch_pid = torch_supervise(needs_torch, module_dir, data_dir, now);
             write_status();
         }
         poll_action();
@@ -415,6 +427,7 @@ static int run_daemon(void)
         if (input_fd >= 0 && !ignore_until_release) gesture_tick(&gesture, monotonic_ms());
     }
     cancel_actions();
+    torch_stop(); torch_pid = 0;
     release_device();
     log_event("监听服务已停止");
     write_status();
@@ -446,7 +459,23 @@ static void print_state(void)
     char *log_start = buffer;
     /* 尾部截取可能落在 UTF-8 多字节字符中，跳过无效的开头。 */
     while (((unsigned char)*log_start & 0xc0) == 0x80) log_start++;
-    fputs(",\"logs\":", stdout); json_string(stdout, log_start); fputs("}\n", stdout);
+    fputs(",\"logs\":", stdout); json_string(stdout, log_start);
+    path_for(path, sizeof(path), "torch.json");
+    file = fopen(path, "r"); n = 0;
+    if (file) { n = fread(buffer, 1, sizeof(buffer) - 1, file); fclose(file); }
+    buffer[n] = 0;
+    fputs(",\"torch\":", stdout);
+    if (n && buffer[0] == '{') fputs(buffer, stdout); else fputs("{}", stdout);
+    path_for(path, sizeof(path), "torch-service.log");
+    file = fopen(path, "r"); n = 0;
+    if (file) {
+        if (fseek(file, 0, SEEK_END) == 0 && ftell(file) > 6000) (void)fseek(file, -6000, SEEK_END);
+        else rewind(file);
+        n = fread(buffer, 1, sizeof(buffer) - 1, file); fclose(file);
+    }
+    buffer[n] = 0; log_start = buffer;
+    while (((unsigned char)*log_start & 0xc0) == 0x80) log_start++;
+    fputs(",\"torch_logs\":", stdout); json_string(stdout, log_start); fputs("}\n", stdout);
 }
 
 static int stop_daemon(void)
