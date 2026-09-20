@@ -1,12 +1,16 @@
-# 侧键自定义 · OPPO Find X8s
+# findx8s sidekey · 侧键自定义
 
 版本：**v0.3.1 功能测试版**。适用目标为 OPPO Find X8s（PKT110）、Android 15、ARM64、KernelSU。
 
 模块通过 WebUI 自定义侧边键的短按、双击、长按。启用时以 `EVIOCGRAB` 独占输入设备，替换系统原有的侧键功能；暂停时释放设备，让系统恢复接收。
 
+项目采用 [MIT 许可证](LICENSE)开源，第三方组件保留各自的许可证。仓库：[zhujiu39/findx8s-sidekey](https://github.com/zhujiu39/findx8s-sidekey)。
+
+**安装包下载：[v0.3.1 功能测试版](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.3.1)**。在 Assets 中下载 `test_oppo_sidekey_v0.3.1.zip`；GitHub 自动生成的 Source code 压缩包是源码，不能直接安装。
+
 ## 安装与使用
 
-1. 将交付目录中的 **`test_oppo_sidekey_v0.3.1.zip`** 传到手机。
+1. 从 Releases 下载或本地构建得到 **`test_oppo_sidekey_v0.3.1.zip`**，传到手机。
 2. 打开 KernelSU 管理器，在模块页面从本地安装该 ZIP，然后重启手机。
 3. 在模块卡片中打开 **WebUI**。如果管理器没有显示 WebUI 入口，先检查管理器版本及安装结果。
 4. 为短按、双击、长按选择动作，必要时填写包名、Android 按键码或 Shell 命令。
@@ -105,7 +109,7 @@ python build.py --bootstrap
 
 已有编译器时运行 `python build.py`；也可通过环境变量 `ZIG` 指定可执行文件。编译目标为 `aarch64-linux-musl` 静态 ELF，按 16 KB 页面对齐，无需手机安装额外运行时。
 
-每次构建在 `交付文件/时间_test_v0.3.1_触发震动反馈/` 新建目录，包含安装包、源码与测试、使用说明、验证记录、构建日志及 SHA256。DEX 编译以 API 35 为接口库、API 33 为最低字节码目标；模块安装目标仍为 Android 15 及以上。
+每次构建在 `交付文件/时间_test_v0.3.1_开源发布/` 新建目录，包含安装包、源码与测试、使用说明、验证记录、构建日志及 SHA256。DEX 编译以 API 35 为接口库、API 33 为最低字节码目标；模块安装目标仍为 Android 15 及以上。
 
 模块 ID：`oppo_sidekey`。持久配置与日志：`/data/adb/oppo_sidekey/`，目录权限 0700，升级保留，卸载删除。配置使用严格解析的文本格式，参数按 UTF-8 十六进制存储，原子替换写入；没有直接加载配置为 Shell 脚本。
 

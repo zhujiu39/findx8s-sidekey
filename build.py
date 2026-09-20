@@ -107,6 +107,7 @@ def main():
     args = parser.parse_args()
     BUILD.mkdir(exist_ok=True)
     (MODULE / 'bin').mkdir(exist_ok=True)
+    shutil.copyfile(ROOT / 'LICENSE', MODULE / 'LICENSES/sidekey-LICENSE.txt')
     zig = find_zig(args.bootstrap)
     run([zig, 'version'])
     sources = ['native/gesture.c', 'native/config.c']
@@ -141,7 +142,8 @@ def main():
         raise RuntimeError('未找到 Bash，无法执行 Shell 语法检查')
     files = sorted(path for path in MODULE.rglob('*') if path.is_file())
     required = {'module.prop', 'skip_mount', 'customize.sh', 'service.sh', 'action.sh',
-                'uninstall.sh', 'scripts/control.sh', 'bin/sidekey', 'lib/torch.jar', 'webroot/index.html'}
+                'uninstall.sh', 'scripts/control.sh', 'bin/sidekey', 'lib/torch.jar', 'webroot/index.html',
+                'LICENSES/sidekey-LICENSE.txt'}
     if not required.issubset({path.relative_to(MODULE).as_posix() for path in files}):
         raise RuntimeError('模块文件不完整')
     for path in files:
@@ -156,7 +158,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_触发震动反馈')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_开源发布')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -176,7 +178,7 @@ def main():
                 raise RuntimeError('模块 ZIP 与源码不一致')
     LOG.append('通过：ZIP 根目录、完整性、权限标志及文件内容校验。')
     with zipfile.ZipFile(delivery / '源码与测试.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-        paths = [ROOT / name for name in ['README.md', 'build.py', 'bootstrap_android.py', 'package.json', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md']]
+        paths = [ROOT / name for name in ['README.md', 'LICENSE', 'build.py', 'bootstrap_android.py', 'package.json', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md']]
         paths += [path for directory in ['native', 'android', 'tests', 'module', 'diagnostics'] for path in (ROOT / directory).rglob('*') if path.is_file()]
         for path in sorted(paths):
             archive.write(path, path.relative_to(ROOT).as_posix())
@@ -186,6 +188,8 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 测试版\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
+        '本次交付用于 GitHub 开源发布：新增 MIT 许可证、仓库和安装包下载说明，'
+        '安装包与源码包均包含项目许可证；运行功能保持 v0.3.1。\n\n'
         f'安装文件：`test_oppo_sidekey_v{VERSION}.zip`，在 KernelSU 管理器中覆盖安装并重启。'
         '升级保留配置；进入 WebUI 将长按从旧 Shell 改为“切换手电筒（系统最高亮度）”，保存设置。'
         '新增“触发时震动”默认开启；可在 WebUI 的手感调节中关闭并保存。'
