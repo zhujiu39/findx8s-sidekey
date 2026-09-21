@@ -5,7 +5,7 @@ export const actions = [
   ['next', '下一首'], ['previous', '上一首'], ['volume_up', '增大音量'],
   ['volume_down', '减小音量'], ['mute', '切换媒体静音'], ['camera', '打开相机'],
   ['torch', '切换手电筒（系统最高亮度）'],
-  ['app_freeform', '启动应用（请求小窗）'], ['app', '启动应用'], ['keycode', '发送 Android 按键'], ['shell', '自定义 Shell 命令'],
+  ['app_freeform', '启动应用（ColorOS 小窗）'], ['app', '启动应用'], ['keycode', '发送 Android 按键'], ['shell', '自定义 Shell 命令'],
 ];
 export const gestureIds = ['single', 'double', 'long'];
 export const defaultConfig = () => ({enabled: false, haptic: true, long_ms: 600, double_ms: 280,

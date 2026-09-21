@@ -20,7 +20,7 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '0.5.0'
+VERSION = '0.5.1'
 
 
 def run(arguments):
@@ -87,10 +87,11 @@ def build_torch():
         sources = sorted((ROOT / 'android').rglob('*.java'))
         run([javac, '-J-Dfile.encoding=UTF-8', '-J-Dstdout.encoding=UTF-8', '-J-Dstderr.encoding=UTF-8',
              '--release', '8', '-Xlint:-options', '-encoding', 'UTF-8', '-classpath', android_jar,
-             '-d', temporary, *sources, ROOT / 'tests/TorchControllerTest.java', ROOT / 'tests/AppCatalogModelTest.java'])
+             '-d', temporary, *sources, ROOT / 'tests/TorchControllerTest.java', ROOT / 'tests/AppCatalogModelTest.java', ROOT / 'tests/ZoomControllerTest.java'])
         java_options = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8']
         run([java, *java_options, '-cp', temporary, 'TorchControllerTest'])
         run([java, *java_options, '-cp', temporary, 'AppCatalogModelTest'])
+        run([java, *java_options, '-cp', temporary, 'ZoomControllerTest'])
         output = MODULE / 'lib/torch.jar'
         output.parent.mkdir(exist_ok=True)
         run([java, *java_options, '-cp', d8, 'com.android.tools.r8.D8', '--release', '--min-api', '33',
@@ -147,7 +148,7 @@ def build_menu():
              '--ks-pass', 'file:' + str(password), '--out', output, aligned])
         run([java, '-jar', signer, 'verify', '--verbose', output])
         badging = run([find('build-tools/*/aapt.exe'), 'dump', 'badging', output])
-        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='50'" not in badging:
+        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='51'" not in badging:
             raise RuntimeError('菜单 APK 包名或版本无效')
         with zipfile.ZipFile(output) as apk:
             if apk.testzip() or not apk.read('classes.dex').startswith(b'dex\n'):
@@ -219,7 +220,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_双列侧栏与应用批量勾选')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_ColorOS仅小窗启动修复')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -249,13 +250,13 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 测试版\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '按参考图重做 196 dp 窄侧栏：顶部两个开关，下面真实应用图标固定双列，上下滑动；移除原来的 8 应用限制。应用显式入口启动、结果检查、小窗失败转普通打开。\n\n'
+        '修正小窗启动：通过 OPlus 专用接口发起请求，连续读取目标应用的可见小窗状态后才确认成功；取消普通全屏回退，菜单应用统一只使用小窗。\n\n'
         f'安装：在 KernelSU 覆盖安装 test_oppo_sidekey_v{VERSION}.zip 后重启。升级保留已有动作。'
         '模块会自动安装侧键快捷菜单组件；在 WebUI 将某个手势改为“弹出快捷菜单”，添加捷径并保存。'
-        '应用从手机列表批量勾选，名称与图标自动读取。点击使用所选应用，再保存设置。旧版额外的快捷项保留在 WebUI，可移到前两项或移除，不会静默删除。大配置分块保存，菜单分页加载，应用行按需创建。\n\n'
+        '应用从手机列表批量勾选，名称与图标自动读取。点击使用所选应用，再保存设置。顶部两个开关与双列滚动布局沿用。原菜单中选择普通打开的应用也统一使用小窗；手势单独绑定的普通应用动作继续按原配置执行。\n\n'
         '菜单组件只接收名称、图标、应用标识和一次性会话；动作由模块执行。使用本机回环网络通信，'
         '不访问远端，不需要悬浮窗、无障碍或单独 Root 授权。卸载模块时移除菜单组件。\n\n'
-        '本次本地验证覆盖手势、旧配置升级、菜单边界和非法请求、UTF-8 往返、WebUI、Shell、'
+        '本次本地验证覆盖 OPlus 接口签名、延迟状态确认、错误应用／用户／全屏状态拒绝、超时和失败不回退，以及原有手势、配置、WebUI、Shell、'
         'ARM64 静态 ELF、手电筒 DEX、菜单 APK 签名以及 ZIP 完整性。真实命令结果见构建日志。\n\n'
         '**这是功能测试版：本次没有连接手机，ColorOS 后台启动、实际滑出动画和点击动作仍需你刷入实测。** '
         '锁屏时不弹出菜单；不会唤醒或绕过锁屏。菜单会话 60 秒失效，配置变化或服务退出后自动收起。\n\n'

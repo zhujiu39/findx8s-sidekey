@@ -13,3 +13,5 @@ v0.3.0 手电筒 DEX 为本项目 Java 源码编译产物，调用手机自带 A
 - 构建用 Eclipse Temurin JDK 21 从 Adoptium 官方发布仓库下载并核对 SHA256，不随模块分发。
 - Android API 35 平台和 Build Tools 35 从 Google 官方 SDK 仓库下载，并核对其仓库元数据公布的 SHA1；只用于 javac 接口校验和 D8 转换，不随模块分发。
 - 工具链接和校验值固定记录于 `bootstrap_android.py`，工具保存在忽略提交的 `tools/android/`。
+
+v0.5.1 的 OPlus 小窗适配代码由本项目实现，通过运行时反射调用手机自带框架；不包含厂商框架 JAR 或反编译实现。接口和字段核对来源见 README 的“应用选择与打开”，参考资料只用于确认调用约定。

@@ -147,7 +147,11 @@ static bool show_menu(const Config *config, uint64_t now)
     if (launch_log >= 0) { close(launch_log); launch_log = -1; }
     if (!random_token(session)) return false;
     snapshot_count = config->menu_count;
-    for (uint32_t i = 0; i < snapshot_count; i++) snapshot[i] = config->menu[i];
+    for (uint32_t i = 0; i < snapshot_count; i++) {
+        snapshot[i] = config->menu[i];
+        /* 菜单应用统一使用小窗；兼容旧配置里的普通应用项，不改手势绑定。 */
+        if (snapshot[i].action.kind == ACTION_APP) snapshot[i].action.kind = ACTION_APP_FREEFORM;
+    }
     expires = now + 60000;
     int output_pipe[2];
     if (pipe2(output_pipe, O_CLOEXEC) != 0) { menu_cancel(); return false; }

@@ -7,13 +7,13 @@
 为 **OPPO Find X8s** 开发的 KernelSU 侧键自定义模块。<br>
 在 WebUI 中配置短按、双击和长按，把手电筒、相机、媒体控制和常用操作放在指尖。
 
-[![Version](https://img.shields.io/badge/version-v0.5.0%20%7C%20pre--release-orange)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.0)
+[![Version](https://img.shields.io/badge/version-v0.5.1%20%7C%20pre--release-orange)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.1)
 [![Device](https://img.shields.io/badge/device-OPPO%20Find%20X8s-2d6a4f)](#compatibility)
 [![Android](https://img.shields.io/badge/Android-15-3DDC84?logo=android&logoColor=white)](#compatibility)
 [![KernelSU](https://img.shields.io/badge/Root-KernelSU-1565C0)](https://kernelsu.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-[下载模块](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.0) ·
+[下载模块](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.1) ·
 [快速开始](#quick-start) ·
 [支持的动作](#actions) ·
 [常见问题](#faq) ·
@@ -23,10 +23,10 @@
 </div>
 
 > [!TIP]
-> 想直接安装？下载 **[test_oppo_sidekey_v0.5.0.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v0.5.0/test_oppo_sidekey_v0.5.0.zip)**，在 KernelSU 管理器中安装并重启。Release 附带 `SHA256SUMS.txt`；GitHub 自动生成的 **Source code** 压缩包用于开发，不能直接安装。
+> 想直接安装？下载 **[test_oppo_sidekey_v0.5.1.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v0.5.1/test_oppo_sidekey_v0.5.1.zip)**，在 KernelSU 管理器中安装并重启。Release 附带 `SHA256SUMS.txt`；GitHub 自动生成的 **Source code** 压缩包用于开发，不能直接安装。
 
 > [!IMPORTANT]
-> 当前是 **v0.5.0 功能测试版**。侧键输入设备与键码已通过 ADB 确认，本地构建和自动化测试已通过；快捷菜单在 ColorOS 上的弹出与点击，以及系统手电筒、图标同步、震动和锁屏／息屏响应仍需目标手机验证。详细范围见[兼容性与验证状态](#compatibility)。
+> 当前是 **v0.5.1 功能测试版**。侧键输入设备与键码已通过 ADB 确认，本地构建和自动化测试已通过；快捷菜单在 ColorOS 上的弹出与点击，以及系统手电筒、图标同步、震动和锁屏／息屏响应仍需目标手机验证。详细范围见[兼容性与验证状态](#compatibility)。
 
 ## ✨ 一眼看懂
 
@@ -46,7 +46,7 @@
 | 替换原有侧键功能 | 开启接管后，由模块处理该侧键；关闭并保存即可恢复系统接收 |
 | 左侧滑出菜单 | 顶部两个开关＋双列可滚动应用，窄侧栏跟随系统深浅色；应用图标与名称自动读取 |
 | 离线 WebUI | 配置动作、调节手感、测试动作、查看状态和日志 |
-| 批量勾选应用 | 搜索后连续勾选，自动读取应用名称与真实图标；支持调整顺序、移除和打开方式 |
+| 批量勾选应用 | 搜索后连续勾选，自动读取应用名称与真实图标；支持调整顺序和移除，菜单应用仅以小窗打开 |
 | 系统手电筒 | 通过 Android 相机服务切换状态，使用系统公开的最高亮度档位 |
 | 触发反馈 | 有效动作触发时请求一次 35 ms 短震动，可关闭 |
 | 自定义操作 | 启动指定应用、发送 Android 按键，或运行自定义 Shell |
@@ -85,7 +85,7 @@
 
 ### 第一次安装
 
-1. 从 [Releases](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.0) 下载 `test_oppo_sidekey_v0.5.0.zip`。
+1. 从 [Releases](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.1) 下载 `test_oppo_sidekey_v0.5.1.zip`。
 2. 打开 **KernelSU → 模块 → 从本地安装**，选择 ZIP，安装完成后重启。
 3. 从模块卡片打开 **WebUI**，为短按、双击、长按选择动作。
 4. 按需设置长按时间、双击间隔和“触发时震动”。
@@ -115,19 +115,22 @@
 - 弹窗只列出当前 Android 用户有桌面启动入口的应用。名称搜索、连续勾选和取消勾选可以在一次弹窗内完成；关闭弹窗会放弃未确认的勾选草稿。
 - 名称和图标由本机包管理器读取。WebUI 图标按可见项分批加载，仅在内存中缓存；原生菜单的应用行按需创建，避免应用多时一次加载所有图标。应用列表与图标不会上传。
 - 界面取消固定的应用位置数量限制，内部输入校验按当前应用目录最大 2048 项预留容量；大配置分块传输，校验完成后原子保存。无需为了超过一屏而重复添加页面。
-- 应用默认 **优先小窗**。通过当前用户的桌面入口解析出明确组件，以桌面启动标志执行；系统明确拒绝小窗请求时，尝试普通打开。可以单独将应用改为 **普通打开**。
-- 启动会检查系统回执，超时或结果不明时不会重复启动；具体错误显示在 **运行状态与日志 → 应用启动**。ColorOS 的小窗支持、后台启动策略及应用自身限制仍以手机实测为准，不修改开发者选项或系统多窗口设置。
+- 菜单中的应用统一 **仅小窗打开**。旧配置中的普通应用项也按小窗执行，应用列表不再显示打开方式选择；手势直接绑定的普通“启动应用”动作仍保留原有行为。
+- v0.5.1 使用手机自身的 `OplusZoomWindowManager.startZoomWindow`，通过显式桌面入口、当前用户和 OPlus 的 `WINDOWING_MODE_ZOOM` 请求 ColorOS 小窗。移除 `am --windowingMode 5` 的通用自由窗口路径和普通全屏回退。
+- 只有连续两次读取到目标包名、当前用户、可见的展开小窗及有效窗口区域，才报告小窗成功；单独的 `Status: ok` 或非负启动返回码不再当成小窗成功。
+- 每次只提交一次小窗请求，状态确认最长等待 4 秒，外层仍有动作总超时。接口不兼容、系统拒绝或状态未确认时报告失败，具体原因显示在 **运行状态与日志 → 应用启动**，不会再次以全屏启动。
+- 适配依据为可读的 [OPlus 小窗接口定义](https://github.com/HBYShyw/AntiThermal/blob/main/oplus-framework/sources/com/oplus/zoomwindow/OplusZoomWindowManager.java)及[状态结构](https://github.com/HBYShyw/AntiThermal/blob/main/oplus-framework/sources/com/oplus/zoomwindow/OplusZoomWindowInfo.java)。运行时核对接口，不写死 Binder 事务编号、不分发厂商框架。目标 ColorOS 15 ROM 的权限、接口差异和应用支持情况仍需实机验证；不修改开发者选项、多窗口开关或应用支持名单。
 - 手势直接绑定应用时仍为单选，同样无需手填名称、图标或包名。应用卸载或读取失败会保留原配置，刷新后可取消勾选。
 
 手机菜单使用短暂的透明 Activity，全窗口使用同一层背景遮罩，安全边距只用于面板定位。点击空白处、顶部短横线或返回键收起；选择项目时先收起再执行动作。每次会话最长 60 秒，修改配置或停止服务后失效。**锁屏时不显示，也不负责唤醒或解锁。**
 
 重启后模块会自动安装 **“侧键快捷菜单”**（`cn.sidekey.menu`）。无需悬浮窗、无障碍或单独 Root 授权；应用仅声明桌面入口查询和本机回环通信所需权限。菜单分页读取名称、图标文字、应用标识及索引，Root 命令和 Shell 参数保留在守护进程中，不通过界面传回任意命令。
 
-没有弹出时，点击 **“准备 / 修复菜单组件”** 并查看 **运行状态与日志 → 菜单组件**。更新到本版后应看到 **v0.5.0 已安装／已就绪**；旧版组件与新协议不兼容，覆盖安装后需要重启。菜单启动成功必须同时满足系统命令完成和组件握手，最长 8 秒。
+没有弹出时，点击 **“准备 / 修复菜单组件”** 并查看 **运行状态与日志 → 菜单组件**。更新到本版后应看到 **v0.5.1 已安装／已就绪**；覆盖安装后需要重启，确保 Root 服务与小窗执行组件一同更新。菜单启动成功必须同时满足系统命令完成和组件握手，最长 8 秒。
 
 ### 从旧版升级
 
-- 在 KernelSU 中覆盖安装新版并重启，已有配置会保留；v0.5.0 不自动改动你的手势、菜单内容或位置设置。
+- 在 KernelSU 中覆盖安装新版并重启，已有配置会保留；v0.5.1 保留手势、菜单项目与位置；菜单内的应用统一使用小窗。
 - 如果此前用 Shell 直接控制 LED，先用旧脚本关灯，再升级。
 - 升级后，手动将对应动作改为内置手电筒并保存；模块不会自动替换你的 Shell 命令。
 - v0.3.1 对旧配置默认开启触发震动，可以在“手感调节”中关闭并保存。
@@ -143,7 +146,7 @@
 | 快捷操作 | 展开通知栏、展开快捷设置、截屏、息屏 | 无 |
 | 媒体控制 | 播放／暂停、上一首、下一首、增大／减小音量、切换媒体静音 | 无 |
 | 相机与灯光 | 打开相机、切换手电筒 | 无 |
-| 启动应用 | 请求小窗启动，或普通启动 | 从手机应用列表按名称选择，无需填写包名 |
+| 启动应用 | 菜单仅使用 ColorOS 小窗；手势可独立绑定普通启动 | 从手机应用列表按名称选择，无需填写包名 |
 | Android 按键 | 发送 Android KeyEvent | `1～2047` 的整数，例如 `3` 为主页 |
 | 自定义 Shell | 执行自己的命令 | 例如 `input keyevent 3` |
 | 不执行动作 | 对应手势不触发动作和震动 | 无 |
@@ -254,7 +257,7 @@ python build.py --bootstrap
 
 工具准备完成后，使用 `python build.py` 重新构建。Android 工具位于忽略提交的 `tools/android/`，Zig 也保存在 `tools/`；已有 Zig 时可通过 `ZIG` 环境变量指定路径。当前脚本使用 Windows 版工具路径，Linux / macOS 构建流程尚未适配。
 
-每次完整构建都会执行 C、Java、JavaScript 测试，以及配置往返、Shell 语法、ELF、DEX、APK 签名和 ZIP 校验，并新建独立的 `交付文件/时间_test_v0.5.0_双列侧栏与应用批量勾选/` 目录。目录内包含安装包、源码与测试、说明文档、真实构建日志和 SHA256。
+每次完整构建都会执行 C、Java、JavaScript 测试，以及配置往返、Shell 语法、ELF、DEX、APK 签名和 ZIP 校验，并新建独立的 `交付文件/时间_test_v0.5.1_ColorOS仅小窗启动修复/` 目录。目录内包含安装包、源码与测试、说明文档、真实构建日志和 SHA256。
 
 菜单 APK 使用 API 35 编译，随模块 ZIP 一起分发。首次构建会在 **被 Git 忽略的 `tools/private/`** 生成本地签名私钥和口令文件，后续构建复用；请自行备份，**不要提交或公开这两个文件**。源码包和 Release 不包含私钥。自行构建的签名与仓库发布版本不同，交叉安装提示签名冲突时，先在手机应用管理中卸载旧菜单组件，再点 WebUI 的“准备 / 修复菜单组件”；手势与菜单配置保存在模块目录，不受单独卸载组件影响。
 
@@ -312,7 +315,7 @@ flowchart TD
 ```text
 findx8s-sidekey/
 ├─ native/                   # 监听服务、手势、配置、手电筒 IPC 与震动
-├─ android/cn/sidekey/        # CameraManager、手机应用目录与可独立测试的逻辑
+├─ android/cn/sidekey/        # CameraManager、手机应用目录、OPlus 小窗入口与可测试逻辑
 ├─ companion/                # 快捷菜单 Android Activity、Manifest 与主题
 ├─ module/
 │  ├─ webroot/               # 离线 WebUI
@@ -333,7 +336,8 @@ findx8s-sidekey/
 
 | 版本 | 主要变化 |
 | --- | --- |
-| **v0.5.0** | 顶部两个开关＋双列可滚动应用侧栏；批量勾选与真实图标，解除 8 项限制；显式应用启动、小窗降级和错误日志 |
+| **v0.5.1** | OPlus 专用小窗接口、实际状态确认；菜单应用仅小窗打开，移除全屏回退 |
+| v0.5.0 | 顶部两个开关＋双列可滚动应用；批量勾选、真实图标与应用启动日志 |
 | v0.4.4 | 修复顶部亮带，分离背景遮罩与面板安全边距 |
 | v0.4.3 | 修复横屏面板过宽、开关区域不完整及旋转后尺寸沿用；360 dp 宽度上限、紧凑布局、内容滚动与安全边距 |
 | v0.4.2 | 新增手机应用名称搜索与选择；修正菜单启动及安装的私有文件描述符传递；启动结果等待组件握手 |

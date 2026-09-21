@@ -1,6 +1,8 @@
 #!/system/bin/sh
 # 系统命令只接收管道，不把模块私有日志文件描述符传给 Binder。
 DATA=/data/adb/oppo_sidekey
+SCRIPT_DIR=${0%/*}
+MODDIR=${SCRIPT_DIR%/*}
 umask 077
 mkdir -p "$DATA" || exit 1
 exec 3>"$DATA/app-launch.log"
@@ -30,6 +32,19 @@ esac
 case "$component" in "$package"/*) ;; *) fail "找不到可启动入口，应用可能已卸载或停用：$resolved" ;; esac
 case "$component" in *[!A-Za-z0-9_./\$]*) fail '系统返回了无效的应用入口' ;; esac
 report "入口：$component"
+if [ "$mode" = freeform ]; then
+    [ -r "$MODDIR/lib/torch.jar" ] || fail '小窗组件不存在，请重新安装模块并重启'
+    remaining=$((deadline - $(date +%s)))
+    [ "$remaining" -gt 0 ] || fail '小窗启动总等待时间已耗尽'
+    output=$(CLASSPATH="$MODDIR/lib/torch.jar" timeout -s KILL "$remaining" /system/bin/app_process /system/bin cn.sidekey.ZoomWindowLauncher "$component" "$user" 3>&- 2>&1)
+    result=$?
+    report "$output"
+    case "$result" in 124|137) fail '等待 ColorOS 小窗确认超时，未重复启动或转为全屏' ;; esac
+    [ "$result" -eq 0 ] || fail "ColorOS 小窗启动失败，退出码：$result；未转为全屏"
+    printf '%s\n' "$output" | grep -qxF "SIDEKEY_ZOOM_CONFIRMED $package $user" || fail '未收到目标应用的小窗状态确认；未转为全屏'
+    report '系统已确认目标应用进入 ColorOS 小窗'
+    exit 0
+fi
 start_app() {
     remaining=$((deadline - $(date +%s)))
     [ "$remaining" -gt 0 ] || { report '应用启动总等待时间已耗尽'; return 124; }
@@ -45,14 +60,5 @@ start_app() {
         *) report '未收到系统启动成功回执'; return 65 ;;
     esac
 }
-if [ "$mode" = freeform ]; then
-    start_app --windowingMode 5
-    result=$?
-    [ "$result" -eq 0 ] && { report '系统已确认启动（请求小窗）'; exit 0; }
-    # 超时不能证明未启动，避免重复唤起；仅在明确拒绝后尝试普通窗口。
-    case "$result" in 124|137) fail '等待小窗启动超时，未重复启动' ;; 65) fail '无法确认启动结果，未重复启动' ;; esac
-    case "$output" in *'Status: timeout'*) fail '系统报告小窗启动超时，未重复启动' ;; esac
-    report '小窗请求未被系统接受，改为普通打开。'
-fi
 start_app || fail '应用打开失败，请查看以上系统返回信息。'
 report '系统已确认普通打开'

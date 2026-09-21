@@ -47,9 +47,7 @@ function render() {
     const app=appCatalog.lookup(item.argument), label=app?.label || item.name;
     const row=element('article','selected-app-row'), info=element('div','selected-app');
     info.append(appIcon(item.argument,label),element('strong','',label)); row.append(info,controls(item,apps));
-    const mode=element('select',''); mode.setAttribute('aria-label',label+'的打开方式');
-    mode.add(new Option('优先小窗','app_freeform')); mode.add(new Option('普通打开','app')); mode.value=item.type;
-    mode.addEventListener('change',()=>{item.type=mode.value;onChange();}); row.append(mode); host.append(row);
+    row.append(element('span','hint','小窗打开')); host.append(row);
   });
   menuBusy(isBusy);
 }
@@ -75,7 +73,7 @@ export function initMenuEditor(change) {
   });
 }
 export function fillMenu(config) {
-  entries=structuredClone(config.menu).map((item,index)=>({...item,slot:item.slot??index})).sort((a,b)=>a.slot-b.slot);
+  entries=structuredClone(config.menu).map((item,index)=>({...item,slot:item.slot??index,type:isApp(item)?'app_freeform':item.type})).sort((a,b)=>a.slot-b.slot);
   $('menu-side').value=config.menu_side;$('menu-position').value=config.menu_position;render();
 }
 export function readMenu() { return {menu_side:$('menu-side').value,menu_position:Number($('menu-position').value),menu:structuredClone(entries)}; }
