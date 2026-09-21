@@ -21,7 +21,7 @@ function render() {
     const missing = [...picked.values()].filter(app => !catalog.apps.some(current => current.packageName === app.packageName));
     apps.push(...filterApps(missing, search.value));
   }
-  status.textContent = apps.length ? `${apps.length} 个应用 · 当前用户 ${catalog.user}` : search.value.trim() ? '没有匹配的应用，试试其他名称。' : '当前用户没有可启动的应用。';
+  status.textContent = apps.length ? `${apps.length} 个应用` : search.value.trim() ? '没有匹配的应用，试试其他名称。' : '没有可选择的应用。';
   if (catalog.labelFallbacks) status.textContent += ' · 部分应用名称暂不可读，显示包名。';
   const fragment = document.createDocumentFragment();
   apps.forEach(app => {

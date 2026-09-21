@@ -49,7 +49,7 @@ function render() {
     const app=appCatalog.lookup(item.argument), label=app?.label || item.name;
     const row=element('article','selected-app-row'), info=element('div','selected-app');
     info.append(appIcon(item.argument,label),element('strong','',label)); row.append(info,controls(item,apps));
-    row.append(element('span','hint','小窗打开')); host.append(row);
+    host.append(row);
   });
   menuBusy(isBusy);
 }

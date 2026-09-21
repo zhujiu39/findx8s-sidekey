@@ -149,7 +149,6 @@ static bool show_menu(const Config *config, uint64_t now)
     char path[1024]; snprintf(path, sizeof(path), "%s/menu-launch.log", data_directory);
     launch_log = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
     logged_bytes = 0;
-    if (launch_log >= 0) dprintf(launch_log, "快捷栏会话布局：宽度 %u dp，应用间距 %u dp。\n", snapshot_width, snapshot_gap);
     pid_t parent = getpid();
     launcher = fork();
     if (launcher < 0) { close(output_pipe[1]); launcher = 0; menu_cancel(); return false; }

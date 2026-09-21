@@ -17,7 +17,7 @@ function notice(text) { $('notice').textContent = text; $('notice').hidden = !te
 function buildCards() {
   gestureIds.forEach((id, index) => {
     const card = document.createElement('article'); card.className = 'gesture-card';
-    card.innerHTML = `<div class="gesture-top"><span class="gesture-icon" aria-hidden="true">${iconLabels[index]}</span><div class="gesture-title"><h3>${titles[index]}</h3><p>${descriptions[index]}</p></div><button class="test" id="test-${id}" type="button">测试 ↗</button></div><div class="selector"><select id="action-${id}" aria-label="${titles[index]}动作"></select></div><div class="argument" id="argument-${id}" hidden><label for="value-${id}"></label><input id="value-${id}" autocomplete="off" spellcheck="false"><textarea id="shell-${id}" aria-label="${titles[index]} Shell 命令" spellcheck="false" hidden></textarea><p></p></div>`;
+    card.innerHTML = `<div class="gesture-top"><span class="gesture-icon" aria-hidden="true">${iconLabels[index]}</span><div class="gesture-title"><h3>${titles[index]}</h3><p>${descriptions[index]}</p></div><button class="test" id="test-${id}" type="button" aria-label="执行${titles[index]}动作">执行 ↗</button></div><div class="selector"><select id="action-${id}" aria-label="${titles[index]}动作"></select></div><div class="argument" id="argument-${id}" hidden><label for="value-${id}"></label><input id="value-${id}" autocomplete="off" spellcheck="false"><textarea id="shell-${id}" aria-label="${titles[index]} Shell 命令" spellcheck="false" hidden></textarea><p></p></div>`;
     $('gestures').append(card);
     const appChoice = createAppChoice(() => $(`value-${id}`).value, app => {
       $(`value-${id}`).value = app.packageName; updateDirty();
@@ -43,7 +43,7 @@ function updateArgument(id) {
   input.type = type === 'keycode' ? 'number' : 'text';
   input.placeholder = '例如 3（主页）';
   shell.placeholder = '例如：input keyevent 3';
-  block.querySelector('p').textContent = isApp ? '从当前手机的应用列表选择，支持按名称搜索。' : type === 'keycode' ? '使用 Android KeyEvent 编码，不是底层 Linux 输入键码。' : '使用系统 Shell 执行，最长 10 秒；只运行你确认过的命令。';
+  block.querySelector('p').textContent = isApp ? '' : type === 'keycode' ? '填写 Android KeyEvent 编码，范围 1～2047。' : '以 Root 执行，最长 10 秒；动作结束时清理后台进程。';
 }
 function formConfig() {
   return {enabled: $('enabled').checked, haptic: $('haptic').checked, long_ms: Number($('long-ms').value), double_ms: Number($('double-ms').value),
@@ -109,14 +109,14 @@ async function save() {
     const config = validate(formConfig());
     busy = true; updateDirty(); notice('');
     const data = await saveConfiguration(hex(serialize(config)));
-    fill(data.config); runtime(data); toast('已保存，配置会在半秒内应用');
+    fill(data.config); runtime(data); toast('设置已保存');
   } catch (error) { notice(error.message); }
   finally { busy = false; updateDirty(); }
 }
 async function testAction(id) {
-  if (dirty()) { toast('请先保存设置，再测试动作'); return; }
+  if (dirty()) { toast('请先保存设置'); return; }
   busy = true; updateDirty();
-  try { const data = await api('test', id); toast(data.result === 0 ? (saved.actions[gestureIds.indexOf(id)].type === 'menu' ? '菜单组件已启动并连接' : '动作已执行') : `动作退出码 ${data.result}，请查看运行日志`); }
+  try { const data = await api('test', id); toast(data.result === 0 ? '动作已执行' : `执行失败（${data.result}），请查看运行日志`); }
   catch (error) { notice(error.message); }
   finally { busy = false; updateDirty(); refresh(); }
 }
@@ -135,8 +135,8 @@ buildCards();
 ['enabled', 'haptic', 'long-ms', 'double-ms'].forEach(id => $(id).addEventListener('input', updateDirty));
 $('save').addEventListener('click', save);
 $('prepare-menu').addEventListener('click', async () => {
-  if (!available()) { toast('请从 KernelSU 中准备菜单组件'); return; }
-  try { await api('prepare-menu'); toast('已开始准备菜单组件，请稍后在运行日志查看结果'); }
+  if (!available()) { toast('请从 KernelSU 中修复快捷菜单'); return; }
+  try { await api('prepare-menu'); toast('正在修复，可在下方日志查看结果'); }
   catch (error) { notice(error.message); }
 });
 $('refresh').addEventListener('click', () => { notice(''); refresh(!dirty()); });

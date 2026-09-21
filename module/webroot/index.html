@@ -22,8 +22,8 @@
     <section id="gestures" class="gesture-list" aria-label="手势设置"></section>
     <section class="timing-card menu-editor" aria-label="快捷菜单设置">
       <div class="section-heading"><h2>你的快捷菜单</h2><span id="menu-count">0 个应用 · 0 个开关</span></div>
-      <p class="hint">把任意手势设为“弹出快捷菜单”。已设置的开关在上方，已勾选的应用按两列排列，向下滑动查看更多。没有固定占位，未设置的项目不显示；面板外完全透明，跟随系统深浅色。</p>
-      <div class="menu-options"><label class="menu-field"><span>弹出方向</span><select id="menu-side"><option value="left">左侧（侧键所在一侧）</option><option value="right">右侧</option></select></label><button id="preview-menu" class="secondary" type="button">预览滑出效果</button></div>
+      <p class="hint">添加常用应用和快捷开关，将手势设为“弹出快捷菜单”即可使用。</p>
+      <div class="menu-options"><label class="menu-field"><span>弹出方向</span><select id="menu-side"><option value="left">左侧</option><option value="right">右侧</option></select></label><button id="preview-menu" class="secondary" type="button">预览快捷栏</button></div>
       <label class="range-label" for="menu-position">面板中心高度 <output id="menu-position-output">35%</output></label>
       <input id="menu-position" type="range" min="10" max="90" step="1" value="35">
       <div class="range-ends"><span>靠近顶部</span><span>靠近底部</span></div>
@@ -33,24 +33,24 @@
       <label class="range-label" for="menu-gap">应用间距 <output id="menu-gap-output">12 dp</output></label>
       <input id="menu-gap" type="range" min="0" max="32" step="1" value="12">
       <div class="range-ends"><span>更紧凑</span><span>更疏朗</span></div>
-      <div id="menu-empty" class="menu-empty"><strong>还没有设置快捷项。</strong><p>勾选常用应用或设置开关动作后即可唤出快捷栏；全部留空时不显示。</p></div>
+      <div id="menu-empty" class="menu-empty"><strong>还没有快捷项</strong><p>勾选应用或添加快捷开关。</p></div>
       <div id="menu-items"></div>
-      <div class="tools"><button id="choose-menu-apps" class="secondary" type="button">勾选应用</button><button id="add-menu-switch" class="secondary" type="button">＋ 添加快捷开关</button><button id="prepare-menu" class="secondary" type="button">准备 / 修复菜单组件</button></div>
-      <p class="hint">应用名称和图标跟随手机，无需手动填写。菜单应用统一以 ColorOS 小窗打开；启动失败会记录原因，不会转为全屏。手电筒开关显示系统状态。预览只展示外观；点击“保存设置”后生效，解锁后使用。</p>
+      <div class="tools"><button id="choose-menu-apps" class="secondary" type="button">勾选应用</button><button id="add-menu-switch" class="secondary" type="button">＋ 添加快捷开关</button></div>
+      <p class="hint">应用以 ColorOS 小窗打开。快捷菜单在解锁后使用。</p>
     </section>
     <section class="timing-card">
       <div class="section-heading"><h2>手感调节</h2><span>找到顺手的节奏</span></div>
-      <label class="feedback-row" for="haptic"><span>触发时震动<small>有效动作触发时轻震一次，长按松手不重复震动</small></span><input id="haptic" type="checkbox" checked></label>
+      <label class="feedback-row" for="haptic"><span>触发时震动<small>动作触发时轻震一次</small></span><input id="haptic" type="checkbox" checked></label>
       <label class="range-label" for="long-ms">长按触发时间 <output id="long-output">600 ms</output></label>
       <input id="long-ms" type="range" min="250" max="2000" step="10" value="600">
       <div class="range-ends"><span>更灵敏</span><span>更从容</span></div>
       <label class="range-label" for="double-ms">双击最大间隔 <output id="double-output">280 ms</output></label>
       <input id="double-ms" type="range" min="150" max="600" step="10" value="280">
       <div class="range-ends"><span>更紧凑</span><span>更宽松</span></div>
-      <p class="hint">设置双击动作后，短按会等待双击间隔结束再执行。长按达到阈值时触发一次，松开不会再触发短按。</p>
+      <p class="hint">启用双击后，短按会等待双击间隔结束再执行。</p>
     </section>
-    <details class="diagnostics"><summary>运行状态与日志 <span aria-hidden="true">＋</span></summary><div class="diagnostics-body"><dl><dt>监听服务</dt><dd id="service-info">—</dd><dt>最近手势</dt><dd id="last-event">—</dd><dt>累计识别</dt><dd id="event-count">—</dd><dt>输入设备</dt><dd id="device-info">—</dd><dt>动作结果</dt><dd id="result-info">—</dd><dt>系统手电筒</dt><dd id="torch-info">—</dd></dl><div class="tools"><button id="start-service" class="secondary">启动监听服务</button><button id="reload-apps" class="secondary">刷新应用列表</button></div><p class="hint">Shell 命令以 Root 执行，单次最多 10 秒。后台子进程会在动作结束时清理。</p><pre id="logs">暂无日志</pre></div></details>
-    <p class="footer-note">本地保存 · 离线可用 <span>v0.5.3</span></p>
+    <details class="diagnostics"><summary>运行状态与日志 <span aria-hidden="true">＋</span></summary><div class="diagnostics-body"><dl><dt>监听服务</dt><dd id="service-info">—</dd><dt>最近手势</dt><dd id="last-event">—</dd><dt>累计识别</dt><dd id="event-count">—</dd><dt>输入设备</dt><dd id="device-info">—</dd><dt>动作结果</dt><dd id="result-info">—</dd><dt>系统手电筒</dt><dd id="torch-info">—</dd></dl><div class="tools"><button id="start-service" class="secondary">启动监听服务</button><button id="reload-apps" class="secondary">刷新应用列表</button><button id="prepare-menu" class="secondary" type="button">修复快捷菜单</button></div><pre id="logs">暂无日志</pre></div></details>
+    <p class="footer-note">本地保存 · 离线可用 <span>v1.0.0</span></p>
   </main>
   <div class="save-bar"><div><strong id="save-state">正在加载配置</strong><span>保存后立即应用</span></div><button id="save" class="primary" disabled>保存设置 <span aria-hidden="true">↗</span></button></div>
   <div id="toast" role="status" aria-live="polite" hidden></div>
