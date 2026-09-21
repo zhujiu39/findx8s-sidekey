@@ -4,7 +4,7 @@
 
 [ "$ARCH" = "arm64" ] || abort "当前安装包仅支持 ARM64 手机。"
 [ "$API" -ge 35 ] || abort "当前版本面向 Android 15 及以上系统。"
-ui_print "安装侧键自定义 v0.4.1"
+ui_print "安装侧键自定义 v0.4.2"
 ui_print "触发震动默认开启，可在 WebUI 的手感调节中关闭。"
 ui_print "新增左侧滑出快捷菜单：默认空白，可在 WebUI 自行添加捷径。"
 ui_print "重启后自动准备菜单组件，旧动作配置会保留。"

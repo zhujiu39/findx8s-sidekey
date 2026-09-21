@@ -1,7 +1,7 @@
 {
   "name": "oppo-sidekey",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "type": "module",
-  "scripts": {"test": "node --test tests/webui.test.js"}
+  "scripts": {"test": "node --test tests/*.test.js"}
 }

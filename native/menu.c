@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "menu.h"
 #include "menu_protocol.h"
+#include "menu_launch.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -18,11 +19,40 @@
 static int listener = -1;
 static unsigned int port;
 static char root_token[MENU_TOKEN_CAP], session[MENU_TOKEN_CAP], data_directory[700];
-static uint64_t expires, launcher_started;
+static uint64_t expires;
 static pid_t launcher;
+static MenuLaunch launch_state;
+static int show_client = -1, launch_output = -1, launch_log = -1;
+static size_t logged_bytes;
 static Action snapshot[MENU_CAP];
 static uint32_t snapshot_count;
 static struct { int fd; size_t size; char text[REQUEST_CAP]; uint64_t until; } clients[CLIENT_CAP] = {{.fd = -1}, {.fd = -1}, {.fd = -1}, {.fd = -1}};
+
+static void finish_show(bool success)
+{
+    if (show_client >= 0) {
+        const char *reply = success ? "OK\n" : "ERR\n";
+        (void)send(show_client, reply, strlen(reply), MSG_NOSIGNAL);
+        close(show_client); show_client = -1;
+    }
+}
+
+/* 只有父进程接触私有日志；传给 Android Binder 的标准输出必须是管道。 */
+static void collect_output(void)
+{
+    char buffer[2048];
+    for (int reads = 0; launch_output >= 0 && reads < 16; reads++) {
+        ssize_t n = read(launch_output, buffer, sizeof(buffer));
+        if (n < 0 && (errno == EAGAIN || errno == EINTR)) break;
+        if (n <= 0) { close(launch_output); launch_output = -1; break; }
+        size_t keep = (size_t)n;
+        if (keep > 65536 - logged_bytes) keep = 65536 - logged_bytes;
+        if (launch_log >= 0 && keep) {
+            ssize_t written = write(launch_log, buffer, keep);
+            if (written > 0) logged_bytes += (size_t)written;
+        }
+    }
+}
 
 static bool random_token(char *out)
 {
@@ -37,6 +67,10 @@ static bool random_token(char *out)
 
 void menu_close_descriptors(void)
 {
+    if (show_client >= 0) close(show_client);
+    if (launch_output >= 0) close(launch_output);
+    if (launch_log >= 0) close(launch_log);
+    show_client = launch_output = launch_log = -1;
     if (listener >= 0) close(listener);
     listener = -1;
     for (int i = 0; i < CLIENT_CAP; i++) {
@@ -47,6 +81,7 @@ void menu_close_descriptors(void)
 
 void menu_cancel(void)
 {
+    finish_show(false);
     session[0] = 0; expires = 0; snapshot_count = 0;
     if (launcher > 0) (void)kill(-launcher, SIGKILL);
 }
@@ -84,8 +119,11 @@ bool menu_init(const char *directory)
 /* am 在独立进程中启动；UI 和网络请求都不能阻塞输入事件调度。 */
 static bool show_menu(const Config *config, uint64_t now)
 {
-    if (launcher > 0) return false;
+    if (launcher > 0 || show_client >= 0) return false;
     menu_cancel();
+    collect_output();
+    if (launch_output >= 0) { close(launch_output); launch_output = -1; }
+    if (launch_log >= 0) { close(launch_log); launch_log = -1; }
     if (!random_token(session)) return false;
     snapshot_count = config->menu_count;
     for (uint32_t i = 0; i < snapshot_count; i++) snapshot[i] = config->menu[i].action;
@@ -103,16 +141,25 @@ static bool show_menu(const Config *config, uint64_t now)
     bool good = !ferror(out);
     if (fclose(out) != 0) good = false;
     if (!good) { menu_cancel(); return false; }
+    int output_pipe[2];
+    if (pipe2(output_pipe, O_CLOEXEC) != 0) { menu_cancel(); return false; }
+    if (fcntl(output_pipe[0], F_SETFL, O_NONBLOCK) != 0) {
+        close(output_pipe[0]); close(output_pipe[1]); menu_cancel(); return false;
+    }
+    launch_output = output_pipe[0];
+    char path[1024]; snprintf(path, sizeof(path), "%s/menu-launch.log", data_directory);
+    launch_log = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    logged_bytes = 0;
     pid_t parent = getpid();
     launcher = fork();
-    if (launcher < 0) { launcher = 0; menu_cancel(); return false; }
+    if (launcher < 0) { close(output_pipe[1]); launcher = 0; menu_cancel(); return false; }
     if (launcher == 0) {
         (void)setpgid(0, 0);
         if (prctl(PR_SET_PDEATHSIG, SIGKILL) != 0 || getppid() != parent) _exit(125);
-        menu_close_descriptors();
-        char path[1024]; snprintf(path, sizeof(path), "%s/menu-launch.log", data_directory);
-        int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
-        if (fd >= 0) { (void)dup2(fd, 1); (void)dup2(fd, 2); close(fd); }
+        int input = open("/dev/null", O_RDONLY | O_CLOEXEC);
+        if (input < 0 || dup2(input, STDIN_FILENO) < 0 ||
+            dup2(output_pipe[1], STDOUT_FILENO) < 0 || dup2(output_pipe[1], STDERR_FILENO) < 0) _exit(126);
+        close(input); close(output_pipe[1]); menu_close_descriptors();
         char port_text[16], position[16];
         snprintf(port_text, sizeof(port_text), "%u", port);
         snprintf(position, sizeof(position), "%u", config->menu_position);
@@ -122,8 +169,9 @@ static bool show_menu(const Config *config, uint64_t now)
               "--es", "side", config->menu_right ? "right" : "left", "--ei", "position", position, (char *)NULL);
         _exit(127);
     }
+    close(output_pipe[1]);
     (void)setpgid(launcher, launcher);
-    launcher_started = now;
+    launch_state = (MenuLaunch){.deadline = now + 8000};
     return true;
 }
 
@@ -143,14 +191,24 @@ static int torch_state(int32_t expected_pid)
 int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t torch_pid)
 {
     int failure = 0;
+    collect_output();
     if (launcher > 0) {
         int status = 0;
         pid_t done = waitpid(launcher, &status, WNOHANG);
         if (done == launcher) {
             (void)kill(-launcher, SIGKILL); launcher = 0;
-            if (!WIFEXITED(status) || WEXITSTATUS(status)) { menu_cancel(); failure = 1; }
-        } else if (done < 0 && errno != EINTR) { launcher = 0; menu_cancel(); failure = 1; }
-        else if (now - launcher_started >= 8000) { if (expires) failure = 124; menu_cancel(); }
+            launch_state.command_done = true;
+            launch_state.error = WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+        } else if (done < 0 && errno != EINTR) { launcher = 0; launch_state.error = 1; }
+    }
+    if (show_client >= 0) {
+        int result = menu_launch_result(&launch_state, now);
+        if (result >= 0) {
+            if (result) {
+                if (launch_log >= 0) dprintf(launch_log, "\n菜单未就绪：代码 %d（命令完成=%d，组件握手=%d）。\n", result, launch_state.command_done, launch_state.ui_ready);
+                failure = result; menu_cancel();
+            } else finish_show(true);
+        }
     }
     if (expires && now >= expires) { session[0] = 0; expires = 0; }
     if (listener < 0) return failure;
@@ -169,12 +227,15 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
         if (newline && newline == clients[i].text + clients[i].size - 1 && !memchr(clients[i].text, 0, clients[i].size)) {
             *newline = 0;
             char expected[96]; snprintf(expected, sizeof(expected), "SHOW %s", root_token);
-            if (!strcmp(expected, clients[i].text)) accepted = show_menu(config, now);
+            if (!strcmp(expected, clients[i].text)) {
+                accepted = show_menu(config, now);
+                if (accepted) { show_client = clients[i].fd; clients[i].fd = -1; continue; }
+            }
             else {
                 uint32_t index = 0;
                 MenuCommand command = menu_authorize(clients[i].text, session, expires, now, snapshot_count, &index);
-                if (command == MENU_PING) { accepted = true; ping = true; }
-                else if (command == MENU_CLOSE) { session[0] = 0; expires = 0; accepted = true; }
+                if (command == MENU_PING) { accepted = true; ping = true; launch_state.ui_ready = true; }
+                else if (command == MENU_CLOSE) { session[0] = 0; expires = 0; accepted = true; if (!launch_state.ui_ready) launch_state.error = 1; }
                 else if (command == MENU_SELECT) {
                     session[0] = 0; expires = 0;
                     accepted = selected && selected(&snapshot[index]);
@@ -193,7 +254,7 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
 int menu_descriptor(void) { return listener; }
 int menu_wait_ms(void)
 {
-    if (launcher > 0) return 50;
+    if (launcher > 0 || show_client >= 0 || launch_output >= 0) return 50;
     for (int i = 0; i < CLIENT_CAP; i++) if (clients[i].fd >= 0) return 50;
     return 500;
 }
@@ -213,11 +274,11 @@ int menu_request(const char *directory)
     int result = connect(fd, (struct sockaddr *)&address, sizeof(address));
     if (result != 0 && errno != EINPROGRESS) { close(fd); return 1; }
     int error = 0; socklen_t length = sizeof(error);
-    if (poll(&poll_fd, 1, 1500) <= 0 || getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &length) != 0 || error) { close(fd); return 1; }
+    if (poll(&poll_fd, 1, 500) <= 0 || getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &length) != 0 || error) { close(fd); return 1; }
     char request[96]; int size = snprintf(request, sizeof(request), "SHOW %s\n", token);
     if (send(fd, request, (size_t)size, MSG_NOSIGNAL) != size) { close(fd); return 1; }
     poll_fd.events = POLLIN;
     char response[8] = {0};
-    bool good = poll(&poll_fd, 1, 3000) > 0 && recv(fd, response, sizeof(response) - 1, 0) == 3 && !strcmp(response, "OK\n");
+    bool good = poll(&poll_fd, 1, 9000) > 0 && recv(fd, response, sizeof(response) - 1, 0) == 3 && !strcmp(response, "OK\n");
     close(fd); return good ? 0 : 1;
 }

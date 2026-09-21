@@ -1,6 +1,6 @@
 id=oppo_sidekey
 name=侧键自定义 · Find X8s
-version=v0.4.1
-versionCode=41
+version=v0.4.2
+versionCode=42
 author=Local Developer
 description=WebUI 自定义短按、双击和长按；新增左侧滑出快捷菜单，可 DIY 名称、图标与动作，保留震动和系统手电筒。

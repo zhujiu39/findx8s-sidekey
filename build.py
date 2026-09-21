@@ -20,7 +20,7 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '0.4.1'
+VERSION = '0.4.2'
 
 
 def run(arguments):
@@ -87,9 +87,10 @@ def build_torch():
         sources = sorted((ROOT / 'android').rglob('*.java'))
         run([javac, '-J-Dfile.encoding=UTF-8', '-J-Dstdout.encoding=UTF-8', '-J-Dstderr.encoding=UTF-8',
              '--release', '8', '-Xlint:-options', '-encoding', 'UTF-8', '-classpath', android_jar,
-             '-d', temporary, *sources, ROOT / 'tests/TorchControllerTest.java'])
+             '-d', temporary, *sources, ROOT / 'tests/TorchControllerTest.java', ROOT / 'tests/AppCatalogModelTest.java'])
         java_options = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8']
         run([java, *java_options, '-cp', temporary, 'TorchControllerTest'])
+        run([java, *java_options, '-cp', temporary, 'AppCatalogModelTest'])
         output = MODULE / 'lib/torch.jar'
         output.parent.mkdir(exist_ok=True)
         run([java, *java_options, '-cp', d8, 'com.android.tools.r8.D8', '--release', '--min-api', '33',
@@ -145,7 +146,7 @@ def build_menu():
              '--ks-pass', 'file:' + str(password), '--out', output, aligned])
         run([java, '-jar', signer, 'verify', '--verbose', output])
         badging = run([find('build-tools/*/aapt.exe'), 'dump', 'badging', output])
-        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='41'" not in badging:
+        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='42'" not in badging:
             raise RuntimeError('菜单 APK 包名或版本无效')
         with zipfile.ZipFile(output) as apk:
             if apk.testzip() or not apk.read('classes.dex').startswith(b'dex\n'):
@@ -165,17 +166,17 @@ def main():
     sources = ['native/gesture.c', 'native/config.c']
     common = ['-Wall', '-Wextra', '-Werror', '-std=c11', '-I', 'native']
     run([zig, 'cc', '-target', 'aarch64-linux-musl', '-static', '-O2', *common,
-         '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', 'native/torch.c', 'native/haptic.c', 'native/menu.c', 'native/menu_protocol.c', *sources, '-o', MODULE / 'bin/sidekey'])
+         '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', 'native/torch.c', 'native/haptic.c', 'native/menu.c', 'native/menu_protocol.c', 'native/menu_launch.c', *sources, '-o', MODULE / 'bin/sidekey'])
     validate_elf(MODULE / 'bin/sidekey')
     build_torch()
     build_menu()
     test_binary = BUILD / ('native_tests.exe' if os.name == 'nt' else 'native_tests')
-    run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', 'native/menu_protocol.c', *sources, '-o', test_binary])
+    run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', 'native/menu_protocol.c', 'native/menu_launch.c', *sources, '-o', test_binary])
     run([test_binary])
     node = shutil.which('node')
     if not node:
         raise RuntimeError('未找到 Node.js，无法执行 WebUI 测试')
-    run([node, '--test', 'tests/webui.test.js'])
+    run([node, '--test', 'tests/webui.test.js', 'tests/app-catalog.test.js'])
     fixture = run([node, '--input-type=module', '-e',
         "import {defaultConfig,serialize} from './module/webroot/model.js';"
         "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu=[{slot:3,name:'设置',icon:'⚙️',type:'app_freeform',argument:'com.android.settings'},{slot:10,name:'灯光',icon:'',type:'torch',argument:''}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
@@ -196,6 +197,7 @@ def main():
     bash = (r'C:\Program Files\Git\bin\bash.exe' if os.name == 'nt' and Path(r'C:\Program Files\Git\bin\bash.exe').exists() else shutil.which('bash'))
     if not bash or not Path(bash).exists():
         raise RuntimeError('未找到 Bash，无法执行 Shell 语法检查')
+    run([sys.executable, 'tests/menu_install_test.py', bash])
     files = sorted(path for path in MODULE.rglob('*') if path.is_file())
     required = {'module.prop', 'skip_mount', 'customize.sh', 'service.sh', 'action.sh',
                 'uninstall.sh', 'scripts/control.sh', 'bin/sidekey', 'lib/torch.jar', 'lib/sidekey-menu.apk', 'scripts/menu-install.sh', 'webroot/index.html',
@@ -214,7 +216,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_网格菜单与系统主题')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_应用选择与菜单启动修复')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -247,7 +249,7 @@ def main():
         '新增可自定义快捷菜单：应用和动作默认未配置，显示 2×4 应用卡片与 4 个开关占位，从左侧滑出，跟随系统深浅色。\n\n'
         f'安装：在 KernelSU 覆盖安装 test_oppo_sidekey_v{VERSION}.zip 后重启。升级保留已有动作。'
         '模块会自动安装侧键快捷菜单组件；在 WebUI 将某个手势改为“弹出快捷菜单”，添加捷径并保存。'
-        '支持名称、emoji、动作参数、槽位选择和同组排序；8 个应用卡片、4 个快捷开关。应用默认请求系统小窗。\n\n'
+        '应用从手机列表按名称搜索选择，自动填写卡片名称；保留手动命名。菜单启动等待组件握手，失败不再显示成功。支持名称、emoji、动作参数、槽位选择和同组排序；8 个应用卡片、4 个快捷开关。应用默认请求系统小窗。\n\n'
         '菜单组件只接收名称、图标和一次性会话；动作由模块执行。使用本机回环网络通信，'
         '不访问远端，不需要悬浮窗、无障碍或单独 Root 授权。卸载模块时移除菜单组件。\n\n'
         '本次本地验证覆盖手势、旧配置升级、菜单边界和非法请求、UTF-8 往返、WebUI、Shell、'

@@ -1,6 +1,7 @@
 import {initMenuEditor, fillMenu, readMenu, menuBusy} from './menu-editor.js';
 import {actions, gestureIds, defaultConfig, validate, serialize, hex} from './model.js';
-import {api, exec, available} from './bridge.js';
+import {api, available} from './bridge.js';
+import {appCatalog, createAppChoice} from './app-picker.js';
 const $ = id => document.getElementById(id);
 let saved = defaultConfig(), loaded = false, busy = false, refreshBusy = false;
 let toastTimer;
@@ -18,6 +19,10 @@ function buildCards() {
     const card = document.createElement('article'); card.className = 'gesture-card';
     card.innerHTML = `<div class="gesture-top"><span class="gesture-icon" aria-hidden="true">${iconLabels[index]}</span><div class="gesture-title"><h3>${titles[index]}</h3><p>${descriptions[index]}</p></div><button class="test" id="test-${id}" type="button">测试 ↗</button></div><div class="selector"><select id="action-${id}" aria-label="${titles[index]}动作"></select></div><div class="argument" id="argument-${id}" hidden><label for="value-${id}"></label><input id="value-${id}" autocomplete="off" spellcheck="false"><textarea id="shell-${id}" aria-label="${titles[index]} Shell 命令" spellcheck="false" hidden></textarea><p></p></div>`;
     $('gestures').append(card);
+    const appChoice = createAppChoice(() => $(`value-${id}`).value, app => {
+      $(`value-${id}`).value = app.packageName; updateDirty();
+    }, `${titles[index]}应用`);
+    appChoice.id = `app-${id}`; $(`argument-${id}`).insertBefore(appChoice, $(`value-${id}`));
     const select = $(`action-${id}`);
     actions.forEach(([value, name]) => select.add(new Option(name, value)));
     select.addEventListener('change', () => { $(`value-${id}`).value = ''; $(`shell-${id}`).value = ''; updateArgument(id); updateDirty(); });
@@ -29,15 +34,16 @@ function buildCards() {
 function updateArgument(id) {
   const type = $(`action-${id}`).value, block = $(`argument-${id}`), input = $(`value-${id}`), shell = $(`shell-${id}`);
   block.hidden = !['app', 'app_freeform', 'keycode', 'shell'].includes(type);
-  input.hidden = type === 'shell'; shell.hidden = type !== 'shell';
+  const isApp = ['app','app_freeform'].includes(type);
+  input.hidden = type !== 'keycode'; shell.hidden = type !== 'shell';
+  $(`app-${id}`).hidden = !isApp; $(`app-${id}`).refreshAppChoice();
   const label = block.querySelector('label');
-  label.htmlFor = type === 'shell' ? `shell-${id}` : `value-${id}`;
-  label.textContent = ['app','app_freeform'].includes(type) ? '应用包名' : type === 'keycode' ? 'Android 按键码' : 'Shell 命令（Root）';
+  label.htmlFor = isApp ? `app-${id}` : type === 'shell' ? `shell-${id}` : `value-${id}`;
+  label.textContent = isApp ? '应用' : type === 'keycode' ? 'Android 按键码' : 'Shell 命令（Root）';
   input.type = type === 'keycode' ? 'number' : 'text';
-  input.placeholder = ['app','app_freeform'].includes(type) ? 'com.android.settings' : '例如 3（主页）';
-  if (['app','app_freeform'].includes(type)) input.setAttribute('list', 'packages'); else input.removeAttribute('list');
+  input.placeholder = '例如 3（主页）';
   shell.placeholder = '例如：input keyevent 3';
-  block.querySelector('p').textContent = ['app','app_freeform'].includes(type) ? '可在下方运行状态中读取已安装应用包名。' : type === 'keycode' ? '使用 Android KeyEvent 编码，不是底层 Linux 输入键码。' : '使用系统 Shell 执行，最长 10 秒；只运行你确认过的命令。';
+  block.querySelector('p').textContent = isApp ? '从当前手机的应用列表选择，支持按名称搜索。' : type === 'keycode' ? '使用 Android KeyEvent 编码，不是底层 Linux 输入键码。' : '使用系统 Shell 执行，最长 10 秒；只运行你确认过的命令。';
 }
 function formConfig() {
   return {enabled: $('enabled').checked, haptic: $('haptic').checked, long_ms: Number($('long-ms').value), double_ms: Number($('double-ms').value),
@@ -50,7 +56,7 @@ function updateDirty() {
   $('save').disabled = busy || !loaded;
   $('save-state').textContent = busy ? '正在保存…' : !loaded ? '配置未加载' : dirty() ? '有未保存的修改' : '设置已同步';
   gestureIds.forEach((id, i) => { $(`test-${id}`).disabled = busy || !loaded || dirty() || saved.actions[i].type === 'none' || !available(); });
-  document.querySelectorAll('input, select, textarea, #refresh, #start-service, #reload-apps').forEach(element => { element.disabled = busy; });
+  document.querySelectorAll('main input, main select, main textarea, .app-choice, #refresh, #start-service, #reload-apps').forEach(element => { element.disabled = busy; });
   if (!available()) $('start-service').disabled = true;
 }
 function fill(config) {
@@ -110,7 +116,7 @@ async function save() {
 async function testAction(id) {
   if (dirty()) { toast('请先保存设置，再测试动作'); return; }
   busy = true; updateDirty();
-  try { const data = await api('test', id); toast(data.result === 0 ? (saved.actions[gestureIds.indexOf(id)].type === 'menu' ? '菜单打开请求已提交，未显示时请查看菜单日志' : '动作已执行') : `动作退出码 ${data.result}`); }
+  try { const data = await api('test', id); toast(data.result === 0 ? (saved.actions[gestureIds.indexOf(id)].type === 'menu' ? '菜单组件已启动并连接' : '动作已执行') : `动作退出码 ${data.result}，请查看运行日志`); }
   catch (error) { notice(error.message); }
   finally { busy = false; updateDirty(); refresh(); }
 }
@@ -118,10 +124,9 @@ async function packages() {
   if (!available()) { toast('请在手机的 KernelSU 中读取应用'); return; }
   $('reload-apps').disabled = true;
   try {
-    const text = await exec('/system/bin/cmd package list packages --user current');
-    const list = text.split('\n').filter(line => line.startsWith('package:')).map(line => line.slice(8).trim()).sort();
-    $('packages').replaceChildren(...list.map(name => new Option(name, name)));
-    toast(`已读取 ${list.length} 个应用包名`);
+    const data = await appCatalog.get(true);
+    document.dispatchEvent(new Event('sidekey-apps-updated'));
+    toast(`已读取 ${data.apps.length} 个可启动应用`);
   } catch (error) { notice(error.message); }
   finally { $('reload-apps').disabled = false; }
 }

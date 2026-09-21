@@ -1,4 +1,6 @@
 import {actions} from './model.js';
+import {appCatalog, createAppChoice} from './app-picker.js';
+import {selectionName} from './app-catalog.js';
 const $ = id => document.getElementById(id);
 let entries = [], onChange = () => {}, isBusy = false;
 const needsArgument = type => ['app', 'app_freeform', 'keycode', 'shell'].includes(type);
@@ -39,9 +41,11 @@ function render() {
     position.addEventListener('change', () => { item.slot = Number(position.value); entries.sort((a,b) => a.slot - b.slot); render(); onChange(); });
     card.append(field('面板位置', position));
     const fields = element('div', 'menu-label-fields');
+    let nameInput;
     for (const [key, label, placeholder] of [['icon','图标 / emoji','可留空'], ['name','名称','输入捷径名称']]) {
       const input = element('input', ''); input.value = item[key]; input.placeholder = placeholder;
       input.autocomplete = 'off'; input.addEventListener('input', () => { item[key] = input.value; onChange(); });
+      if (key === 'name') nameInput = input;
       fields.append(field(label, input));
     }
     card.append(fields);
@@ -49,9 +53,16 @@ function render() {
     select.value = item.type; card.append(field('执行动作', select));
     const argument = element('textarea', ''); argument.value = item.argument; argument.rows = 2; argument.spellcheck = false;
     const argumentField = field('动作参数', argument); card.append(argumentField);
+    const appChoice = createAppChoice(() => item.argument, app => {
+      item.name = selectionName(item.name, item.argument, app, packageName => appCatalog.lookup(packageName));
+      item.argument = app.packageName; nameInput.value = item.name; onChange();
+    }, `${slotLabel}应用`);
+    const appField = field('应用', appChoice); card.append(appField);
     function updateArgument() {
-      argumentField.hidden = !needsArgument(item.type);
-      argument.placeholder = item.type === 'shell' ? '以 Root 执行的 Shell 命令' : ['app','app_freeform'].includes(item.type) ? '应用包名，如 com.android.settings' : 'Android 按键码，如 3';
+      const isApp = ['app','app_freeform'].includes(item.type);
+      appField.hidden = !isApp; appChoice.refreshAppChoice();
+      argumentField.hidden = !needsArgument(item.type) || isApp;
+      argument.placeholder = item.type === 'shell' ? '以 Root 执行的 Shell 命令' : 'Android 按键码，如 3';
     }
     select.addEventListener('change', () => { item.type = select.value; item.argument = ''; argument.value = ''; updateArgument(); onChange(); });
     argument.addEventListener('input', () => { item.argument = argument.value; onChange(); });
@@ -90,7 +101,8 @@ export function menuBusy(value) {
   $('add-menu-switch').disabled = value || entries.filter(item=>item.slot >= 8).length >= 4;
   $('preview-menu').disabled = value;
   $('menu-position-output').value = `${$('menu-position').value}%`;
-  $('menu-items').querySelectorAll('button').forEach((button, index) => {
+  $('menu-items').querySelectorAll('.app-choice').forEach(button => { button.disabled = value; });
+  $('menu-items').querySelectorAll('.menu-item-tools button').forEach((button, index) => {
     const itemIndex = Math.floor(index / 3), tool = index % 3;
     button.disabled = value || (tool === 0 && (itemIndex === 0 || (entries[itemIndex - 1].slot < 8) !== (entries[itemIndex].slot < 8))) || (tool === 1 && (itemIndex === entries.length - 1 || (entries[itemIndex + 1].slot < 8) !== (entries[itemIndex].slot < 8)));
   });

@@ -22,6 +22,18 @@ case "$1" in
         [ ! -f "$MODDIR/disable" ] && [ ! -f "$MODDIR/remove" ] || exit 1
         nohup sh "$MODDIR/scripts/menu-install.sh" >/dev/null 2>&1 &
         ;;
+    apps)
+        [ "$#" -eq 1 ] || exit 2
+        [ -r "$MODDIR/lib/torch.jar" ] || { echo "应用列表组件不存在，请重新安装模块" >&2; exit 1; }
+        command -v timeout >/dev/null 2>&1 || { echo "系统缺少 timeout 命令" >&2; exit 1; }
+        CLASSPATH="$MODDIR/lib/torch.jar" timeout -s KILL 12 /system/bin/app_process /system/bin cn.sidekey.AppCatalog
+        result=$?
+        [ "$result" -eq 0 ] && exit 0
+        if [ "$result" -eq 124 ] || [ "$result" -eq 137 ]; then
+            echo "读取应用列表超时，请重试" >&2
+        fi
+        exit "$result"
+        ;;
     get) exec "$BINARY" get "$DATA" ;;
     start) start_service ;;
     stop) exec "$BINARY" stop "$DATA" ;;

@@ -1,6 +1,7 @@
 #include "gesture.h"
 #include "config.h"
 #include "menu_protocol.h"
+#include "menu_launch.h"
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
@@ -161,6 +162,21 @@ int main(int argc, char **argv)
     snprintf(text, sizeof(text), "CLOSE %s", token);
     assert(menu_authorize(text, token, 60000, 1, 0, &selected) == MENU_CLOSE);
     puts("PASS: menu config migration, strict bounds, session token / expiry / index validation");
+    MenuLaunch launch = {.deadline = 9000};
+    assert(menu_launch_result(&launch, 1000) == -1);
+    launch.command_done = true;
+    assert(menu_launch_result(&launch, 2000) == -1); /* am 返回 0 不能替代组件握手。 */
+    launch.ui_ready = true;
+    assert(menu_launch_result(&launch, 8999) == 0);
+    launch.command_done = false;
+    assert(menu_launch_result(&launch, 8999) == -1); /* 握手也不能掩盖启动命令失败。 */
+    launch.command_done = true; launch.error = 7;
+    assert(menu_launch_result(&launch, 3000) == 7);
+    launch.error = 0; launch.ui_ready = false;
+    assert(menu_launch_result(&launch, 9000) == 124);
+    launch.ui_ready = true;
+    assert(menu_launch_result(&launch, 9000) == 124);
+    puts("PASS: menu launch acknowledgement requires command success and UI handshake, with failure / deadline handling");
     puts("PASS: 9 gesture scenarios, strict config / hex validation and haptic upgrade compatibility");
     return 0;
 }
