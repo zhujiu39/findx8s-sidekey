@@ -18,7 +18,6 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.animation.PathInterpolator;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -38,8 +37,9 @@ import java.util.concurrent.Executors;
 public final class MenuActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService network = Executors.newSingleThreadExecutor();
-    private FrameLayout root;
+    private MenuPanelHost root;
     private LinearLayout panel;
+    private ScrollView scroll;
     private View shade;
     private Session session;
     private boolean closing, dispatched, entered;
@@ -108,14 +108,12 @@ public final class MenuActivity extends Activity {
     @Override public void onConfigurationChanged(Configuration configuration) {
         super.onConfigurationChanged(configuration);
         if (closing || currentItems == null) return;
-        boolean wasEntered = entered; entered = false;
+        boolean wasEntered = entered;
+        panel.animate().cancel(); shade.animate().cancel();
         try {
             build(currentItems);
-            root.post(() -> {
-                placePanel(); entered = wasEntered;
-                panel.setTranslationX(0); panel.setAlpha(wasEntered ? 1 : 0); shade.setAlpha(wasEntered ? 1 : 0);
-                updateSwitches();
-            });
+            // 已打开的会话在旋转或换主题后继续显示；未握手的会话继续等待原回调。
+            panel.setAlpha(wasEntered ? 1 : 0); shade.setAlpha(wasEntered ? 1 : 0);
         } catch (Exception exception) { closeNow(); }
     }
 
@@ -127,11 +125,7 @@ public final class MenuActivity extends Activity {
         tileTop = Color.parseColor(dark ? "#393E45" : "#FFFFFF");
         tileBottom = Color.parseColor(dark ? "#30353B" : "#EAEDF1");
         stroke = Color.parseColor(dark ? "#545960" : "#D6DBE1");
-        torchSwitches.clear();
-        root = new FrameLayout(this);
         shade = new View(this); shade.setBackgroundColor(0x55000000); shade.setAlpha(0);
-        root.addView(shade, new FrameLayout.LayoutParams(-1, -1));
-        root.setOnClickListener(view -> dismiss());
         panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(dp(14), dp(12), dp(14), dp(16));
         GradientDrawable backdrop = background(surface, 24); backdrop.setStroke(dp(1), stroke);
@@ -139,11 +133,37 @@ public final class MenuActivity extends Activity {
         panel.setAlpha(0); panel.setClickable(true);
         LinearLayout heading = new LinearLayout(this); heading.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = text("快捷菜单", 19, foreground); title.setTypeface(null, Typeface.BOLD);
+        title.setSingleLine(true); title.setEllipsize(TextUtils.TruncateAt.END);
         heading.addView(title, new LinearLayout.LayoutParams(0, dp(44), 1));
         TextView close = text("×", 25, muted); close.setGravity(Gravity.CENTER); close.setContentDescription("关闭菜单");
         close.setOnClickListener(view -> dismiss());
         heading.addView(close, new LinearLayout.LayoutParams(dp(44), dp(44))); panel.addView(heading);
-        ScrollView scroll = new ScrollView(this); scroll.setFillViewport(false);
+        scroll = new ScrollView(this); scroll.setFillViewport(false);
+        scroll.setClipToPadding(false); scroll.setVerticalScrollBarEnabled(true);
+        // 标题保留在面板内，滚动区只使用剩余高度，底部开关不会被固定面板裁掉。
+        panel.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        populate(items, false);
+        root = new MenuPanelHost(this, shade, panel, right, position, new MenuPanelHost.Listener() {
+            @Override public void compactChanged(boolean compact) {
+                try { populate(items, compact); }
+                catch (Exception exception) { handler.post(MenuActivity.this::closeNow); }
+            }
+            @Override public void positioned() {
+                if (!entered) panel.setTranslationX(root.offscreenTranslation());
+            }
+        });
+        root.setOnClickListener(view -> dismiss());
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return insets;
+        });
+        setContentView(root); root.requestApplyInsets();
+    }
+
+    private void populate(JSONArray items, boolean compact) throws Exception {
+        torchSwitches.clear();
+        panel.setPadding(dp(compact ? 12 : 14), dp(compact ? 8 : 12), dp(compact ? 12 : 14), dp(compact ? 10 : 16));
         LinearLayout content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL);
         JSONObject[] slots = new JSONObject[12]; int[] indexes = new int[12];
         for (int i = 0; i < items.length(); i++) {
@@ -153,8 +173,8 @@ public final class MenuActivity extends Activity {
         }
         for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
             if (rowIndex == 2) {
-                TextView subtitle = text("快捷开关", 16, foreground); subtitle.setTypeface(null, Typeface.BOLD);
-                subtitle.setPadding(dp(2), dp(17), 0, dp(10)); content.addView(subtitle);
+                TextView subtitle = text("快捷开关", compact ? 14 : 16, foreground); subtitle.setTypeface(null, Typeface.BOLD);
+                subtitle.setPadding(dp(2), dp(compact ? 10 : 17), 0, dp(compact ? 6 : 10)); content.addView(subtitle);
             }
             LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL);
             for (int column = 0; column < 4; column++) {
@@ -165,20 +185,22 @@ public final class MenuActivity extends Activity {
                 String icon = item == null ? "" : item.getString("icon");
                 if (name.length() > 96 || icon.length() > 24) throw new IllegalArgumentException("文本过长");
                 LinearLayout tile = new LinearLayout(this); tile.setOrientation(LinearLayout.VERTICAL); tile.setGravity(Gravity.CENTER);
-                tile.setPadding(dp(3), dp(10), dp(3), dp(10));
+                int tilePadding = dp(compact ? 6 : 10), iconSize = dp(compact ? 26 : 32);
+                tile.setPadding(dp(3), tilePadding, dp(3), tilePadding);
                 GradientDrawable card = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{tileTop, tileBottom});
                 card.setCornerRadius(dp(13)); card.setStroke(dp(1), stroke); tile.setBackground(card);
                 if (slot < 8) {
-                    if (icon.isEmpty()) tile.addView(new AppGlyph(), new LinearLayout.LayoutParams(dp(32), dp(32)));
-                    else { TextView symbol = text(icon, 26, foreground); symbol.setGravity(Gravity.CENTER); tile.addView(symbol, new LinearLayout.LayoutParams(-1, dp(34))); }
+                    if (icon.isEmpty()) tile.addView(new AppGlyph(), new LinearLayout.LayoutParams(iconSize, iconSize));
+                    else { TextView symbol = text(icon, compact ? 22 : 26, foreground); symbol.setGravity(Gravity.CENTER); symbol.setIncludeFontPadding(false); tile.addView(symbol, new LinearLayout.LayoutParams(-1, iconSize)); }
                 }
-                TextView label = text(name, 12, foreground); label.setMaxLines(2); label.setEllipsize(TextUtils.TruncateAt.END); label.setGravity(Gravity.CENTER);
-                LinearLayout.LayoutParams labelLayout = new LinearLayout.LayoutParams(-1, dp(34));
-                if (slot < 8) labelLayout.topMargin = dp(4);
+                TextView label = text(name, compact ? 11 : 12, foreground); label.setMaxLines(2); label.setEllipsize(TextUtils.TruncateAt.END); label.setGravity(Gravity.CENTER); label.setIncludeFontPadding(false);
+                int labelHeight = Math.max(dp(compact ? 28 : 34), label.getLineHeight() * 2);
+                LinearLayout.LayoutParams labelLayout = new LinearLayout.LayoutParams(-1, labelHeight);
+                if (slot < 8) labelLayout.topMargin = dp(compact ? 2 : 4);
                 tile.addView(label, labelLayout);
                 if (slot >= 8) {
                     SwitchGlyph control = new SwitchGlyph("torch".equals(type), item == null || "none".equals(type));
-                    tile.addView(control, new LinearLayout.LayoutParams(dp(38), dp(23)));
+                    tile.addView(control, new LinearLayout.LayoutParams(dp(compact ? 34 : 38), dp(compact ? 20 : 23)));
                     if ("torch".equals(type)) torchSwitches.add(control);
                 }
                 boolean configured = !"none".equals(type);
@@ -188,24 +210,17 @@ public final class MenuActivity extends Activity {
                     final int chosen = indexes[slot];
                     tile.setOnClickListener(view -> { if (!closing && entered) { selection = chosen; dismiss(); } });
                 }
-                LinearLayout.LayoutParams tileLayout = new LinearLayout.LayoutParams(0, slot < 8 ? dp(94) : dp(86), 1);
-                if (column < 3) tileLayout.rightMargin = dp(8);
+                int minimumHeight = dp(slot < 8 ? (compact ? 76 : 94) : (compact ? 64 : 86));
+                int contentHeight = tilePadding * 2 + labelHeight + labelLayout.topMargin + (slot < 8 ? iconSize : dp(compact ? 20 : 23));
+                LinearLayout.LayoutParams tileLayout = new LinearLayout.LayoutParams(0, Math.max(minimumHeight, contentHeight), 1);
+                if (column < 3) tileLayout.rightMargin = dp(compact ? 6 : 8);
                 row.addView(tile, tileLayout);
             }
             LinearLayout.LayoutParams rowLayout = new LinearLayout.LayoutParams(-1, -2);
-            if (rowIndex == 1) rowLayout.topMargin = dp(8);
+            if (rowIndex == 1) rowLayout.topMargin = dp(compact ? 6 : 8);
             content.addView(row, rowLayout);
         }
-        scroll.addView(content); panel.addView(scroll, new LinearLayout.LayoutParams(-1, -2));
-        FrameLayout.LayoutParams layout = new FrameLayout.LayoutParams(dp(360), -2, Gravity.TOP | (right ? Gravity.RIGHT : Gravity.LEFT));
-        layout.leftMargin = dp(10); layout.rightMargin = dp(10);
-        root.addView(panel, layout); setContentView(root);
-        root.setOnApplyWindowInsetsListener((view, insets) -> {
-            Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-            root.setPadding(bars.left, bars.top, bars.right, bars.bottom); root.post(this::placePanel);
-            return insets;
-        });
-        root.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> { if (r-l != or-ol || b-t != ob-ot) placePanel(); });
+        scroll.removeAllViews(); scroll.addView(content);
         updateSwitches();
     }
 
@@ -247,24 +262,10 @@ public final class MenuActivity extends Activity {
         }
     }
 
-    private void placePanel() {
-        if (root == null || panel == null || root.getWidth() == 0) return;
-        int available = root.getHeight() - root.getPaddingTop() - root.getPaddingBottom();
-        int width = Math.min(dp(720), root.getWidth() - root.getPaddingLeft() - root.getPaddingRight() - dp(20));
-        int maxHeight = Math.max(dp(48), available - dp(28));
-        panel.measure(View.MeasureSpec.makeMeasureSpec(Math.max(1, width), View.MeasureSpec.EXACTLY),
-                      View.MeasureSpec.makeMeasureSpec(maxHeight, View.MeasureSpec.AT_MOST));
-        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)panel.getLayoutParams();
-        params.width = width; params.height = panel.getMeasuredHeight();
-        params.topMargin = Math.max(dp(12), Math.min(available - params.height - dp(12), available * position / 100 - params.height / 2));
-        panel.setLayoutParams(params);
-        if (!entered) panel.setTranslationX((right ? 1 : -1) * (width + dp(30)));
-    }
-
     private void enter() {
         if (closing || entered) return;
         if (root.getWidth() == 0) { root.post(this::enter); return; }
-        placePanel(); entered = true;
+        panel.setTranslationX(root.offscreenTranslation()); entered = true;
         shade.animate().alpha(1).setDuration(240).start();
         panel.animate().translationX(0).alpha(1).setDuration(280)
             .setInterpolator(new PathInterpolator(0.2f, 0, 0, 1)).start();
@@ -276,7 +277,7 @@ public final class MenuActivity extends Activity {
         closing = true; handler.removeCallbacksAndMessages(null);
         if (panel == null) { closeNow(); return; }
         shade.animate().alpha(0).setDuration(160).start();
-        panel.animate().translationX((right ? 1 : -1) * (panel.getWidth() + dp(30))).alpha(0)
+        panel.animate().translationX(root.offscreenTranslation()).alpha(0)
             .setDuration(180).withEndAction(this::closeNow).start();
     }
 

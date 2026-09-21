@@ -7,13 +7,13 @@
 为 **OPPO Find X8s** 开发的 KernelSU 侧键自定义模块。<br>
 在 WebUI 中配置短按、双击和长按，把手电筒、相机、媒体控制和常用操作放在指尖。
 
-[![Version](https://img.shields.io/badge/version-v0.4.2%20%7C%20pre--release-orange)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.4.2)
+[![Version](https://img.shields.io/badge/version-v0.4.3%20%7C%20pre--release-orange)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.4.3)
 [![Device](https://img.shields.io/badge/device-OPPO%20Find%20X8s-2d6a4f)](#compatibility)
 [![Android](https://img.shields.io/badge/Android-15-3DDC84?logo=android&logoColor=white)](#compatibility)
 [![KernelSU](https://img.shields.io/badge/Root-KernelSU-1565C0)](https://kernelsu.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-[下载模块](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.4.2) ·
+[下载模块](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.4.3) ·
 [快速开始](#quick-start) ·
 [支持的动作](#actions) ·
 [常见问题](#faq) ·
@@ -23,10 +23,10 @@
 </div>
 
 > [!TIP]
-> 想直接安装？下载 **[test_oppo_sidekey_v0.4.2.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v0.4.2/test_oppo_sidekey_v0.4.2.zip)**，在 KernelSU 管理器中安装并重启。Release 附带 `SHA256SUMS.txt`；GitHub 自动生成的 **Source code** 压缩包用于开发，不能直接安装。
+> 想直接安装？下载 **[test_oppo_sidekey_v0.4.3.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v0.4.3/test_oppo_sidekey_v0.4.3.zip)**，在 KernelSU 管理器中安装并重启。Release 附带 `SHA256SUMS.txt`；GitHub 自动生成的 **Source code** 压缩包用于开发，不能直接安装。
 
 > [!IMPORTANT]
-> 当前是 **v0.4.2 功能测试版**。侧键输入设备与键码已通过 ADB 确认，本地构建和自动化测试已通过；快捷菜单在 ColorOS 上的弹出与点击，以及系统手电筒、图标同步、震动和锁屏／息屏响应仍需目标手机验证。详细范围见[兼容性与验证状态](#compatibility)。
+> 当前是 **v0.4.3 功能测试版**。侧键输入设备与键码已通过 ADB 确认，本地构建和自动化测试已通过；快捷菜单在 ColorOS 上的弹出与点击，以及系统手电筒、图标同步、震动和锁屏／息屏响应仍需目标手机验证。详细范围见[兼容性与验证状态](#compatibility)。
 
 ## ✨ 一眼看懂
 
@@ -85,7 +85,7 @@
 
 ### 第一次安装
 
-1. 从 [Releases](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.4.2) 下载 `test_oppo_sidekey_v0.4.2.zip`。
+1. 从 [Releases](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.4.3) 下载 `test_oppo_sidekey_v0.4.3.zip`。
 2. 打开 **KernelSU → 模块 → 从本地安装**，选择 ZIP，安装完成后重启。
 3. 从模块卡片打开 **WebUI**，为短按、双击、长按选择动作。
 4. 按需设置长按时间、双击间隔和“触发时震动”。
@@ -110,6 +110,8 @@
 
 下方四个位置也可以自定义动作。**手电筒**使用系统回调状态：绿色表示已开启，灰色表示已关闭，横线表示状态暂不可用；菜单打开期间约每 2 秒更新一次。其他导航、Shell 等单次动作显示 **› 执行符号**，不伪造开／关状态。网页预览没有手机状态，手电筒预览显示横线。
 
+横屏时菜单宽度上限为 **360 dp**，保持侧边面板；保留 2×4 应用卡片和 4 个快捷位置，改用紧凑间距和卡片高度。窗口特别矮或系统字体较大时，内容区可以上下滚动，标题与关闭按钮保留在面板顶部。旋转、窗口尺寸或系统栏变化会重新计算位置，避开挖孔和导航区域。WebUI 预览采用相同的宽度与滚动规则。
+
 手机菜单使用短暂的透明 Activity：左侧滑入，点击空白处或返回键滑出，选择项目时先收起再提交动作。每次菜单会话最长 60 秒；修改配置、暂停服务或关闭模块后会话失效。**锁屏时不显示，也不负责唤醒屏幕或解锁。**
 
 模块重启后会自动安装 **“侧键快捷菜单”** 组件（`cn.sidekey.menu`），不显示桌面图标，可在系统应用管理中找到。无需悬浮窗、无障碍或单独的 Root 授权。组件仅通过 `127.0.0.1` 与模块通信，Android 的 `INTERNET` 权限用于本机连接；没有远端地址、统计或上传。实际动作参数和 Shell 命令只保留在 Root 服务中，组件只能用一次性会话选择预先配置的项目。
@@ -129,7 +131,7 @@
 
 ### 从旧版升级
 
-- 在 KernelSU 中覆盖安装新版并重启，已有配置会保留；v0.4.2 不自动改动你的手势，菜单初始只有未配置占位。
+- 在 KernelSU 中覆盖安装新版并重启，已有配置会保留；v0.4.3 不自动改动你的手势、菜单内容或位置设置。
 - 如果此前用 Shell 直接控制 LED，先用旧脚本关灯，再升级。
 - 升级后，手动将对应动作改为内置手电筒并保存；模块不会自动替换你的 Shell 命令。
 - v0.3.1 对旧配置默认开启触发震动，可以在“手感调节”中关闭并保存。
@@ -256,7 +258,7 @@ python build.py --bootstrap
 
 工具准备完成后，使用 `python build.py` 重新构建。Android 工具位于忽略提交的 `tools/android/`，Zig 也保存在 `tools/`；已有 Zig 时可通过 `ZIG` 环境变量指定路径。当前脚本使用 Windows 版工具路径，Linux / macOS 构建流程尚未适配。
 
-每次完整构建都会执行 C、Java、JavaScript 测试，以及配置往返、Shell 语法、ELF、DEX、APK 签名和 ZIP 校验，并新建独立的 `交付文件/时间_test_v0.4.2_应用选择与菜单启动修复/` 目录。目录内包含安装包、源码与测试、说明文档、真实构建日志和 SHA256。
+每次完整构建都会执行 C、Java、JavaScript 测试，以及配置往返、Shell 语法、ELF、DEX、APK 签名和 ZIP 校验，并新建独立的 `交付文件/时间_test_v0.4.3_横屏菜单布局修复/` 目录。目录内包含安装包、源码与测试、说明文档、真实构建日志和 SHA256。
 
 菜单 APK 使用 API 35 编译，随模块 ZIP 一起分发。首次构建会在 **被 Git 忽略的 `tools/private/`** 生成本地签名私钥和口令文件，后续构建复用；请自行备份，**不要提交或公开这两个文件**。源码包和 Release 不包含私钥。自行构建的签名与仓库发布版本不同，交叉安装提示签名冲突时，先在手机应用管理中卸载旧菜单组件，再点 WebUI 的“准备 / 修复菜单组件”；手势与菜单配置保存在模块目录，不受单独卸载组件影响。
 
@@ -335,7 +337,8 @@ findx8s-sidekey/
 
 | 版本 | 主要变化 |
 | --- | --- |
-| **v0.4.2** | 新增手机应用名称搜索与选择；修正菜单启动及安装的私有文件描述符传递；启动结果等待组件握手 |
+| **v0.4.3** | 修复横屏面板过宽、开关区域不完整及旋转后尺寸沿用；360 dp 宽度上限、紧凑布局、内容滚动与安全边距 |
+| v0.4.2 | 新增手机应用名称搜索与选择；修正菜单启动及安装的私有文件描述符传递；启动结果等待组件握手 |
 | v0.4.1 | 按设计图采用 2×4 应用卡片＋4 个快捷开关，系统深浅色适配、固定槽位、小窗启动请求和手电筒真实状态显示 |
 | v0.4.0 | 新增左侧滑出快捷菜单、DIY 配置、位置调节、WebUI 预览和菜单组件（开发标签） |
 | v0.3.1 | 新增 35 ms 触发震动、WebUI 反馈开关、旧配置兼容；公开发布源码与 MIT 许可证 |

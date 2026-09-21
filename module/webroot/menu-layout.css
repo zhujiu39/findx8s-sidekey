@@ -1,0 +1,29 @@
+/* 与原生菜单一致：限制侧边面板宽度，标题固定，短窗口内仅滚动内容。 */
+.menu-preview {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.menu-preview section {
+  left: calc(env(safe-area-inset-left, 0px) + 10px);
+  display: flex;
+  flex-direction: column;
+  width: min(360px, calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 20px));
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
+  overflow: hidden;
+}
+.menu-preview.from-right section { right: calc(env(safe-area-inset-right, 0px) + 10px); left: auto; }
+.menu-preview-heading, .menu-preview section > small { flex-shrink: 0; }
+.menu-preview-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.menu-preview section > small { margin-top: 8px; }
+@media (orientation: landscape), (max-height: 440px) {
+  .menu-preview section { padding: 8px 12px 10px; }
+  .menu-app-grid, .menu-switch-grid { gap: 6px; }
+  .menu-tile { min-height: 76px; padding: 6px 3px; gap: 2px; }
+  .menu-app-glyph { width: 26px; height: 26px; }
+  .menu-app-icon { height: 26px; font-size: 22px; line-height: 26px; }
+  .menu-tile-label { font-size: 11px; line-height: 14px; min-height: 28px; }
+  .menu-switch-title { font-size: 14px; margin: 10px 2px 6px; }
+  .menu-switch-grid .menu-tile { min-height: 64px; }
+  .menu-switch-glyph { width: 34px; height: 20px; }
+  .menu-switch-glyph i { width: 14px; height: 14px; }
+}

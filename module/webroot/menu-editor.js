@@ -108,6 +108,16 @@ export function menuBusy(value) {
   });
 }
 let lastFocus, dismissTimer;
+function positionPreview() {
+  const overlay = $('menu-preview'), panel = $('menu-preview-panel');
+  if (overlay.hidden) return;
+  const style = getComputedStyle(overlay);
+  const safeTop = parseFloat(style.paddingTop) || 0, safeBottom = parseFloat(style.paddingBottom) || 0;
+  const height = overlay.clientHeight - safeTop - safeBottom, half = panel.offsetHeight / 2;
+  panel.style.top = `${safeTop + Math.max(half + 12, Math.min(height - half - 12, height * Number($('menu-position').value) / 100))}px`;
+}
+window.addEventListener('resize', positionPreview);
+window.visualViewport?.addEventListener('resize', positionPreview);
 function preview() {
   const overlay = $('menu-preview'), panel = $('menu-preview-panel'); lastFocus = document.activeElement;
   overlay.classList.toggle('from-right', $('menu-side').value === 'right');
@@ -131,13 +141,13 @@ function preview() {
     $(slot < 8 ? 'menu-preview-items' : 'menu-preview-switches').append(row);
   }
   overlay.hidden = false;
-  const half = panel.offsetHeight / 2, height = window.innerHeight;
-  panel.style.top = `${Math.max(half + 16, Math.min(height - half - 16, height * Number($('menu-position').value) / 100))}px`;
+  positionPreview();
   document.querySelector('main').inert = true; document.querySelector('.save-bar').inert = true;
   requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('visible')));
   $('close-preview').focus();
 }
 function dismiss() {
   const overlay = $('menu-preview'); if (overlay.hidden) return;
+  clearTimeout(dismissTimer);
   overlay.classList.remove('visible'); dismissTimer = setTimeout(() => { overlay.hidden = true; document.querySelector('main').inert = false; document.querySelector('.save-bar').inert = false; lastFocus?.focus(); }, 200);
 }
