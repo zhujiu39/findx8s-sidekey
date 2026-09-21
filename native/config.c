@@ -137,7 +137,7 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
         } else if (key == 13) {
             if (!number(equal, 10, 90, &next.menu_position)) goto invalid;
         } else if (key == 14) {
-            if (!number(equal, 160, 360, &next.menu_width)) goto invalid;
+            if (!number(equal, 120, 360, &next.menu_width)) goto invalid;
         } else if (key == 15) {
             if (!number(equal, 0, 32, &next.menu_gap)) goto invalid;
         } else if (!hex_decode(equal, next.actions[key - 7].argument, ARG_CAP)) goto invalid;

@@ -20,7 +20,7 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '0.5.2'
+VERSION = '0.5.3'
 
 
 def run(arguments):
@@ -136,8 +136,9 @@ def build_menu():
         classes, dex = temporary / 'classes', temporary / 'dex'
         classes.mkdir(); dex.mkdir()
         run([javac, '-J-Dfile.encoding=UTF-8', '-J-Dstdout.encoding=UTF-8', '-J-Dstderr.encoding=UTF-8', '--release', '8', '-Xlint:deprecation,-options', '-Werror', '-encoding', 'UTF-8', '-classpath', android_jar,
-             '-d', classes, *sorted((ROOT / 'companion/src').rglob('*.java')), ROOT / 'tests/MenuGeometryTest.java'])
+             '-d', classes, *sorted((ROOT / 'companion/src').rglob('*.java')), ROOT / 'tests/MenuGeometryTest.java', ROOT / 'tests/AppGridGeometryTest.java'])
         run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'MenuGeometryTest'])
+        run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'AppGridGeometryTest'])
         run([java, '-cp', d8, 'com.android.tools.r8.D8', '--release', '--min-api', '34',
              '--lib', android_jar, '--output', dex, *sorted((classes / 'cn').rglob('*.class'))])
         with zipfile.ZipFile(unsigned, 'a', zipfile.ZIP_DEFLATED) as apk:
@@ -148,7 +149,7 @@ def build_menu():
              '--ks-pass', 'file:' + str(password), '--out', output, aligned])
         run([java, '-jar', signer, 'verify', '--verbose', output])
         badging = run([find('build-tools/*/aapt.exe'), 'dump', 'badging', output])
-        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='52'" not in badging:
+        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='53'" not in badging:
             raise RuntimeError('菜单 APK 包名或版本无效')
         with zipfile.ZipFile(output) as apk:
             if apk.testzip() or not apk.read('classes.dex').startswith(b'dex\n'):
@@ -176,6 +177,7 @@ def main():
     run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', 'native/menu_protocol.c', 'native/menu_launch.c', *sources, '-o', test_binary])
     run([test_binary])
     run([sys.executable, 'tests/config_scale_test.py', test_binary])
+    run([sys.executable, 'tests/menu_layout_test.py', test_binary])
     node = shutil.which('node')
     if not node:
         raise RuntimeError('未找到 Node.js，无法执行 WebUI 测试')
@@ -222,7 +224,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_透明快捷栏与布局自定义')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_应用间距修复与120dp窄栏')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -252,13 +254,13 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 测试版\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '移除快捷栏外的黑色遮罩；只展示已配置的开关和应用，全部为空时不打开。新增快捷栏宽度与应用行列间距调节，保持双列滚动与 ColorOS 仅小窗启动。\n\n'
+        '修正手机快捷栏的应用间距：布局参数随菜单会话下发，应用行显式测量和定位，移除固定留白；宽度下限降为 120 dp，窄栏图标按可用空间缩小。\n\n'
         f'安装：在 KernelSU 覆盖安装 test_oppo_sidekey_v{VERSION}.zip 后重启。升级保留已有动作。'
         '模块会自动安装侧键快捷菜单组件；在 WebUI 将某个手势改为“弹出快捷菜单”，添加捷径并保存。'
-        '应用从手机列表批量勾选，名称与图标自动读取。点击使用所选应用，再保存设置。开关不再限制为两项，未设置动作的草稿不显示。宽度可调 160～360 dp，应用间距可调 0～32 dp；点击保存后生效。原菜单中选择普通打开的应用也统一使用小窗；手势单独绑定的普通应用动作继续按原配置执行。\n\n'
+        '应用从手机列表批量勾选，名称与图标自动读取。点击使用所选应用，再保存设置。开关不再限制为两项，未设置动作的草稿不显示。宽度可调 120～360 dp，应用间距可调 0～32 dp；点击保存后生效。原菜单中选择普通打开的应用也统一使用小窗；手势单独绑定的普通应用动作继续按原配置执行。\n\n'
         '菜单组件只接收名称、图标、应用标识和一次性会话；动作由模块执行。使用本机回环网络通信，'
         '不访问远端，不需要悬浮窗、无障碍或单独 Root 授权。卸载模块时移除菜单组件。\n\n'
-        '本次本地验证覆盖布局参数往返、旧配置兼容、空项筛选与点击映射、可调宽度下的横竖屏边界；回归原有小窗、手势、配置、WebUI、Shell、'
+        '本次本地验证覆盖 WebUI 保存到菜单分页的真实布局参数、两列像素坐标与行高、120 dp 窄栏图标边界、旧配置兼容和横竖屏边界；回归原有小窗、手势、配置、WebUI、Shell、'
         'ARM64 静态 ELF、手电筒 DEX、菜单 APK 签名以及 ZIP 完整性。真实命令结果见构建日志。\n\n'
         '**这是功能测试版：本次没有连接手机，ColorOS 后台启动、实际滑出动画和点击动作仍需你刷入实测。** '
         '锁屏时不弹出菜单；不会唤醒或绕过锁屏。菜单会话 60 秒失效，配置变化或服务退出后自动收起。\n\n'

@@ -17,6 +17,34 @@ uint32_t menu_snapshot(const Config *config, MenuItem *items, uint32_t capacity)
     return count;
 }
 
+/**
+ * @功能：输出会话内的一页展示项和同一份布局参数，不传出 Shell 命令。
+ * @日期：2026-09-21
+ * @参数：[输出] output；[输入] items、count、first、width、gap，尺寸单位为 dp。
+ * @返回值：true 表示参数有效且写入成功。
+ */
+bool menu_write_items(FILE *output, const MenuItem *items, uint32_t count, uint32_t first,
+                      uint32_t width, uint32_t gap)
+{
+    if (!output || !items || count > MENU_CAP || first > count || first % 16 ||
+        width < 120 || width > 360 || gap > 32) return false;
+    uint32_t end = first + 16; if (end > count) end = count;
+    for (uint32_t i = first; i < end; i++)
+        if ((unsigned int)items[i].action.kind >= ACTION_COUNT) return false;
+    fprintf(output, "{\"layout\":{\"width\":%u,\"gap\":%u},\"items\":[", width, gap);
+    for (uint32_t i = first; i < end; i++) {
+        if (i != first) fputc(',', output);
+        fprintf(output, "{\"index\":%u,\"type\":\"%s\",\"name\":", i, action_names[items[i].action.kind]);
+        json_string(output, items[i].name); fputs(",\"icon\":", output); json_string(output, items[i].icon);
+        if (items[i].action.kind == ACTION_APP || items[i].action.kind == ACTION_APP_FREEFORM) {
+            fputs(",\"packageName\":", output); json_string(output, items[i].action.argument);
+        }
+        fputc('}', output);
+    }
+    fprintf(output, "],\"next\":%d}\n", end < count ? (int)end : -1);
+    return !ferror(output);
+}
+
 MenuCommand menu_authorize(const char *line, const char *token, uint64_t expires,
                            uint64_t now, uint32_t count, uint32_t *index)
 {

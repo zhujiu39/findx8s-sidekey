@@ -25,26 +25,15 @@ static MenuLaunch launch_state;
 static int show_client = -1, launch_output = -1, launch_log = -1;
 static size_t logged_bytes;
 static MenuItem snapshot[MENU_CAP];
-static uint32_t snapshot_count;
+static uint32_t snapshot_count, snapshot_width, snapshot_gap;
 static struct { int fd; size_t size, sent, response_size; char text[REQUEST_CAP], response[32768]; uint64_t until; } clients[CLIENT_CAP] = {{.fd = -1}, {.fd = -1}, {.fd = -1}, {.fd = -1}};
 
 static size_t item_page(char *buffer, size_t capacity, uint32_t first)
 {
     FILE *out = fmemopen(buffer, capacity, "w");
     if (!out) return 0;
-    uint32_t end = first + 16; if (end > snapshot_count) end = snapshot_count;
-    fputs("{\"items\":[", out);
-    for (uint32_t i = first; i < end; i++) {
-        if (i != first) fputc(',', out);
-        fprintf(out, "{\"index\":%u,\"type\":\"%s\",\"name\":", i, action_names[snapshot[i].action.kind]);
-        json_string(out, snapshot[i].name); fputs(",\"icon\":", out); json_string(out, snapshot[i].icon);
-        if (snapshot[i].action.kind == ACTION_APP || snapshot[i].action.kind == ACTION_APP_FREEFORM) {
-            fputs(",\"packageName\":", out); json_string(out, snapshot[i].action.argument);
-        }
-        fputc('}', out);
-    }
-    fprintf(out, "],\"next\":%d}\n", end < snapshot_count ? (int)end : -1);
-    long size = ftell(out); bool good = !ferror(out);
+    bool good = menu_write_items(out, snapshot, snapshot_count, first, snapshot_width, snapshot_gap);
+    long size = ftell(out);
     if (fclose(out) != 0) good = false;
     return good && size > 0 && (size_t)size < capacity ? (size_t)size : 0;
 }
@@ -146,6 +135,7 @@ static bool show_menu(const Config *config, uint64_t now)
     if (launch_output >= 0) { close(launch_output); launch_output = -1; }
     if (launch_log >= 0) { close(launch_log); launch_log = -1; }
     snapshot_count = menu_snapshot(config, snapshot, MENU_CAP);
+    snapshot_width = config->menu_width; snapshot_gap = config->menu_gap;
     /* 空菜单正常结束，不启动透明 Activity，也不等待不存在的组件握手。 */
     if (!snapshot_count) return true;
     if (!random_token(session)) return false;
@@ -159,6 +149,7 @@ static bool show_menu(const Config *config, uint64_t now)
     char path[1024]; snprintf(path, sizeof(path), "%s/menu-launch.log", data_directory);
     launch_log = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
     logged_bytes = 0;
+    if (launch_log >= 0) dprintf(launch_log, "快捷栏会话布局：宽度 %u dp，应用间距 %u dp。\n", snapshot_width, snapshot_gap);
     pid_t parent = getpid();
     launcher = fork();
     if (launcher < 0) { close(output_pipe[1]); launcher = 0; menu_cancel(); return false; }
@@ -169,16 +160,13 @@ static bool show_menu(const Config *config, uint64_t now)
         if (input < 0 || dup2(input, STDIN_FILENO) < 0 ||
             dup2(output_pipe[1], STDOUT_FILENO) < 0 || dup2(output_pipe[1], STDERR_FILENO) < 0) _exit(126);
         close(input); close(output_pipe[1]); menu_close_descriptors();
-        char port_text[16], position[16], width[16], gap[16];
+        char port_text[16], position[16];
         snprintf(port_text, sizeof(port_text), "%u", port);
         snprintf(position, sizeof(position), "%u", config->menu_position);
-        snprintf(width, sizeof(width), "%u", config->menu_width);
-        snprintf(gap, sizeof(gap), "%u", config->menu_gap);
         execl("/system/bin/am", "am", "start", "--user", "current", "-W", "--activity-no-animation",
               "-n", "cn.sidekey.menu/.MenuActivity", "--ei", "port", port_text,
               "--es", "token", session,
-              "--es", "side", config->menu_right ? "right" : "left", "--ei", "position", position,
-              "--ei", "width", width, "--ei", "gap", gap, (char *)NULL);
+              "--es", "side", config->menu_right ? "right" : "left", "--ei", "position", position, (char *)NULL);
         _exit(127);
     }
     close(output_pipe[1]);

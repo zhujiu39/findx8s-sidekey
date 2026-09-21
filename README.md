@@ -7,13 +7,13 @@
 为 **OPPO Find X8s** 开发的 KernelSU 侧键自定义模块。<br>
 在 WebUI 中配置短按、双击和长按，把手电筒、相机、媒体控制和常用操作放在指尖。
 
-[![Version](https://img.shields.io/badge/version-v0.5.2%20%7C%20pre--release-orange)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.2)
+[![Version](https://img.shields.io/badge/version-v0.5.3%20%7C%20pre--release-orange)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.3)
 [![Device](https://img.shields.io/badge/device-OPPO%20Find%20X8s-2d6a4f)](#compatibility)
 [![Android](https://img.shields.io/badge/Android-15-3DDC84?logo=android&logoColor=white)](#compatibility)
 [![KernelSU](https://img.shields.io/badge/Root-KernelSU-1565C0)](https://kernelsu.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-[下载模块](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.2) ·
+[下载模块](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.3) ·
 [快速开始](#quick-start) ·
 [支持的动作](#actions) ·
 [常见问题](#faq) ·
@@ -23,10 +23,10 @@
 </div>
 
 > [!TIP]
-> 想直接安装？下载 **[test_oppo_sidekey_v0.5.2.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v0.5.2/test_oppo_sidekey_v0.5.2.zip)**，在 KernelSU 管理器中安装并重启。Release 附带 `SHA256SUMS.txt`；GitHub 自动生成的 **Source code** 压缩包用于开发，不能直接安装。
+> 想直接安装？下载 **[test_oppo_sidekey_v0.5.3.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v0.5.3/test_oppo_sidekey_v0.5.3.zip)**，在 KernelSU 管理器中安装并重启。Release 附带 `SHA256SUMS.txt`；GitHub 自动生成的 **Source code** 压缩包用于开发，不能直接安装。
 
 > [!IMPORTANT]
-> 当前是 **v0.5.2 功能测试版**。侧键输入设备与键码已通过 ADB 确认，用户已反馈 v0.5.1 使用良好；v0.5.2 的透明背景和布局调节已完成本地构建及测试，本次未连接手机，新版视觉效果仍需刷入确认。详细范围见[兼容性与验证状态](#compatibility)。
+> 当前是 **v0.5.3 功能测试版**。侧键输入设备与键码已通过 ADB 确认，用户已反馈 v0.5.1 使用良好；v0.5.3 修正应用间距并开放 120 dp 窄栏，已完成本地构建及测试，本次未连接手机，新版视觉效果仍需刷入确认。详细范围见[兼容性与验证状态](#compatibility)。
 
 ## ✨ 一眼看懂
 
@@ -85,7 +85,7 @@
 
 ### 第一次安装
 
-1. 从 [Releases](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.2) 下载 `test_oppo_sidekey_v0.5.2.zip`。
+1. 从 [Releases](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.5.3) 下载 `test_oppo_sidekey_v0.5.3.zip`。
 2. 打开 **KernelSU → 模块 → 从本地安装**，选择 ZIP，安装完成后重启。
 3. 从模块卡片打开 **WebUI**，为短按、双击、长按选择动作。
 4. 按需设置长按时间、双击间隔和“触发时震动”。
@@ -110,12 +110,12 @@
 
 | 外观设置 | 默认值 | 可调范围 |
 | --- | --- | --- |
-| 快捷栏宽度 | 196 dp | 160～360 dp，窄窗口自动收窄 |
-| 应用间距 | 12 dp | 0～32 dp，同时调节行与列间距 |
+| 快捷栏宽度 | 196 dp | 120～360 dp，窄窗口自动收窄 |
+| 应用间距 | 12 dp | 0～32 dp，直接改变两列位置和相邻行距离 |
 | 面板中心高度 | 35% | 10%～90% |
 | 弹出方向 | 左侧 | 左侧／右侧 |
 
-横屏仍保持双列，避让状态栏、挖孔和导航区域。面板深灰／浅灰配色跟随系统深色模式，面板外完全透明，不再压暗当前应用。
+应用行不再等分拉满整栏，避免间距被列宽变化稀释；去掉额外固定上下留白。每次打开从当前菜单会话读取已保存的宽度和间距，窄栏图标按可用宽度缩小以避免越界。横屏仍保持双列，避让状态栏、挖孔和导航区域。面板深灰／浅灰配色跟随系统深色模式，面板外完全透明，不再压暗当前应用。
 
 **手电筒**的开关状态来自系统回调：绿色表示开启、灰色表示关闭、横线表示暂不可读。其他单次动作显示执行符号，不伪造持续开／关状态。未设置动作的开关隐藏，不保留占位。
 
@@ -135,11 +135,11 @@
 
 重启后模块会自动安装 **“侧键快捷菜单”**（`cn.sidekey.menu`）。无需悬浮窗、无障碍或单独 Root 授权；应用仅声明桌面入口查询和本机回环通信所需权限。菜单分页读取名称、图标文字、应用标识及索引，Root 命令和 Shell 参数保留在守护进程中，不通过界面传回任意命令。
 
-没有弹出时，点击 **“准备 / 修复菜单组件”** 并查看 **运行状态与日志 → 菜单组件**。更新到本版后应看到 **v0.5.2 已安装／已就绪**；覆盖安装后需要重启，确保 Root 服务与小窗执行组件一同更新。菜单启动成功必须同时满足系统命令完成和组件握手，最长 8 秒。
+没有弹出时，点击 **“准备 / 修复菜单组件”** 并查看 **运行状态与日志 → 菜单组件**。更新到本版后应看到 **v0.5.3 已安装／已就绪**；覆盖安装后需要重启，确保 Root 服务与小窗执行组件一同更新。菜单启动成功必须同时满足系统命令完成和组件握手，最长 8 秒。
 
 ### 从旧版升级
 
-- 在 KernelSU 中覆盖安装新版并重启，已有配置会保留；v0.5.2 保留手势、菜单项目与位置，缺省宽度为 196 dp、应用间距为 12 dp；原有空动作隐藏，额外开关现在会显示。菜单应用仍统一使用已验证的 ColorOS 小窗路径。
+- 在 KernelSU 中覆盖安装新版并重启，已有配置会保留；v0.5.3 保留手势、菜单项目与位置，缺省宽度为 196 dp、应用间距为 12 dp；原有空动作隐藏，额外开关现在会显示。菜单应用仍统一使用已验证的 ColorOS 小窗路径。
 - 如果此前用 Shell 直接控制 LED，先用旧脚本关灯，再升级。
 - 升级后，手动将对应动作改为内置手电筒并保存；模块不会自动替换你的 Shell 命令。
 - v0.3.1 对旧配置默认开启触发震动，可以在“手感调节”中关闭并保存。
@@ -266,7 +266,7 @@ python build.py --bootstrap
 
 工具准备完成后，使用 `python build.py` 重新构建。Android 工具位于忽略提交的 `tools/android/`，Zig 也保存在 `tools/`；已有 Zig 时可通过 `ZIG` 环境变量指定路径。当前脚本使用 Windows 版工具路径，Linux / macOS 构建流程尚未适配。
 
-每次完整构建都会执行 C、Java、JavaScript 测试，以及配置往返、Shell 语法、ELF、DEX、APK 签名和 ZIP 校验，并新建独立的 `交付文件/时间_test_v0.5.2_透明快捷栏与布局自定义/` 目录。目录内包含安装包、源码与测试、说明文档、真实构建日志和 SHA256。
+每次完整构建都会执行 C、Java、JavaScript 测试，以及配置往返、Shell 语法、ELF、DEX、APK 签名和 ZIP 校验，并新建独立的 `交付文件/时间_test_v0.5.3_应用间距修复与120dp窄栏/` 目录。目录内包含安装包、源码与测试、说明文档、真实构建日志和 SHA256。
 
 菜单 APK 使用 API 35 编译，随模块 ZIP 一起分发。首次构建会在 **被 Git 忽略的 `tools/private/`** 生成本地签名私钥和口令文件，后续构建复用；请自行备份，**不要提交或公开这两个文件**。源码包和 Release 不包含私钥。自行构建的签名与仓库发布版本不同，交叉安装提示签名冲突时，先在手机应用管理中卸载旧菜单组件，再点 WebUI 的“准备 / 修复菜单组件”；手势与菜单配置保存在模块目录，不受单独卸载组件影响。
 
@@ -345,7 +345,8 @@ findx8s-sidekey/
 
 | 版本 | 主要变化 |
 | --- | --- |
-| **v0.5.2** | 透明背景、隐藏未配置项、取消固定开关数；快捷栏宽度与应用间距可调 |
+| **v0.5.3** | 修正实际菜单间距，布局随会话下发；宽度下限 120 dp，窄栏图标自适应 |
+| v0.5.2 | 透明背景、隐藏未配置项、取消固定开关数；快捷栏宽度与应用间距可调 |
 | **v0.5.1** | OPlus 专用小窗接口、实际状态确认；菜单应用仅小窗打开，移除全屏回退 |
 | v0.5.0 | 顶部两个开关＋双列可滚动应用；批量勾选、真实图标与应用启动日志 |
 | v0.4.4 | 修复顶部亮带，分离背景遮罩与面板安全边距 |

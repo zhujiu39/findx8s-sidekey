@@ -23,7 +23,7 @@ export function validate(config) {
   if (!Number.isInteger(config.menu_position) || config.menu_position < 10 || config.menu_position > 90)
     throw new Error('菜单高度应在 10%～90% 之间');
   for (const [key, fallback, minimum, maximum, name] of [
-    ['menu_width', 196, 160, 360, '快捷栏宽度'], ['menu_gap', 12, 0, 32, '应用间距']]) {
+    ['menu_width', 196, 120, 360, '快捷栏宽度'], ['menu_gap', 12, 0, 32, '应用间距']]) {
     const value = config[key] === undefined ? fallback : config[key];
     if (!Number.isInteger(value) || value < minimum || value > maximum)
       throw new Error(`${name}应在 ${minimum}～${maximum} dp 之间`);

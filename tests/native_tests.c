@@ -25,6 +25,15 @@ static void reset(bool double_enabled)
 }
 int main(int argc, char **argv)
 {
+    if (argc == 3 && !strcmp(argv[1], "--menu-pages")) {
+        static Config saved; static MenuItem items[MENU_CAP]; char error[256];
+        if (!config_read(argv[2], &saved, error, sizeof(error))) return 1;
+        uint32_t total = menu_snapshot(&saved, items, MENU_CAP);
+        for (uint32_t first = 0; first < total || first == 0; first += 16) {
+            if (!menu_write_items(stdout, items, total, first, saved.menu_width, saved.menu_gap)) return 2;
+        }
+        return 0;
+    }
     if (argc == 4 && !strcmp(argv[1], "--chunks")) {
         FILE *file = fopen(argv[2], "rb"); if (!file) return 2;
         static Config chunk_config; char error[256];
@@ -123,7 +132,7 @@ int main(int argc, char **argv)
     assert(config_parse(valid, &config, error, sizeof(error)));
     assert(config.menu_count == 0 && !config.menu_right && config.menu_position == 35);
     assert(config.menu_width == 196 && config.menu_gap == 12);
-    const char *bad_layout[] = {"menu_width=159\n", "menu_width=361\n", "menu_width=196.5\n",
+    const char *bad_layout[] = {"menu_width=119\n", "menu_width=361\n", "menu_width=196.5\n",
         "menu_width=160\nmenu_width=360\n", "menu_gap=-1\n", "menu_gap=33\n", "menu_gap=1.5\n",
         "menu_gap=0\nmenu_gap=32\n"};
     for (size_t i = 0; i < sizeof(bad_layout) / sizeof(bad_layout[0]); i++) {
@@ -131,8 +140,8 @@ int main(int argc, char **argv)
         assert(!config_parse(text, &config, error, sizeof(error)));
         assert(config.menu_width == 196 && config.menu_gap == 12);
     }
-    snprintf(text, sizeof(text), "%smenu_width=160\nmenu_gap=0\n", valid);
-    assert(config_parse(text, &config, error, sizeof(error)) && config.menu_width == 160 && config.menu_gap == 0);
+    snprintf(text, sizeof(text), "%smenu_width=120\nmenu_gap=0\n", valid);
+    assert(config_parse(text, &config, error, sizeof(error)) && config.menu_width == 120 && config.menu_gap == 0);
     snprintf(text, sizeof(text), "%smenu_width=360\nmenu_gap=32\n", valid);
     assert(config_parse(text, &config, error, sizeof(error)) && config.menu_width == 360 && config.menu_gap == 32);
     const char *menu = "menu_count=1\nmenu_side=left\nmenu_position=35\nmenu_0_name=e8aebee7bdae\nmenu_0_icon=e29a99efb88f\nmenu_0_action=torch\nmenu_0_arg=\n";
@@ -189,6 +198,13 @@ int main(int argc, char **argv)
     assert(menu_snapshot(&config, snapshot, MENU_CAP - 1) == 0);
     assert(menu_snapshot(NULL, snapshot, MENU_CAP) == 0);
     assert(menu_snapshot(&config, NULL, MENU_CAP) == 0);
+    FILE *page_output = tmpfile(); assert(page_output);
+    assert(!menu_write_items(page_output, snapshot, MENU_CAP, 0, 119, 0));
+    assert(!menu_write_items(page_output, snapshot, MENU_CAP, 0, 120, 33));
+    assert(!menu_write_items(page_output, snapshot, MENU_CAP, 1, 120, 32));
+    assert(!menu_write_items(page_output, NULL, 0, 0, 120, 32));
+    assert(menu_write_items(page_output, snapshot, 0, 0, 120, 0));
+    assert(fclose(page_output) == 0);
     uint32_t selected = 99;
     snprintf(text, sizeof(text), "ITEMS %s 16", token);
     assert(menu_authorize(text, token, 60000, 59999, 200, &selected) == MENU_ITEMS && selected == 16);

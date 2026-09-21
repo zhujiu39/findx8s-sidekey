@@ -32,11 +32,11 @@ test('拒绝非法阈值、未知动作、超长或空参数', () => {
 test('快捷栏尺寸兼容旧配置，接受边界并拒绝非法值', () => {
   const config=defaultConfig(); delete config.menu_width; delete config.menu_gap;
   assert.match(serialize(config), /menu_width=196\nmenu_gap=12\n/);
-  for (const [width,gap] of [[160,0],[360,32],[280,24]]) {
+  for (const [width,gap] of [[120,0],[120,32],[160,0],[360,32],[280,24]]) {
     config.menu_width=width; config.menu_gap=gap;
     assert.ok(serialize(config).includes(`menu_width=${width}\nmenu_gap=${gap}\n`));
   }
-  for (const [key,values] of [['menu_width',[159,361,196.5,NaN,null,'196']],
+  for (const [key,values] of [['menu_width',[119,361,196.5,NaN,null,'196']],
     ['menu_gap',[-1,33,1.5,NaN,null,'12']]]) {
     for (const value of values) {
       const invalid={...defaultConfig(),[key]:value};

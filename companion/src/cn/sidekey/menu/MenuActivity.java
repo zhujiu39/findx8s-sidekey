@@ -60,6 +60,11 @@ public final class MenuActivity extends Activity {
         Session(int port, String token) { this.port = port; this.token = token; }
     }
 
+    private static final class MenuData {
+        final JSONArray items = new JSONArray();
+        int widthDp, gapDp;
+    }
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
@@ -91,15 +96,14 @@ public final class MenuActivity extends Activity {
             if (keyguard == null || keyguard.isKeyguardLocked()) { closeNow(); return; }
             right = "right".equals(intent.getStringExtra("side"));
             position = Math.max(10, Math.min(90, intent.getIntExtra("position", 35)));
-            widthDp = Math.max(160, Math.min(360, intent.getIntExtra("width", 196)));
-            appGapDp = Math.max(0, Math.min(32, intent.getIntExtra("gap", 12)));
             final Session current = session;
             network.execute(() -> {
                 try {
-                    JSONArray items = loadItems(current);
+                    MenuData data = loadItems(current);
                     handler.post(() -> { if (session == current && !closing) {
                         try {
-                            currentItems = items; build(items);
+                            widthDp = data.widthDp; appGapDp = data.gapDp;
+                            currentItems = data.items; build(data.items);
                             network.execute(() -> {
                                 boolean valid = request(current, "PING");
                                 handler.post(() -> { if (session == current && !closing) { if (valid) enter(); else closeNow(); } });
@@ -204,7 +208,7 @@ public final class MenuActivity extends Activity {
                     int offset = (index - switches.size()) * 2 + column;
                     row.cells[column].bind(offset < apps.size() ? apps.get(offset) : null);
                 }
-                row.setPadding(0, 0, 0, index < getCount() - 1 ? dp(appGapDp) : 0);
+                row.setHasNext(index < getCount() - 1);
                 return row;
             }
         });
@@ -217,13 +221,33 @@ public final class MenuActivity extends Activity {
         view.setOnClickListener(clicked -> { if (!closing && entered && index >= 0) { selection = index; dismiss(); } });
     }
 
-    private final class AppRow extends LinearLayout {
+    private final class AppRow extends ViewGroup {
         final AppCell[] cells = new AppCell[2];
+        private AppGridGeometry geometry;
+        private boolean hasNext;
         AppRow() {
-            super(MenuActivity.this); setOrientation(HORIZONTAL); setBaselineAligned(false);
+            super(MenuActivity.this);
+            for (int i = 0; i < 2; i++) { cells[i] = new AppCell(); addView(cells[i], new ViewGroup.LayoutParams(-2, -2)); }
+        }
+        void setHasNext(boolean next) {
+            if (hasNext != next) { hasNext = next; requestLayout(); }
+        }
+        @Override protected void onMeasure(int widthSpec, int heightSpec) {
+            int width = MeasureSpec.getSize(widthSpec), height = 0;
+            geometry = new AppGridGeometry(width, getResources().getDisplayMetrics().density, appGapDp);
+            for (AppCell cell : cells) {
+                cell.setIconSize(geometry.iconSize);
+                cell.measure(MeasureSpec.makeMeasureSpec(geometry.cellWidth, MeasureSpec.EXACTLY),
+                             MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+                height = Math.max(height, cell.getMeasuredHeight());
+            }
+            setMeasuredDimension(width, resolveSize(geometry.rowHeight(height, hasNext), heightSpec));
+        }
+        @Override protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+            if (geometry == null) return;
             for (int i = 0; i < 2; i++) {
-                if (i > 0) addView(new View(MenuActivity.this), new LinearLayout.LayoutParams(dp(appGapDp), 1));
-                cells[i] = new AppCell(); addView(cells[i], new LinearLayout.LayoutParams(0, -2, 1));
+                int x = i == 0 ? geometry.left : geometry.right;
+                cells[i].layout(x, 0, x + geometry.cellWidth, cells[i].getMeasuredHeight());
             }
         }
     }
@@ -231,11 +255,16 @@ public final class MenuActivity extends Activity {
     private final class AppCell extends LinearLayout {
         final ImageView image; final TextView label;
         AppCell() {
-            super(MenuActivity.this); setOrientation(VERTICAL); setGravity(Gravity.CENTER); setPadding(dp(2), dp(10), dp(2), dp(8));
+            super(MenuActivity.this); setOrientation(VERTICAL); setGravity(Gravity.CENTER);
             image = new ImageView(MenuActivity.this); image.setScaleType(ImageView.ScaleType.FIT_CENTER);
             addView(image, new LinearLayout.LayoutParams(dp(44), dp(44)));
             label = text("", 11, foreground); label.setGravity(Gravity.CENTER); label.setMaxLines(2); label.setEllipsize(TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, Math.max(dp(30), label.getLineHeight() * 2)); size.topMargin = dp(5); addView(label, size);
+        }
+        void setIconSize(int pixels) {
+            ViewGroup.LayoutParams size = image.getLayoutParams();
+            if (size.width == pixels && size.height == pixels) return;
+            size.width = pixels; size.height = pixels; image.setLayoutParams(size);
         }
         void bind(JSONObject item) {
             setOnClickListener(null); image.setImageDrawable(null);
@@ -383,10 +412,15 @@ public final class MenuActivity extends Activity {
         }
     }
 
-    private static JSONArray loadItems(Session current) throws Exception {
-        JSONArray result = new JSONArray(); int offset = 0;
+    private static MenuData loadItems(Session current) throws Exception {
+        MenuData data = new MenuData(); JSONArray result = data.items; int offset = 0;
         for (int page = 0; page < 130; page++) {
             JSONObject response = new JSONObject(exchange(current, "ITEMS " + offset, 32768));
+            JSONObject layout = response.getJSONObject("layout");
+            int width = layout.getInt("width"), gap = layout.getInt("gap");
+            if (width < 120 || width > 360 || gap < 0 || gap > 32) throw new IllegalStateException("菜单布局参数越界");
+            if (page == 0) { data.widthDp = width; data.gapDp = gap; }
+            else if (width != data.widthDp || gap != data.gapDp) throw new IllegalStateException("菜单布局会话发生变化");
             JSONArray items = response.getJSONArray("items");
             if (items.length() > 16) throw new IllegalStateException("菜单分页越界");
             for (int i = 0; i < items.length(); i++) {
@@ -395,7 +429,7 @@ public final class MenuActivity extends Activity {
                 result.put(item);
             }
             int next = response.getInt("next");
-            if (next == -1) return result;
+            if (next == -1) return data;
             if (next != offset + 16 || result.length() > 2060) throw new IllegalStateException("菜单分页无效");
             offset = next;
         }
