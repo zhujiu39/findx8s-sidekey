@@ -5,8 +5,9 @@
 #include <stdio.h>
 
 #define ARG_CAP 513
-#define CONFIG_CAP 32768
-#define MENU_CAP 12
+/* 可容纳应用目录全部 2048 项及旧版捷径；这是输入防护边界，不是界面配额。 */
+#define CONFIG_CAP (4 * 1024 * 1024)
+#define MENU_CAP 2060
 #define MENU_NAME_CAP 97
 #define MENU_ICON_CAP 25
 typedef enum {
@@ -27,6 +28,7 @@ typedef struct {
 extern const char *const action_names[ACTION_COUNT];
 void config_defaults(Config *config);
 bool config_parse(const char *text, Config *config, char *error, size_t error_cap);
+bool config_parse_chunks(FILE *input, Config *config, char *error, size_t error_cap);
 bool config_read(const char *directory, Config *config, char *error, size_t cap);
 bool config_write(const char *directory, const Config *config);
 void config_json(FILE *output, const Config *config);

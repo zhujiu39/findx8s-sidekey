@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeCatalog, filterApps, menuAppName, selectionName, AppCatalogStore} from '../module/webroot/app-catalog.js';
+import {normalizeCatalog, filterApps, menuAppName, AppCatalogStore} from '../module/webroot/app-catalog.js';
 const sample = () => ({version:1,user:0,apps:[{packageName:'com.settings',label:'设置'},{packageName:'com.camera',label:'Camera 相机'}]});
 test('按显示名称或包名搜索，多入口去重且保留同名不同包应用', () => {
   const data=sample();data.apps.push(data.apps[0],{packageName:'com.other',label:'设置'});
@@ -17,11 +17,7 @@ test('拒绝异常列表，应用名保留为纯文本，空列表合法', () =>
   for(const value of [null,{...sample(),user:-1},{...sample(),version:2},{...sample(),apps:Array(2049).fill(data.apps[0])},
     {...sample(),apps:[{packageName:'com.app;id',label:'注入'}]}]) assert.throws(()=>normalizeCatalog(value));
 });
-test('应用名称自动填充保持手动命名，按 UTF-8 限制且不截断 emoji', () => {
-  const selected={packageName:'com.camera',label:'相机'},lookup=()=>({label:'设置'});
-  for(const name of ['','新应用','设置','com.settings']) assert.equal(selectionName(name,'com.settings',selected,lookup),'相机');
-  assert.equal(selectionName('我的拍照','com.settings',selected,lookup),'我的拍照');
-  assert.equal(selectionName('字'.repeat(32),'com.settings',selected,()=>({label:'字'.repeat(40)})),'相机');
+test('应用名称按 UTF-8 限制且不截断 emoji', () => {
   assert.equal(menuAppName('😀'.repeat(30)),'😀'.repeat(24));
   assert.equal(Buffer.byteLength(menuAppName('设置'.repeat(30))),96);
 });

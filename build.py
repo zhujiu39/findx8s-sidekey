@@ -20,7 +20,7 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '0.4.4'
+VERSION = '0.5.0'
 
 
 def run(arguments):
@@ -147,7 +147,7 @@ def build_menu():
              '--ks-pass', 'file:' + str(password), '--out', output, aligned])
         run([java, '-jar', signer, 'verify', '--verbose', output])
         badging = run([find('build-tools/*/aapt.exe'), 'dump', 'badging', output])
-        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='44'" not in badging:
+        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='50'" not in badging:
             raise RuntimeError('菜单 APK 包名或版本无效')
         with zipfile.ZipFile(output) as apk:
             if apk.testzip() or not apk.read('classes.dex').startswith(b'dex\n'):
@@ -174,10 +174,11 @@ def main():
     test_binary = BUILD / ('native_tests.exe' if os.name == 'nt' else 'native_tests')
     run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', 'native/menu_protocol.c', 'native/menu_launch.c', *sources, '-o', test_binary])
     run([test_binary])
+    run([sys.executable, 'tests/config_scale_test.py', test_binary])
     node = shutil.which('node')
     if not node:
         raise RuntimeError('未找到 Node.js，无法执行 WebUI 测试')
-    run([node, '--test', 'tests/webui.test.js', 'tests/app-catalog.test.js'])
+    run([node, '--test', *sorted((ROOT / 'tests').glob('*.test.js'))])
     fixture = run([node, '--input-type=module', '-e',
         "import {defaultConfig,serialize} from './module/webroot/model.js';"
         "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu=[{slot:3,name:'设置',icon:'⚙️',type:'app_freeform',argument:'com.android.settings'},{slot:10,name:'灯光',icon:'',type:'torch',argument:''}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
@@ -199,9 +200,10 @@ def main():
     if not bash or not Path(bash).exists():
         raise RuntimeError('未找到 Bash，无法执行 Shell 语法检查')
     run([sys.executable, 'tests/menu_install_test.py', bash])
+    run([sys.executable, 'tests/app_launch_test.py', bash])
     files = sorted(path for path in MODULE.rglob('*') if path.is_file())
     required = {'module.prop', 'skip_mount', 'customize.sh', 'service.sh', 'action.sh',
-                'uninstall.sh', 'scripts/control.sh', 'bin/sidekey', 'lib/torch.jar', 'lib/sidekey-menu.apk', 'scripts/menu-install.sh', 'webroot/index.html',
+                'uninstall.sh', 'scripts/control.sh', 'scripts/app-launch.sh', 'bin/sidekey', 'lib/torch.jar', 'lib/sidekey-menu.apk', 'scripts/menu-install.sh', 'webroot/index.html',
                 'LICENSES/sidekey-LICENSE.txt'}
     if not required.issubset({path.relative_to(MODULE).as_posix() for path in files}):
         raise RuntimeError('模块文件不完整')
@@ -217,7 +219,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_菜单顶部遮罩修复')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_双列侧栏与应用批量勾选')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -247,11 +249,11 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 测试版\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '修复菜单顶部亮带：全窗口遮罩与面板安全边距分离，关闭容器边距裁剪和系统栏额外对比度底色。保留横屏紧凑布局、360 dp 宽度上限及内容滚动。\n\n'
+        '按参考图重做 196 dp 窄侧栏：顶部两个开关，下面真实应用图标固定双列，上下滑动；移除原来的 8 应用限制。应用显式入口启动、结果检查、小窗失败转普通打开。\n\n'
         f'安装：在 KernelSU 覆盖安装 test_oppo_sidekey_v{VERSION}.zip 后重启。升级保留已有动作。'
         '模块会自动安装侧键快捷菜单组件；在 WebUI 将某个手势改为“弹出快捷菜单”，添加捷径并保存。'
-        '应用从手机列表按名称搜索选择，自动填写卡片名称；保留手动命名。菜单启动等待组件握手，失败不再显示成功。支持名称、emoji、动作参数、槽位选择和同组排序；8 个应用卡片、4 个快捷开关。应用默认请求系统小窗。\n\n'
-        '菜单组件只接收名称、图标和一次性会话；动作由模块执行。使用本机回环网络通信，'
+        '应用从手机列表批量勾选，名称与图标自动读取。点击使用所选应用，再保存设置。旧版额外的快捷项保留在 WebUI，可移到前两项或移除，不会静默删除。大配置分块保存，菜单分页加载，应用行按需创建。\n\n'
+        '菜单组件只接收名称、图标、应用标识和一次性会话；动作由模块执行。使用本机回环网络通信，'
         '不访问远端，不需要悬浮窗、无障碍或单独 Root 授权。卸载模块时移除菜单组件。\n\n'
         '本次本地验证覆盖手势、旧配置升级、菜单边界和非法请求、UTF-8 往返、WebUI、Shell、'
         'ARM64 静态 ELF、手电筒 DEX、菜单 APK 签名以及 ZIP 完整性。真实命令结果见构建日志。\n\n'
@@ -267,4 +269,7 @@ def main():
 
 
 if __name__ == '__main__':
+    # Windows 重定向输出时也保留中文和测试结果符号，避免默认代码页中断构建。
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     main()

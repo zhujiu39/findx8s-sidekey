@@ -25,11 +25,6 @@ export function menuAppName(label) {
   }
   return result;
 }
-export function selectionName(currentName, oldPackage, selected, lookup) {
-  const oldLabel = lookup(oldPackage)?.label;
-  return !currentName.trim() || ['新应用','新开关','新捷径',oldPackage,oldLabel,oldLabel && menuAppName(oldLabel)].includes(currentName)
-    ? menuAppName(selected.label) : currentName;
-}
 export class AppCatalogStore {
   constructor(loader, clock = () => Date.now()) { this.loader = loader; this.clock = clock; this.value = null; this.until = 0; this.pending = null; }
   get(force = false) {

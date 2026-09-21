@@ -3,6 +3,8 @@ package cn.sidekey.menu;
 import android.app.Activity;
 import android.app.KeyguardManager;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Insets;
@@ -19,7 +21,11 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.animation.PathInterpolator;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
+import android.widget.ImageView;
+import android.widget.ListView;
+import android.widget.BaseAdapter;
+import android.view.ViewGroup;
+import java.io.ByteArrayOutputStream;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.text.TextUtils;
@@ -39,7 +45,7 @@ public final class MenuActivity extends Activity {
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private MenuPanelHost root;
     private LinearLayout panel;
-    private ScrollView scroll;
+    private ListView scroll;
     private View shade;
     private Session session;
     private boolean closing, dispatched, entered;
@@ -83,19 +89,25 @@ public final class MenuActivity extends Activity {
             session = new Session(port, token);
             KeyguardManager keyguard = getSystemService(KeyguardManager.class);
             if (keyguard == null || keyguard.isKeyguardLocked()) { closeNow(); return; }
-            String source = intent.getStringExtra("items");
-            if (source == null || source.length() > 10000) throw new IllegalArgumentException("菜单过长");
-            JSONArray items = new JSONArray(source);
-            if (items.length() > 12) throw new IllegalArgumentException("菜单项过多");
             right = "right".equals(intent.getStringExtra("side"));
             position = Math.max(10, Math.min(90, intent.getIntExtra("position", 35)));
-            currentItems = items; build(items);
             final Session current = session;
             network.execute(() -> {
-                boolean valid = request(current, "PING");
-                handler.post(() -> { if (session == current && !closing) {
-                    if (valid) { updateSwitches(); enter(); } else closeNow();
-                }});
+                try {
+                    JSONArray items = loadItems(current);
+                    handler.post(() -> { if (session == current && !closing) {
+                        try {
+                            currentItems = items; build(items);
+                            network.execute(() -> {
+                                boolean valid = request(current, "PING");
+                                handler.post(() -> { if (session == current && !closing) { if (valid) enter(); else closeNow(); } });
+                            });
+                        } catch (Exception error) { closeNow(); }
+                    }});
+                } catch (Exception error) {
+                    android.util.Log.e("SidekeyMenu", "读取菜单失败", error);
+                    handler.post(() -> { if (session == current) closeNow(); });
+                }
             });
             handler.postDelayed(() -> { if (session == current) dismiss(); }, 59000);
             heartbeat(current);
@@ -121,7 +133,7 @@ public final class MenuActivity extends Activity {
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         foreground = Color.parseColor(dark ? "#F3F4F6" : "#252932");
         muted = Color.parseColor(dark ? "#AFB3BA" : "#868D96");
-        surface = Color.parseColor(dark ? "#F52A2E33" : "#F5F7F8FA");
+        surface = Color.parseColor(dark ? "#ED303237" : "#EDE3E5E8");
         tileTop = Color.parseColor(dark ? "#393E45" : "#FFFFFF");
         tileBottom = Color.parseColor(dark ? "#30353B" : "#EAEDF1");
         stroke = Color.parseColor(dark ? "#545960" : "#D6DBE1");
@@ -131,16 +143,11 @@ public final class MenuActivity extends Activity {
         GradientDrawable backdrop = background(surface, 24); backdrop.setStroke(dp(1), stroke);
         panel.setBackground(backdrop); panel.setElevation(dp(16));
         panel.setAlpha(0); panel.setClickable(true);
-        LinearLayout heading = new LinearLayout(this); heading.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = text("快捷菜单", 19, foreground); title.setTypeface(null, Typeface.BOLD);
-        title.setSingleLine(true); title.setEllipsize(TextUtils.TruncateAt.END);
-        heading.addView(title, new LinearLayout.LayoutParams(0, dp(44), 1));
-        TextView close = text("×", 25, muted); close.setGravity(Gravity.CENTER); close.setContentDescription("关闭菜单");
-        close.setOnClickListener(view -> dismiss());
-        heading.addView(close, new LinearLayout.LayoutParams(dp(44), dp(44))); panel.addView(heading);
-        scroll = new ScrollView(this); scroll.setFillViewport(false);
-        scroll.setClipToPadding(false); scroll.setVerticalScrollBarEnabled(true);
-        // 标题保留在面板内，滚动区只使用剩余高度，底部开关不会被固定面板裁掉。
+        TextView grip = text("—", 17, muted); grip.setGravity(Gravity.CENTER);
+        grip.setContentDescription("收起快捷菜单"); grip.setOnClickListener(view -> dismiss());
+        panel.addView(grip, new LinearLayout.LayoutParams(-1, dp(24)));
+        scroll = new ListView(this); scroll.setDivider(null); scroll.setSelector(android.R.color.transparent);
+        scroll.setVerticalScrollBarEnabled(false); scroll.setClipToPadding(false);
         panel.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         populate(items, false);
         root = new MenuPanelHost(this, shade, panel, right, position, new MenuPanelHost.Listener() {
@@ -161,67 +168,100 @@ public final class MenuActivity extends Activity {
         setContentView(root); root.requestApplyInsets();
     }
 
+    private final android.util.LruCache<String, AppVisual> appVisuals = new android.util.LruCache<>(128);
+    private static final class AppVisual {
+        final String name; final android.graphics.drawable.Drawable icon;
+        AppVisual(String name, android.graphics.drawable.Drawable icon) { this.name = name; this.icon = icon; }
+    }
+
     private void populate(JSONArray items, boolean compact) throws Exception {
         torchSwitches.clear();
-        panel.setPadding(dp(compact ? 12 : 14), dp(compact ? 8 : 12), dp(compact ? 12 : 14), dp(compact ? 10 : 16));
-        LinearLayout content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL);
-        JSONObject[] slots = new JSONObject[12]; int[] indexes = new int[12];
+        panel.setPadding(dp(12), dp(4), dp(12), dp(10));
+        java.util.ArrayList<JSONObject> apps = new java.util.ArrayList<>(), switches = new java.util.ArrayList<>();
         for (int i = 0; i < items.length(); i++) {
-            JSONObject item = items.getJSONObject(i); int slot = item.getInt("slot");
-            if (slot < 0 || slot >= 12 || slots[slot] != null) throw new IllegalArgumentException("无效位置");
-            slots[slot] = item; indexes[slot] = i;
+            JSONObject item = items.getJSONObject(i); String type = item.getString("type");
+            if ("app".equals(type) || "app_freeform".equals(type)) apps.add(item);
+            else if (switches.size() < 2) switches.add(item);
         }
-        for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
-            if (rowIndex == 2) {
-                TextView subtitle = text("快捷开关", compact ? 14 : 16, foreground); subtitle.setTypeface(null, Typeface.BOLD);
-                subtitle.setPadding(dp(2), dp(compact ? 10 : 17), 0, dp(compact ? 6 : 10)); content.addView(subtitle);
-            }
-            LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL);
-            for (int column = 0; column < 4; column++) {
-                final int slot = rowIndex * 4 + column;
-                JSONObject item = slots[slot];
-                String type = item == null ? "none" : item.getString("type");
-                String name = item == null ? (slot < 8 ? String.format(java.util.Locale.ROOT, "APP %02d", slot + 1) : String.format(java.util.Locale.ROOT, "开关 %02d", slot - 7)) : item.getString("name");
-                String icon = item == null ? "" : item.getString("icon");
-                if (name.length() > 96 || icon.length() > 24) throw new IllegalArgumentException("文本过长");
-                LinearLayout tile = new LinearLayout(this); tile.setOrientation(LinearLayout.VERTICAL); tile.setGravity(Gravity.CENTER);
-                int tilePadding = dp(compact ? 6 : 10), iconSize = dp(compact ? 26 : 32);
-                tile.setPadding(dp(3), tilePadding, dp(3), tilePadding);
-                GradientDrawable card = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{tileTop, tileBottom});
-                card.setCornerRadius(dp(13)); card.setStroke(dp(1), stroke); tile.setBackground(card);
-                if (slot < 8) {
-                    if (icon.isEmpty()) tile.addView(new AppGlyph(), new LinearLayout.LayoutParams(iconSize, iconSize));
-                    else { TextView symbol = text(icon, compact ? 22 : 26, foreground); symbol.setGravity(Gravity.CENTER); symbol.setIncludeFontPadding(false); tile.addView(symbol, new LinearLayout.LayoutParams(-1, iconSize)); }
-                }
-                TextView label = text(name, compact ? 11 : 12, foreground); label.setMaxLines(2); label.setEllipsize(TextUtils.TruncateAt.END); label.setGravity(Gravity.CENTER); label.setIncludeFontPadding(false);
-                int labelHeight = Math.max(dp(compact ? 28 : 34), label.getLineHeight() * 2);
-                LinearLayout.LayoutParams labelLayout = new LinearLayout.LayoutParams(-1, labelHeight);
-                if (slot < 8) labelLayout.topMargin = dp(compact ? 2 : 4);
-                tile.addView(label, labelLayout);
-                if (slot >= 8) {
-                    SwitchGlyph control = new SwitchGlyph("torch".equals(type), item == null || "none".equals(type));
-                    tile.addView(control, new LinearLayout.LayoutParams(dp(compact ? 34 : 38), dp(compact ? 20 : 23)));
-                    if ("torch".equals(type)) torchSwitches.add(control);
-                }
-                boolean configured = !"none".equals(type);
-                tile.setAlpha(configured ? 1 : 0.65f); tile.setEnabled(configured); tile.setFocusable(configured);
-                tile.setContentDescription(name + (configured ? "" : "，未配置"));
-                if (configured) {
-                    final int chosen = indexes[slot];
-                    tile.setOnClickListener(view -> { if (!closing && entered) { selection = chosen; dismiss(); } });
-                }
-                int minimumHeight = dp(slot < 8 ? (compact ? 76 : 94) : (compact ? 64 : 86));
-                int contentHeight = tilePadding * 2 + labelHeight + labelLayout.topMargin + (slot < 8 ? iconSize : dp(compact ? 20 : 23));
-                LinearLayout.LayoutParams tileLayout = new LinearLayout.LayoutParams(0, Math.max(minimumHeight, contentHeight), 1);
-                if (column < 3) tileLayout.rightMargin = dp(compact ? 6 : 8);
-                row.addView(tile, tileLayout);
-            }
-            LinearLayout.LayoutParams rowLayout = new LinearLayout.LayoutParams(-1, -2);
-            if (rowIndex == 1) rowLayout.topMargin = dp(compact ? 6 : 8);
-            content.addView(row, rowLayout);
+        ListView old = scroll;
+        scroll = new ListView(this); scroll.setDivider(null); scroll.setSelector(android.R.color.transparent);
+        scroll.setVerticalScrollBarEnabled(false); scroll.setClipToPadding(false);
+        LinearLayout header = new LinearLayout(this); header.setOrientation(LinearLayout.VERTICAL);
+        for (int i = 0; i < 2; i++) {
+            JSONObject item = i < switches.size() ? switches.get(i) : null;
+            String type = item == null ? "none" : item.getString("type");
+            LinearLayout card = new LinearLayout(this); card.setGravity(Gravity.CENTER_VERTICAL); card.setPadding(dp(10), dp(8), dp(8), dp(8));
+            card.setBackground(background(tileTop, 16));
+            TextView name = text(item == null ? "开关 " + (i + 1) : item.getString("name"), 12, foreground);
+            name.setMaxLines(2); name.setEllipsize(TextUtils.TruncateAt.END);
+            card.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+            SwitchGlyph control = new SwitchGlyph("torch".equals(type), "none".equals(type));
+            LinearLayout.LayoutParams controlSize = new LinearLayout.LayoutParams(dp(32), dp(20)); controlSize.leftMargin = dp(5);
+            card.addView(control, controlSize); if ("torch".equals(type)) torchSwitches.add(control);
+            card.setAlpha("none".equals(type) ? 0.55f : 1); card.setEnabled(!"none".equals(type));
+            if (item != null) bindSelection(card, item);
+            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, dp(56)); size.bottomMargin = dp(8); header.addView(card, size);
         }
-        scroll.removeAllViews(); scroll.addView(content);
+        scroll.addHeaderView(header, null, false);
+        scroll.setAdapter(new BaseAdapter() {
+            @Override public int getCount() { return Math.max(1, (apps.size() + 1) / 2); }
+            @Override public Object getItem(int index) { return index; }
+            @Override public long getItemId(int index) { return index; }
+            @Override public boolean isEnabled(int index) { return false; }
+            @Override public View getView(int index, View recycled, ViewGroup parent) {
+                AppRow row = recycled instanceof AppRow ? (AppRow)recycled : new AppRow();
+                for (int column = 0; column < 2; column++) {
+                    int offset = index * 2 + column;
+                    row.cells[column].bind(offset < apps.size() ? apps.get(offset) : null, apps.isEmpty());
+                }
+                return row;
+            }
+        });
+        panel.removeView(old); panel.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         updateSwitches();
+    }
+
+    private void bindSelection(View view, JSONObject item) {
+        final int index = item.optInt("index", -1);
+        view.setOnClickListener(clicked -> { if (!closing && entered && index >= 0) { selection = index; dismiss(); } });
+    }
+
+    private final class AppRow extends LinearLayout {
+        final AppCell[] cells = new AppCell[2];
+        AppRow() {
+            super(MenuActivity.this); setOrientation(HORIZONTAL); setBaselineAligned(false);
+            for (int i = 0; i < 2; i++) { cells[i] = new AppCell(); addView(cells[i], new LinearLayout.LayoutParams(0, -2, 1)); }
+        }
+    }
+
+    private final class AppCell extends LinearLayout {
+        final ImageView image; final TextView label;
+        AppCell() {
+            super(MenuActivity.this); setOrientation(VERTICAL); setGravity(Gravity.CENTER); setPadding(dp(2), dp(10), dp(2), dp(8));
+            image = new ImageView(MenuActivity.this); image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            addView(image, new LinearLayout.LayoutParams(dp(44), dp(44)));
+            label = text("", 11, foreground); label.setGravity(Gravity.CENTER); label.setMaxLines(2); label.setEllipsize(TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, Math.max(dp(30), label.getLineHeight() * 2)); size.topMargin = dp(5); addView(label, size);
+        }
+        void bind(JSONObject item, boolean empty) {
+            setOnClickListener(null); image.setImageDrawable(null);
+            if (item == null) {
+                setVisibility(empty ? View.VISIBLE : View.INVISIBLE); setEnabled(false);
+                label.setText(empty ? "勾选应用" : ""); image.setImageDrawable(getPackageManager().getDefaultActivityIcon()); setAlpha(0.35f); return;
+            }
+            setVisibility(View.VISIBLE); setEnabled(true); setAlpha(1);
+            String packageName = item.optString("packageName"), name = item.optString("name");
+            AppVisual visual = appVisuals.get(packageName);
+            if (visual == null && packageName.matches("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+")) {
+                try {
+                    ApplicationInfo app = getPackageManager().getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0));
+                    visual = new AppVisual(getPackageManager().getApplicationLabel(app).toString(), getPackageManager().getApplicationIcon(app)); appVisuals.put(packageName, visual);
+                } catch (PackageManager.NameNotFoundException | RuntimeException error) { android.util.Log.w("SidekeyMenu", "应用信息暂不可读：" + packageName, error); }
+            }
+            label.setText(visual == null ? name : visual.name);
+            image.setImageDrawable(visual == null ? getPackageManager().getDefaultActivityIcon() : visual.icon);
+            setContentDescription(label.getText()); bindSelection(this, item);
+        }
     }
 
     private void updateSwitches() {
@@ -324,7 +364,7 @@ public final class MenuActivity extends Activity {
         });
     }
 
-    private static boolean request(Session current, String command) {
+    private static String exchange(Session current, String command, int limit) throws Exception {
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(InetAddress.getByAddress(new byte[]{127,0,0,1}), current.port), 1000);
             socket.setSoTimeout(1500);
@@ -332,11 +372,38 @@ public final class MenuActivity extends Activity {
             String line = separator < 0 ? command + " " + current.token :
                 command.substring(0, separator) + " " + current.token + command.substring(separator);
             socket.getOutputStream().write((line + "\n").getBytes(StandardCharsets.US_ASCII));
-            InputStream input = socket.getInputStream();
-            StringBuilder response = new StringBuilder();
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream(); InputStream input = new java.io.BufferedInputStream(socket.getInputStream());
             int value;
-            while (response.length() < 16 && (value = input.read()) != -1 && value != '\n') response.append((char)value);
-            String result = response.toString();
+            while (bytes.size() < limit && (value = input.read()) != -1) {
+                if (value == '\n') return bytes.toString("UTF-8");
+                bytes.write(value);
+            }
+            throw new IllegalStateException("菜单响应不完整或过长");
+        }
+    }
+
+    private static JSONArray loadItems(Session current) throws Exception {
+        JSONArray result = new JSONArray(); int offset = 0;
+        for (int page = 0; page < 130; page++) {
+            JSONObject response = new JSONObject(exchange(current, "ITEMS " + offset, 32768));
+            JSONArray items = response.getJSONArray("items");
+            if (items.length() > 16) throw new IllegalStateException("菜单分页越界");
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject item = items.getJSONObject(i);
+                if (item.getInt("index") != result.length()) throw new IllegalStateException("菜单顺序异常");
+                result.put(item);
+            }
+            int next = response.getInt("next");
+            if (next == -1) return result;
+            if (next != offset + 16 || result.length() > 2060) throw new IllegalStateException("菜单分页无效");
+            offset = next;
+        }
+        throw new IllegalStateException("菜单超过应用目录范围");
+    }
+
+    private static boolean request(Session current, String command) {
+        try {
+            String result = exchange(current, command, 32);
             if (result.startsWith("OK ")) {
                 current.torchState = Integer.parseInt(result.substring(3));
                 return current.torchState >= -1 && current.torchState <= 1;

@@ -1,29 +1,19 @@
-/* 与原生菜单一致：限制侧边面板宽度，标题固定，短窗口内仅滚动内容。 */
-.menu-preview {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-.menu-preview section {
-  left: calc(env(safe-area-inset-left, 0px) + 10px);
-  display: flex;
-  flex-direction: column;
-  width: min(360px, calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 20px));
-  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
-  overflow: hidden;
-}
-.menu-preview.from-right section { right: calc(env(safe-area-inset-right, 0px) + 10px); left: auto; }
-.menu-preview-heading, .menu-preview section > small { flex-shrink: 0; }
-.menu-preview-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.menu-preview section > small { margin-top: 8px; }
-@media (orientation: landscape), (max-height: 440px) {
-  .menu-preview section { padding: 8px 12px 10px; }
-  .menu-app-grid, .menu-switch-grid { gap: 6px; }
-  .menu-tile { min-height: 76px; padding: 6px 3px; gap: 2px; }
-  .menu-app-glyph { width: 26px; height: 26px; }
-  .menu-app-icon { height: 26px; font-size: 22px; line-height: 26px; }
-  .menu-tile-label { font-size: 11px; line-height: 14px; min-height: 28px; }
-  .menu-switch-title { font-size: 14px; margin: 10px 2px 6px; }
-  .menu-switch-grid .menu-tile { min-height: 64px; }
-  .menu-switch-glyph { width: 34px; height: 20px; }
-  .menu-switch-glyph i { width: 14px; height: 14px; }
-}
+.menu-preview{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.menu-preview section{left:calc(10px + env(safe-area-inset-left));width:min(196px,calc(100% - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));padding:4px 12px 10px;border-radius:25px;border:0;background:#e3e5e8ed;display:flex;flex-direction:column;overflow:hidden}
+.menu-preview.from-right section{right:calc(10px + env(safe-area-inset-right));left:auto}
+.menu-preview-heading{justify-content:center;min-height:24px;margin:0;flex:none}
+.menu-preview-heading .icon-button{width:58px;height:24px;line-height:16px;font-size:19px;padding:0;color:#96999d}
+.menu-preview-scroll{overflow-y:auto;min-height:0;overscroll-behavior:contain;scrollbar-width:none}
+.menu-preview-scroll::-webkit-scrollbar{display:none}
+.menu-switch-grid{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.sidebar-switch{width:100%;min-height:56px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:8px 10px;border-radius:16px;background:#f7f8fa;color:var(--menu-fg);font-size:12px;text-align:left}
+.sidebar-switch>span:first-child{min-width:0;overflow-wrap:anywhere}.sidebar-switch .menu-switch-glyph{flex:none;width:32px;height:20px;font-size:14px}
+.sidebar-switch.unconfigured{opacity:.55}
+.menu-app-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
+.sidebar-app{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;min-width:0;padding:10px 2px 8px;background:transparent;color:var(--menu-fg)}
+.sidebar-app .menu-real-icon{width:44px;height:44px;border-radius:11px;background:transparent;flex:none}
+.sidebar-app .menu-tile-label{width:100%;font-size:11px;line-height:15px;min-height:30px;max-height:30px}
+.sidebar-empty{grid-column:1/-1;text-align:center;font-size:12px;line-height:1.8;color:var(--menu-muted);padding:20px 0}
+.selected-app-title{font-size:14px;margin:22px 0 10px}.selected-app-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--line)}
+.selected-app-row .selected-app{margin:0;min-width:0;gap:10px}.selected-app-row .selected-app strong{font-size:13px;min-width:0;overflow-wrap:anywhere}.selected-app-row select{grid-column:1/-1;padding:8px 30px 8px 10px;font-size:12px}
+@media(prefers-color-scheme:dark){.menu-preview section{background:#303237ed}.sidebar-switch{background:#414449}}

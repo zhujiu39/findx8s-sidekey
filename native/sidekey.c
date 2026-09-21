@@ -201,9 +201,11 @@ static void execute_action(const Action *action)
     case ACTION_CAMERA:
         execl("/system/bin/am", "am", "start", "--user", "current", "-a", "android.media.action.STILL_IMAGE_CAMERA", (char *)NULL); break;
     case ACTION_APP_FREEFORM:
-        execl("/system/bin/am", "am", "start", "--user", "current", "--windowingMode", "5", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER", "-p", action->argument, (char *)NULL); break;
-    case ACTION_APP:
-        execl("/system/bin/am", "am", "start", "--user", "current", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER", "-p", action->argument, (char *)NULL); break;
+    case ACTION_APP: {
+        char script[1024]; snprintf(script, sizeof(script), "%s/scripts/app-launch.sh", module_dir);
+        execl("/system/bin/sh", "sh", script, action->argument,
+              action->kind == ACTION_APP_FREEFORM ? "freeform" : "normal", (char *)NULL); break;
+    }
     case ACTION_SHELL:
         execl("/system/bin/sh", "sh", "-c", action->argument, (char *)NULL); break;
     case ACTION_TORCH: {
@@ -376,7 +378,7 @@ static int run_daemon(void)
             struct stat current;
             if (stat(path, &current) == 0 && (current.st_ino != previous.st_ino ||
                 current.st_mtim.tv_sec != previous.st_mtim.tv_sec || current.st_mtim.tv_nsec != previous.st_mtim.tv_nsec)) {
-                Config next;
+                static Config next;
                 if (config_read(data_dir, &next, error, sizeof(error))) {
                     cancel_actions();
                     config = next;
@@ -524,7 +526,11 @@ static void print_state(void)
             menu_logs[used++] = '\n';
         }
     }
-    menu_logs[used] = 0; json_string(stdout, menu_logs); fputs("}\n", stdout);
+    menu_logs[used] = 0; json_string(stdout, menu_logs);
+    path_for(path, sizeof(path), "app-launch.log"); file = fopen(path, "r"); n = 0;
+    if (file) { n = fread(buffer, 1, sizeof(buffer) - 1, file); fclose(file); }
+    buffer[n] = 0;
+    fputs(",\"app_logs\":", stdout); json_string(stdout, buffer); fputs("}\n", stdout);
 }
 
 static int stop_daemon(void)
@@ -566,9 +572,11 @@ int main(int argc, char **argv)
         return config_write(data_dir, &config) ? 0 : 1;
     }
     if (!strcmp(argv[1], "get")) { print_state(); return 0; }
-    if (!strcmp(argv[1], "save") && argc == 4) {
-        char text[CONFIG_CAP], error[256];
-        if (!hex_decode(argv[3], text, sizeof(text)) || !config_parse(text, &config, error, sizeof(error))) {
+    if ((!strcmp(argv[1], "save") && argc == 4) || (!strcmp(argv[1], "save-stdin") && argc == 3)) {
+        static char text[CONFIG_CAP]; char error[256]; bool good = true;
+        if (argc == 4) good = hex_decode(argv[3], text, sizeof(text)) && config_parse(text, &config, error, sizeof(error));
+        else good = config_parse_chunks(stdin, &config, error, sizeof(error));
+        if (!good) {
             fprintf(stderr, "配置校验失败\n"); return 2;
         }
         if (!config_write(data_dir, &config)) { perror("保存配置"); return 1; }
@@ -578,7 +586,8 @@ int main(int argc, char **argv)
         strcpy(module_dir, argv[3]); return run_daemon();
     }
     if (!strcmp(argv[1], "stop")) return stop_daemon();
-    if (!strcmp(argv[1], "test") && argc == 4) {
+    if (!strcmp(argv[1], "test") && argc == 5 && strlen(argv[4]) < sizeof(module_dir)) {
+        strcpy(module_dir, argv[4]);
         char error[256];
         if (!config_read(data_dir, &config, error, sizeof(error))) return 1;
         int kind = -1;

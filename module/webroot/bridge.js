@@ -25,3 +25,13 @@ export async function api(operation, argument) {
   if (operation === 'start' || operation === 'stop' || operation === 'prepare-menu') return null;
   try { return JSON.parse(result); } catch { throw new Error('模块返回的数据格式异常'); }
 }
+
+export async function saveConfiguration(encoded) {
+  if (encoded.length <= 60000) return api('save', encoded);
+  const token = [...crypto.getRandomValues(new Uint8Array(16))].map(value => value.toString(16).padStart(2, '0')).join('');
+  try {
+    for (let offset = 0; offset < encoded.length; offset += 12000)
+      await api('save-part', `${token}:${offset / 12000}:${encoded.slice(offset, offset + 12000)}`);
+    return await api('save-commit', token);
+  } finally { await api('save-abort', token).catch(() => {}); }
+}

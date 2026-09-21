@@ -24,9 +24,30 @@ static pid_t launcher;
 static MenuLaunch launch_state;
 static int show_client = -1, launch_output = -1, launch_log = -1;
 static size_t logged_bytes;
-static Action snapshot[MENU_CAP];
+static MenuItem snapshot[MENU_CAP];
 static uint32_t snapshot_count;
-static struct { int fd; size_t size; char text[REQUEST_CAP]; uint64_t until; } clients[CLIENT_CAP] = {{.fd = -1}, {.fd = -1}, {.fd = -1}, {.fd = -1}};
+static struct { int fd; size_t size, sent, response_size; char text[REQUEST_CAP], response[32768]; uint64_t until; } clients[CLIENT_CAP] = {{.fd = -1}, {.fd = -1}, {.fd = -1}, {.fd = -1}};
+
+static size_t item_page(char *buffer, size_t capacity, uint32_t first)
+{
+    FILE *out = fmemopen(buffer, capacity, "w");
+    if (!out) return 0;
+    uint32_t end = first + 16; if (end > snapshot_count) end = snapshot_count;
+    fputs("{\"items\":[", out);
+    for (uint32_t i = first; i < end; i++) {
+        if (i != first) fputc(',', out);
+        fprintf(out, "{\"index\":%u,\"type\":\"%s\",\"name\":", i, action_names[snapshot[i].action.kind]);
+        json_string(out, snapshot[i].name); fputs(",\"icon\":", out); json_string(out, snapshot[i].icon);
+        if (snapshot[i].action.kind == ACTION_APP || snapshot[i].action.kind == ACTION_APP_FREEFORM) {
+            fputs(",\"packageName\":", out); json_string(out, snapshot[i].action.argument);
+        }
+        fputc('}', out);
+    }
+    fprintf(out, "],\"next\":%d}\n", end < snapshot_count ? (int)end : -1);
+    long size = ftell(out); bool good = !ferror(out);
+    if (fclose(out) != 0) good = false;
+    return good && size > 0 && (size_t)size < capacity ? (size_t)size : 0;
+}
 
 static void finish_show(bool success)
 {
@@ -126,21 +147,8 @@ static bool show_menu(const Config *config, uint64_t now)
     if (launch_log >= 0) { close(launch_log); launch_log = -1; }
     if (!random_token(session)) return false;
     snapshot_count = config->menu_count;
-    for (uint32_t i = 0; i < snapshot_count; i++) snapshot[i] = config->menu[i].action;
+    for (uint32_t i = 0; i < snapshot_count; i++) snapshot[i] = config->menu[i];
     expires = now + 60000;
-    char labels[10000];
-    FILE *out = fmemopen(labels, sizeof(labels), "w");
-    if (!out) { menu_cancel(); return false; }
-    fputc('[', out);
-    for (uint32_t i = 0; i < config->menu_count; i++) {
-        if (i) fputc(',', out);
-        fprintf(out, "{\"slot\":%u,\"type\":\"%s\",\"name\":", config->menu[i].slot, action_names[config->menu[i].action.kind]); json_string(out, config->menu[i].name);
-        fputs(",\"icon\":", out); json_string(out, config->menu[i].icon); fputc('}', out);
-    }
-    fputc(']', out);
-    bool good = !ferror(out);
-    if (fclose(out) != 0) good = false;
-    if (!good) { menu_cancel(); return false; }
     int output_pipe[2];
     if (pipe2(output_pipe, O_CLOEXEC) != 0) { menu_cancel(); return false; }
     if (fcntl(output_pipe[0], F_SETFL, O_NONBLOCK) != 0) {
@@ -165,7 +173,7 @@ static bool show_menu(const Config *config, uint64_t now)
         snprintf(position, sizeof(position), "%u", config->menu_position);
         execl("/system/bin/am", "am", "start", "--user", "current", "-W", "--activity-no-animation",
               "-n", "cn.sidekey.menu/.MenuActivity", "--ei", "port", port_text,
-              "--es", "token", session, "--es", "items", labels,
+              "--es", "token", session,
               "--es", "side", config->menu_right ? "right" : "left", "--ei", "position", position, (char *)NULL);
         _exit(127);
     }
@@ -215,9 +223,17 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
     for (int i = 0; i < CLIENT_CAP; i++) {
         if (clients[i].fd < 0) {
             clients[i].fd = accept4(listener, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
-            clients[i].size = 0; clients[i].until = now + 1500;
+            clients[i].size = clients[i].sent = clients[i].response_size = 0; clients[i].until = now + 1500;
         }
         if (clients[i].fd < 0) continue;
+        if (clients[i].response_size) {
+            ssize_t written = send(clients[i].fd, clients[i].response + clients[i].sent,
+                                   clients[i].response_size - clients[i].sent, MSG_NOSIGNAL);
+            if (written > 0) clients[i].sent += (size_t)written;
+            if (clients[i].sent < clients[i].response_size && now < clients[i].until &&
+                (written >= 0 || errno == EAGAIN || errno == EINTR)) continue;
+            close(clients[i].fd); clients[i].fd = -1; continue;
+        }
         ssize_t n = recv(clients[i].fd, clients[i].text + clients[i].size, REQUEST_CAP - 1 - clients[i].size, 0);
         if (n < 0 && (errno == EAGAIN || errno == EINTR) && now < clients[i].until) continue;
         if (n > 0) clients[i].size += (size_t)n;
@@ -235,10 +251,19 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
                 uint32_t index = 0;
                 MenuCommand command = menu_authorize(clients[i].text, session, expires, now, snapshot_count, &index);
                 if (command == MENU_PING) { accepted = true; ping = true; launch_state.ui_ready = true; }
+                else if (command == MENU_ITEMS) {
+                    clients[i].response_size = item_page(clients[i].response, sizeof(clients[i].response), index);
+                    if (clients[i].response_size) {
+                        ssize_t written = send(clients[i].fd, clients[i].response, clients[i].response_size, MSG_NOSIGNAL);
+                        if (written > 0) clients[i].sent = (size_t)written;
+                        if (clients[i].sent == clients[i].response_size) { close(clients[i].fd); clients[i].fd = -1; }
+                        continue;
+                    }
+                }
                 else if (command == MENU_CLOSE) { session[0] = 0; expires = 0; accepted = true; if (!launch_state.ui_ready) launch_state.error = 1; }
                 else if (command == MENU_SELECT) {
                     session[0] = 0; expires = 0;
-                    accepted = selected && selected(&snapshot[index]);
+                    accepted = selected && selected(&snapshot[index].action);
                 }
             }
         } else if (n > 0 && !newline && clients[i].size < REQUEST_CAP - 1 && now < clients[i].until) continue;
@@ -254,8 +279,8 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
 int menu_descriptor(void) { return listener; }
 int menu_wait_ms(void)
 {
+    for (int i = 0; i < CLIENT_CAP; i++) if (clients[i].fd >= 0) return 5;
     if (launcher > 0 || show_client >= 0 || launch_output >= 0) return 50;
-    for (int i = 0; i < CLIENT_CAP; i++) if (clients[i].fd >= 0) return 50;
     return 500;
 }
 

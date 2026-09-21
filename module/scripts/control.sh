@@ -34,6 +34,14 @@ case "$1" in
         fi
         exit "$result"
         ;;
+    app-icons)
+        [ "$#" -eq 2 ] || exit 2
+        user=${2%%:*}
+        packages=${2#*:}
+        case "$user" in ''|*[!0-9]*) exit 2 ;; esac
+        case "$packages" in ''|*[!A-Za-z0-9_.,]*) exit 2 ;; esac
+        CLASSPATH="$MODDIR/lib/torch.jar" timeout -s KILL 12 /system/bin/app_process /system/bin cn.sidekey.AppCatalog icons "$user" "$packages"
+        ;;
     get) exec "$BINARY" get "$DATA" ;;
     start) start_service ;;
     stop) exec "$BINARY" stop "$DATA" ;;
@@ -43,10 +51,38 @@ case "$1" in
         start_service || exit $?
         exec "$BINARY" get "$DATA"
         ;;
+    save-part)
+        [ "$#" -eq 2 ] || exit 2
+        token=${2%%:*}; rest=${2#*:}; index=${rest%%:*}; chunk=${rest#*:}
+        [ "${#token}" -eq 32 ] || exit 2
+        case "$token" in *[!a-f0-9]*) exit 2 ;; esac
+        case "$index" in ''|*[!0-9]*) exit 2 ;; esac
+        case "$chunk" in ''|*[!a-f0-9]*) exit 2 ;; esac
+        [ "${#chunk}" -le 12000 ] && [ "$index" -lt 700 ] || exit 2
+        part="$DATA/config-upload-$token.part"
+        if [ "$index" -eq 0 ]; then
+            (set -C; : >"$part") || exit 1
+        fi
+        [ -f "$part" ] && [ ! -L "$part" ] && [ "$(wc -l <"$part")" -eq "$index" ] || exit 2
+        printf '%s\n' "$chunk" >>"$part" || exit 1
+        printf 'null\n'
+        ;;
+    save-commit|save-abort)
+        [ "$#" -eq 2 ] && [ "${#2}" -eq 32 ] || exit 2
+        case "$2" in *[!a-f0-9]*) exit 2 ;; esac
+        part="$DATA/config-upload-$2.part"
+        if [ "$1" = save-abort ]; then rm -f "$part"; printf 'null\n'; exit 0; fi
+        [ -f "$part" ] && [ ! -L "$part" ] || exit 2
+        "$BINARY" save-stdin "$DATA" <"$part" >/dev/null
+        result=$?; rm -f "$part"
+        [ "$result" -eq 0 ] || exit "$result"
+        start_service || exit $?
+        exec "$BINARY" get "$DATA"
+        ;;
     test)
         case "$2" in single|double|long) ;; *) exit 2 ;; esac
         start_service || exit $?
-        exec "$BINARY" test "$DATA" "$2"
+        exec "$BINARY" test "$DATA" "$2" "$MODDIR"
         ;;
     *) echo "不支持的操作" >&2; exit 2 ;;
 esac

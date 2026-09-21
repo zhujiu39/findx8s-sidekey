@@ -25,13 +25,21 @@ static void reset(bool double_enabled)
 }
 int main(int argc, char **argv)
 {
+    if (argc == 4 && !strcmp(argv[1], "--chunks")) {
+        FILE *file = fopen(argv[2], "rb"); if (!file) return 2;
+        static Config chunk_config; char error[256];
+        bool good = config_parse_chunks(file, &chunk_config, error, sizeof(error)); fclose(file);
+        if (!good) return 1;
+        if (!config_write(argv[3], &chunk_config)) return 3;
+        config_json(stdout, &chunk_config); return 0;
+    }
     if (argc == 2 || argc == 3) {
         FILE *file = fopen(argv[1], "rb");
         if (!file) return 2;
-        char text[CONFIG_CAP], error[256];
+        static char text[CONFIG_CAP]; char error[256];
         size_t length = fread(text, 1, sizeof(text) - 1, file);
         fclose(file); text[length] = 0;
-        Config config;
+        static Config config;
         if (!config_parse(text, &config, error, sizeof(error))) return 1;
         if (argc == 3) {
             if (!config_write(argv[2], &config) || !config_read(argv[2], &config, error, sizeof(error))) return 3;
@@ -87,8 +95,8 @@ int main(int argc, char **argv)
     gesture_tick(&state, 5000); assert(count == 0);
 
     const char *valid = "version=1\nenabled=1\nlong_ms=600\ndouble_ms=280\nsingle=home\ndouble=none\nlong=shell\nsingle_arg=\ndouble_arg=\nlong_arg=6563686f206869\n";
-    Config config;
-    char error[256], text[CONFIG_CAP], decoded[4];
+    static Config config;
+    static char text[CONFIG_CAP]; char error[256], decoded[4];
     assert(config_parse(valid, &config, error, sizeof(error)));
     assert(config.enabled && config.actions[0].kind == ACTION_HOME);
     assert(config.haptic); /* 旧配置升级默认开启，其他动作不变。 */
@@ -134,7 +142,7 @@ int main(int argc, char **argv)
     assert(!config_parse(text, &config, error, sizeof(error)));
     snprintf(text, sizeof(text), "%s%smenu_0_slot=10\n", valid, menu);
     assert(config_parse(text, &config, error, sizeof(error)) && config.menu[0].slot == 10);
-    snprintf(text, sizeof(text), "%s%smenu_0_slot=12\n", valid, menu);
+    snprintf(text, sizeof(text), "%s%smenu_0_slot=2060\n", valid, menu);
     assert(!config_parse(text, &config, error, sizeof(error)));
     snprintf(text, sizeof(text), "%s%smenu_0_slot=1\nmenu_0_slot=2\n", valid, menu);
     assert(!config_parse(text, &config, error, sizeof(error)));
@@ -146,6 +154,13 @@ int main(int argc, char **argv)
     assert(!config_parse(text, &config, error, sizeof(error)));
     const char *token = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     uint32_t selected = 99;
+    snprintf(text, sizeof(text), "ITEMS %s 16", token);
+    assert(menu_authorize(text, token, 60000, 59999, 200, &selected) == MENU_ITEMS && selected == 16);
+    assert(menu_authorize(text, token, 60000, 60000, 200, &selected) == MENU_INVALID);
+    snprintf(text, sizeof(text), "ITEMS %s 17", token);
+    assert(menu_authorize(text, token, 60000, 59999, 200, &selected) == MENU_INVALID);
+    snprintf(text, sizeof(text), "ITEMS %s 0", token);
+    assert(menu_authorize(text, token, 60000, 59999, 0, &selected) == MENU_ITEMS && selected == 0);
     snprintf(text, sizeof(text), "SELECT %s 11", token);
     assert(menu_authorize(text, token, 60000, 59999, 12, &selected) == MENU_SELECT && selected == 11);
     assert(menu_authorize(text, token, 60000, 60000, 12, &selected) == MENU_INVALID);

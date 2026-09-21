@@ -24,7 +24,7 @@ fingerprint=$(sha256sum "$APK") || exit 1
 fingerprint=${fingerprint%% *}
 previous=$(cat "$DATA/menu-installed-$user_id" 2>/dev/null)
 if [ "$previous" = "$fingerprint" ] && timeout 10 pm path --user "$user_id" cn.sidekey.menu >/dev/null 2>&1; then
-    echo "菜单组件 v0.4.4 已就绪。"
+    echo "菜单组件 v0.5.0 已就绪。"
     exit 0
 fi
 # APK 通过标准包管理器安装，不修改系统分区，不申请悬浮窗或无障碍权限。
@@ -35,7 +35,7 @@ if cat "$APK" | timeout 45 pm install -r --user "$user_id" -S "$size"; then
         exit 1
     fi
     printf '%s\n' "$fingerprint" > "$DATA/menu-installed-$user_id"
-    echo "菜单组件 v0.4.4 已安装。"
+    echo "菜单组件 v0.5.0 已安装。"
 else
     echo "菜单安装失败；若提示签名冲突，请自行卸载旧的侧键快捷菜单组件后重试。"
     exit 1

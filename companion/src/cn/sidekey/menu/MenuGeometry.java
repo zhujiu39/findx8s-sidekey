@@ -15,7 +15,7 @@ public final class MenuGeometry {
         safeHeight = Math.max(1, h - safeTop - Math.max(0, insetBottom));
         int margin = Math.min(px(10, density), (safeWidth - 1) / 2);
         gap = Math.min(px(12, density), (safeHeight - 1) / 2);
-        width = Math.min(px(360, density), safeWidth - margin * 2);
+        width = Math.min(px(196, density), safeWidth - margin * 2);
         maxHeight = safeHeight - gap * 2;
         left = right ? safeLeft + safeWidth - margin - width : safeLeft + margin;
         compact = safeWidth > safeHeight || safeHeight < px(440, density);

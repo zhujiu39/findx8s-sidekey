@@ -92,7 +92,7 @@ test('拒绝菜单递归、超量、空名称、字节超长以及越界位置',
   ]) {
     const c=defaultConfig();c.menu=[item];assert.throws(() => validate(c));
   }
-  const c=defaultConfig(); c.menu=Array.from({length:13},()=>({name:'a',icon:'',type:'home',argument:''}));
+  const c=defaultConfig(); c.menu=Array.from({length:2061},()=>({name:'a',icon:'',type:'home',argument:''}));
   assert.throws(()=>validate(c)); c.menu=[];
   for (const position of [9,91,NaN,35.1]) { c.menu_position=position;assert.throws(()=>validate(c)); }
   c.menu_position=35;c.menu_side='top';assert.throws(()=>validate(c));
@@ -100,9 +100,9 @@ test('拒绝菜单递归、超量、空名称、字节超长以及越界位置',
 test('最大菜单和最长 Shell 仍处于 C 配置缓冲区内', () => {
   const c=defaultConfig();
   c.actions=Array.from({length:3},()=>({type:'shell',argument:'x'.repeat(512)}));
-  c.menu=Array.from({length:12},()=>({name:'字'.repeat(32),icon:'😀'.repeat(6),type:'shell',argument:'x'.repeat(512)}));
-  assert.ok(Buffer.byteLength(serialize(c)) < 32768);
-  assert.equal(c.menu.length,12);
+  c.menu=Array.from({length:2060},()=>({name:'字'.repeat(32),icon:'😀'.repeat(6),type:'shell',argument:'x'.repeat(512)}));
+  assert.ok(Buffer.byteLength(serialize(c)) < 4 * 1024 * 1024);
+  assert.equal(c.menu.length,2060);
 });
 
 
@@ -111,7 +111,7 @@ test('网格槽位唯一且可以保留空位，小窗应用参数严格校验',
   c.menu=[{slot:3,name:'应用',icon:'',type:'app_freeform',argument:'com.android.settings'},
     {slot:10,name:'灯光',icon:'',type:'torch',argument:''}];
   assert.match(serialize(c), /menu_0_slot=3\n/); assert.match(serialize(c), /menu_1_slot=10\n/);
-  for (const slot of [-1,12,3,4.5]) {c.menu[1].slot=slot;assert.throws(()=>validate(c));}
+  for (const slot of [-1,2060,3,4.5]) {c.menu[1].slot=slot;assert.throws(()=>validate(c));}
   c.menu[1].slot=10;c.menu[0].argument='com.app;id';assert.throws(()=>validate(c));
   c.menu[0].argument='';assert.throws(()=>validate(c));
 });

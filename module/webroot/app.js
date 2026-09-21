@@ -1,6 +1,6 @@
 import {initMenuEditor, fillMenu, readMenu, menuBusy} from './menu-editor.js';
 import {actions, gestureIds, defaultConfig, validate, serialize, hex} from './model.js';
-import {api, available} from './bridge.js';
+import {api, available, saveConfiguration} from './bridge.js';
 import {appCatalog, createAppChoice} from './app-picker.js';
 const $ = id => document.getElementById(id);
 let saved = defaultConfig(), loaded = false, busy = false, refreshBusy = false;
@@ -90,7 +90,7 @@ function runtime(data) {
     !torchActive ? '服务准备中，或启动失败（见下方日志）' : t.error ? t.error :
     !t.known ? '等待系统状态' : !t.available ? '不可用（相机占用或系统限制）' :
     `${t.enabled ? '已开启' : '已关闭'} · ${t.maximum > 1 ? `亮度 ${t.strength || 0} / ${t.maximum}` : '系统仅开放默认亮度'}`;
-  $('logs').textContent = (data.logs || '暂无日志') + (data.torch_logs ? '\n手电筒服务：\n' + data.torch_logs : '') + (data.menu_logs ? '\n菜单组件：\n' + data.menu_logs : '');
+  $('logs').textContent = (data.logs || '暂无日志') + (data.torch_logs ? '\n手电筒服务：\n' + data.torch_logs : '') + (data.menu_logs ? '\n菜单组件：\n' + data.menu_logs : '') + (data.app_logs ? '\n应用启动：\n' + data.app_logs : '');
   if (r.error && data.config.enabled) notice(r.error);
 }
 async function refresh(initial = false) {
@@ -108,7 +108,7 @@ async function save() {
   try {
     const config = validate(formConfig());
     busy = true; updateDirty(); notice('');
-    const data = await api('save', hex(serialize(config)));
+    const data = await saveConfiguration(hex(serialize(config)));
     fill(data.config); runtime(data); toast('已保存，配置会在半秒内应用');
   } catch (error) { notice(error.message); }
   finally { busy = false; updateDirty(); }
@@ -144,7 +144,10 @@ $('reload-apps').addEventListener('click', packages);
 $('start-service').addEventListener('click', async () => {
   try { await api('start'); toast('已请求启动监听'); refresh(); } catch (error) { notice(error.message); }
 });
-if (available()) refresh(true);
+if (available()) refresh(true).then(async () => {
+  try { await appCatalog.get(); document.dispatchEvent(new Event('sidekey-apps-updated')); }
+  catch (error) { notice(`应用信息暂未加载：${error.message}，可点击“勾选应用”重试。`); }
+});
 else {
   fill(defaultConfig()); notice('界面预览：请从 KernelSU 管理器打开模块 WebUI，以保存和应用设置。');
   $('status').querySelector('span').textContent = '界面预览'; $('start-service').disabled = true;

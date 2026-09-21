@@ -71,9 +71,10 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
 {
     const char *keys[] = {"version", "enabled", "long_ms", "double_ms", "single", "double", "long", "single_arg", "double_arg", "long_arg", "haptic", "menu_count", "menu_side", "menu_position"};
     if (!text || !config || !error || !error_cap) return false;
-    Config next;
+    /* 工具与守护进程均单线程调用，使用固定工作区避免大菜单占满线程栈。 */
+    static Config next;
     config_defaults(&next);
-    char buffer[CONFIG_CAP];
+    static char buffer[CONFIG_CAP];
     if (strlen(text) >= sizeof(buffer)) { snprintf(error, error_cap, "配置过长"); return false; }
     strcpy(buffer, text);
     unsigned int seen = 0;
@@ -88,7 +89,9 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
         if (key < 0) {
             bool matched = false;
             const char *fields[] = {"name", "icon", "action", "arg", "slot"};
-            for (uint32_t i = 0; i < MENU_CAP; i++) for (int f = 0; f < 5; f++) {
+            unsigned int i = 0; int prefix = 0;
+            if (sscanf(line, "menu_%u_%n", &i, &prefix) != 1 || prefix <= 0 || i >= MENU_CAP) goto invalid;
+            for (int f = 0; f < 5; f++) {
                 char expected[40];
                 snprintf(expected, sizeof(expected), "menu_%u_%s", i, fields[f]);
                 if (strcmp(line, expected)) continue;
@@ -164,9 +167,35 @@ invalid:
     return false;
 }
 
+/**
+ * @功能：解析有长度边界的十六进制分块，完整校验后交给原子保存路径。
+ * @日期：2026-09-21
+ * @参数：[输入] input；[输出] config、error；[输入] error_cap。
+ * @返回值：true 表示分块完整且配置有效；固定工作区仅供单线程调用。
+ */
+bool config_parse_chunks(FILE *input, Config *config, char *error, size_t error_cap)
+{
+    if (!input || !config || !error || !error_cap) return false;
+    static char text[CONFIG_CAP]; char line[12002], chunk[6001]; size_t used = 0;
+    while (fgets(line, sizeof(line), input)) {
+        size_t size = strlen(line);
+        if (!size || line[size - 1] != '\n') goto invalid;
+        line[size - 1] = 0;
+        if (!hex_decode(line, chunk, sizeof(chunk))) goto invalid;
+        size_t length = strlen(chunk);
+        if (used + length >= sizeof(text)) goto invalid;
+        memcpy(text + used, chunk, length); used += length;
+    }
+    text[used] = 0;
+    if (ferror(input)) goto invalid;
+    return config_parse(text, config, error, error_cap);
+invalid:
+    snprintf(error, error_cap, "配置分块不完整或过长"); return false;
+}
+
 bool config_read(const char *directory, Config *config, char *error, size_t cap)
 {
-    char path[1024], buffer[CONFIG_CAP];
+    char path[1024]; static char buffer[CONFIG_CAP];
     if (snprintf(path, sizeof(path), "%s/config.conf", directory) >= (int)sizeof(path)) return false;
     FILE *file = fopen(path, "r");
     if (!file) { snprintf(error, cap, "读取配置失败：%s", strerror(errno)); return false; }

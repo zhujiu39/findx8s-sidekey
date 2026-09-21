@@ -22,12 +22,12 @@ export function validate(config) {
   if (!['left', 'right'].includes(config.menu_side)) throw new Error('请选择菜单弹出方向');
   if (!Number.isInteger(config.menu_position) || config.menu_position < 10 || config.menu_position > 90)
     throw new Error('菜单高度应在 10%～90% 之间');
-  if (!Array.isArray(config.menu) || config.menu.length > 12) throw new Error('菜单最多支持 12 项');
+  if (!Array.isArray(config.menu) || config.menu.length > 2060) throw new Error('菜单数据超出应用目录范围，请刷新应用列表');
   const bytes = text => new TextEncoder().encode(text).length;
   const slots = new Set();
   for (const [index, item] of config.menu.entries()) {
     const slot = item.slot ?? index;
-    if (!Number.isInteger(slot) || slot < 0 || slot > 11 || slots.has(slot)) throw new Error('菜单位置必须唯一，范围为 0～11');
+    if (!Number.isInteger(slot) || slot < 0 || slot >= 2060 || slots.has(slot)) throw new Error('菜单顺序无效或重复');
     slots.add(slot);
     if (typeof item.name !== 'string' || !item.name.trim() || item.name.includes('\0') || bytes(item.name) > 96)
       throw new Error('菜单名称不能为空，最多 96 个 UTF-8 字节');
@@ -40,7 +40,7 @@ export function validate(config) {
     if (typeof action.argument !== 'string' || action.argument.includes('\0') || new TextEncoder().encode(action.argument).length > 512)
       throw new Error('动作参数最多为 512 个 UTF-8 字节，不能包含空字符');
     if (['app','app_freeform'].includes(action.type) && !/^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+$/.test(action.argument))
-      throw new Error('请输入有效的应用包名，例如 com.android.settings');
+      throw new Error('请从手机应用列表选择应用');
     if (action.type === 'keycode' && (!/^\d+$/.test(action.argument) || Number(action.argument) < 1 || Number(action.argument) > 2047))
       throw new Error('Android 按键码应为 1～2047 的整数');
     if (action.type === 'shell' && !action.argument.trim()) throw new Error('请输入要执行的 Shell 命令');
