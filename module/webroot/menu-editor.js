@@ -29,17 +29,19 @@ function controls(item, group) {
 function render() {
   const host=$('menu-items'); releaseAppIcons(host); host.replaceChildren();
   const apps=entries.filter(isApp), switches=entries.filter(item=>!isApp(item));
-  $('menu-empty').hidden=apps.length !== 0;
-  $('menu-count').textContent=apps.length + ' 个应用 · ' + Math.min(2,switches.length) + ' 个开关';
+  const configured=switches.filter(item=>item.type!=='none');
+  $('menu-empty').hidden=apps.length + configured.length !== 0;
+  $('menu-count').textContent=apps.length + ' 个应用 · ' + configured.length + ' 个开关';
   switches.forEach((item,index)=>{
     const card=element('article','menu-item');
-    const heading=element('div','menu-item-heading'); heading.append(element('strong','',index<2 ? '顶部开关 '+(index+1) : '旧版保留捷径（移到前两项可显示）'),controls(item,switches)); card.append(heading);
+    const heading=element('div','menu-item-heading'); heading.append(element('strong','','快捷开关 '+(index+1)),controls(item,switches)); card.append(heading);
     const name=element('input',''); name.value=item.name; name.addEventListener('input',()=>{item.name=name.value;onChange();}); card.append(field('开关名称',name));
     const action=element('select',''); actions.filter(([id])=>!['menu','app','app_freeform'].includes(id)).forEach(([id,label])=>action.add(new Option(label,id)));
     action.value=item.type; card.append(field('开关动作',action));
     const parameter=element('textarea',''); parameter.value=item.argument; parameter.rows=2;
     const parameterField=field('动作参数',parameter); parameterField.hidden=!['shell','keycode'].includes(item.type); card.append(parameterField);
-    action.addEventListener('change',()=>{item.type=action.value;item.argument='';parameter.value='';parameterField.hidden=!['shell','keycode'].includes(item.type);onChange();});
+    action.addEventListener('change',()=>{item.type=action.value;item.argument='';changed();});
+    if (item.type==='none') card.append(element('p','hint','未设置动作，快捷栏中不显示。'));
     parameter.addEventListener('input',()=>{item.argument=parameter.value;onChange();}); host.append(card);
   });
   if (apps.length) host.append(element('h3','selected-app-title','已选应用'));
@@ -59,10 +61,10 @@ export function initMenuEditor(change) {
     chooseApps(selected,Infinity,apps=>{entries=applyAppSelection(entries,apps);changed();});
   });
   $('add-menu-switch').addEventListener('click',()=>{
-    if (isBusy || entries.filter(item=>!isApp(item)).length>=2) return;
+    if (isBusy || entries.length>=2060) return;
     entries.push({name:'新开关',icon:'',type:'none',argument:''}); changed();
   });
-  ['menu-side','menu-position'].forEach(id=>$(id).addEventListener('input',onChange));
+  ['menu-side','menu-position','menu-width','menu-gap'].forEach(id=>$(id).addEventListener('input',onChange));
   $('preview-menu').addEventListener('click',preview);
   $('menu-preview').addEventListener('click',event=>{if(event.target===$('menu-preview'))dismiss();});
   $('close-preview').addEventListener('click',dismiss);
@@ -74,13 +76,18 @@ export function initMenuEditor(change) {
 }
 export function fillMenu(config) {
   entries=structuredClone(config.menu).map((item,index)=>({...item,slot:item.slot??index,type:isApp(item)?'app_freeform':item.type})).sort((a,b)=>a.slot-b.slot);
-  $('menu-side').value=config.menu_side;$('menu-position').value=config.menu_position;render();
+  $('menu-side').value=config.menu_side;$('menu-position').value=config.menu_position;
+  $('menu-width').value=config.menu_width??196;$('menu-gap').value=config.menu_gap??12;render();
 }
-export function readMenu() { return {menu_side:$('menu-side').value,menu_position:Number($('menu-position').value),menu:structuredClone(entries)}; }
+export function readMenu() { return {menu_side:$('menu-side').value,menu_position:Number($('menu-position').value),
+  menu_width:Number($('menu-width').value),menu_gap:Number($('menu-gap').value),menu:structuredClone(entries)}; }
 export function menuBusy(value) {
   isBusy=value;$('choose-menu-apps').disabled=value;
-  $('add-menu-switch').disabled=value || entries.filter(item=>!isApp(item)).length>=2;
-  $('preview-menu').disabled=value;$('menu-position-output').value=$('menu-position').value+'%';
+  $('add-menu-switch').disabled=value || entries.length>=2060;
+  $('preview-menu').disabled=value || !entries.some(item=>item.type!=='none');
+  $('menu-position-output').value=$('menu-position').value+'%';
+  $('menu-width-output').value=$('menu-width').value+' dp';
+  $('menu-gap-output').value=$('menu-gap').value+' dp';
   $('menu-items').querySelectorAll('input,select,textarea').forEach(node=>node.disabled=value);
   $('menu-items').querySelectorAll('button').forEach(node=>node.disabled=value || node.dataset.unavailable==='true');
 }
@@ -93,14 +100,16 @@ function positionPreview() {
 }
 window.addEventListener('resize',positionPreview);window.visualViewport?.addEventListener('resize',positionPreview);
 function preview() {
+  if (!entries.some(item=>item.type!=='none')) return;
   const overlay=$('menu-preview');lastFocus=document.activeElement;clearTimeout(dismissTimer);
   overlay.classList.toggle('from-right',$('menu-side').value==='right');
+  overlay.style.setProperty('--sidebar-width',$('menu-width').value+'px');
+  overlay.style.setProperty('--app-gap',$('menu-gap').value+'px');
   releaseAppIcons($('menu-preview-items'));$('menu-preview-items').replaceChildren();$('menu-preview-switches').replaceChildren();
-  const switches=entries.filter(item=>!isApp(item));
-  for(let index=0;index<2;index++) {
-    const item=switches[index],configured=item&&item.type!=='none';
-    const row=element('button','sidebar-switch'+(configured?'':' unconfigured'));row.type='button';row.disabled=!configured;
-    row.append(element('span','',item?.name||'开关 '+(index+1)),element('span','menu-switch-glyph',configured?(item.type==='torch'?'—':'›'):'○'));
+  const switches=entries.filter(item=>!isApp(item)&&item.type!=='none');
+  for(const item of switches) {
+    const row=element('button','sidebar-switch');row.type='button';
+    row.append(element('span','',item.name),element('span','menu-switch-glyph',item.type==='torch'?'—':'›'));
     row.addEventListener('click',dismiss);$('menu-preview-switches').append(row);
   }
   const apps=entries.filter(isApp);
@@ -109,7 +118,6 @@ function preview() {
     const row=element('button','sidebar-app');row.type='button';row.append(appIcon(item.argument,label,'menu-real-icon'),element('span','menu-tile-label',label));
     row.addEventListener('click',dismiss);$('menu-preview-items').append(row);
   });
-  if(!apps.length) $('menu-preview-items').append(element('p','sidebar-empty','在 WebUI 勾选常用应用'));
   overlay.hidden=false;positionPreview();document.querySelector('main').inert=true;document.querySelector('.save-bar').inert=true;
   requestAnimationFrame(()=>requestAnimationFrame(()=>overlay.classList.add('visible')));$('close-preview').focus();
 }

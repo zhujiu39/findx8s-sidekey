@@ -24,6 +24,8 @@ void config_defaults(Config *c)
     c->long_ms = 600;
     c->double_ms = 280;
     c->menu_position = 35;
+    c->menu_width = 196;
+    c->menu_gap = 12;
     for (uint32_t i = 0; i < MENU_CAP; i++) c->menu[i].slot = i;
 }
 
@@ -69,7 +71,7 @@ static bool number(const char *text, uint32_t minimum, uint32_t maximum, uint32_
  */
 bool config_parse(const char *text, Config *config, char *error, size_t error_cap)
 {
-    const char *keys[] = {"version", "enabled", "long_ms", "double_ms", "single", "double", "long", "single_arg", "double_arg", "long_arg", "haptic", "menu_count", "menu_side", "menu_position"};
+    const char *keys[] = {"version", "enabled", "long_ms", "double_ms", "single", "double", "long", "single_arg", "double_arg", "long_arg", "haptic", "menu_count", "menu_side", "menu_position", "menu_width", "menu_gap"};
     if (!text || !config || !error || !error_cap) return false;
     /* 工具与守护进程均单线程调用，使用固定工作区避免大菜单占满线程栈。 */
     static Config next;
@@ -85,7 +87,7 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
         if (!equal) goto invalid;
         *equal++ = 0;
         int key = -1;
-        for (int i = 0; i < 14; i++) if (!strcmp(keys[i], line)) key = i;
+        for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) if (!strcmp(keys[i], line)) key = (int)i;
         if (key < 0) {
             bool matched = false;
             const char *fields[] = {"name", "icon", "action", "arg", "slot"};
@@ -134,6 +136,10 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
             next.menu_right = !strcmp(equal, "right");
         } else if (key == 13) {
             if (!number(equal, 10, 90, &next.menu_position)) goto invalid;
+        } else if (key == 14) {
+            if (!number(equal, 160, 360, &next.menu_width)) goto invalid;
+        } else if (key == 15) {
+            if (!number(equal, 0, 32, &next.menu_gap)) goto invalid;
         } else if (!hex_decode(equal, next.actions[key - 7].argument, ARG_CAP)) goto invalid;
     }
     /* 旧版本没有 haptic 字段，升级时保留动作并使用默认开启的反馈。 */
@@ -222,8 +228,8 @@ bool config_write(const char *directory, const Config *config)
         for (const unsigned char *p = (const unsigned char *)config->actions[i].argument; *p; p++) fprintf(file, "%02x", *p);
         fputc('\n', file);
     }
-    fprintf(file, "menu_count=%u\nmenu_side=%s\nmenu_position=%u\n", config->menu_count,
-            config->menu_right ? "right" : "left", config->menu_position);
+    fprintf(file, "menu_count=%u\nmenu_side=%s\nmenu_position=%u\nmenu_width=%u\nmenu_gap=%u\n", config->menu_count,
+            config->menu_right ? "right" : "left", config->menu_position, config->menu_width, config->menu_gap);
     for (uint32_t i = 0; i < config->menu_count; i++) {
         const MenuItem *item = &config->menu[i];
         const char *fields[] = {"name", "icon", "arg"};
@@ -261,7 +267,8 @@ void config_json(FILE *out, const Config *c)
         fputs("{\"type\":", out); json_string(out, action_names[c->actions[i].kind]);
         fputs(",\"argument\":", out); json_string(out, c->actions[i].argument); fputc('}', out);
     }
-    fprintf(out, "],\"menu_side\":\"%s\",\"menu_position\":%u,\"menu\":[", c->menu_right ? "right" : "left", c->menu_position);
+    fprintf(out, "],\"menu_side\":\"%s\",\"menu_position\":%u,\"menu_width\":%u,\"menu_gap\":%u,\"menu\":[",
+            c->menu_right ? "right" : "left", c->menu_position, c->menu_width, c->menu_gap);
     for (uint32_t i = 0; i < c->menu_count; i++) {
         if (i) fputc(',', out);
         fprintf(out, "{\"slot\":%u,\"name\":", c->menu[i].slot); json_string(out, c->menu[i].name);

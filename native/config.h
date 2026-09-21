@@ -21,7 +21,7 @@ typedef struct { ActionKind kind; char argument[ARG_CAP]; } Action;
 typedef struct { uint32_t slot; char name[MENU_NAME_CAP], icon[MENU_ICON_CAP]; Action action; } MenuItem;
 typedef struct {
     bool enabled, haptic, menu_right;
-    uint32_t long_ms, double_ms, menu_position, menu_count;
+    uint32_t long_ms, double_ms, menu_position, menu_width, menu_gap, menu_count;
     Action actions[3];
     MenuItem menu[MENU_CAP];
 } Config;

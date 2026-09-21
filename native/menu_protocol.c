@@ -1,6 +1,22 @@
 #include "menu_protocol.h"
 #include <stdio.h>
 #include <string.h>
+
+/* 压紧展示索引，避免隐藏空动作后点击项与 Root 执行动作错位。 */
+uint32_t menu_snapshot(const Config *config, MenuItem *items, uint32_t capacity)
+{
+    if (!config || !items || capacity < config->menu_count || config->menu_count > MENU_CAP) return 0;
+    uint32_t count = 0;
+    for (uint32_t i = 0; i < config->menu_count; i++) {
+        if (config->menu[i].action.kind == ACTION_NONE) continue;
+        items[count] = config->menu[i];
+        /* 兼容旧版普通应用项；菜单应用仍统一走已验证的 ColorOS 小窗路径。 */
+        if (items[count].action.kind == ACTION_APP) items[count].action.kind = ACTION_APP_FREEFORM;
+        count++;
+    }
+    return count;
+}
+
 MenuCommand menu_authorize(const char *line, const char *token, uint64_t expires,
                            uint64_t now, uint32_t count, uint32_t *index)
 {

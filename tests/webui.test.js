@@ -6,6 +6,7 @@ import {exec, api} from '../module/webroot/bridge.js';
 test('默认配置为暂停接管，三个手势均不执行动作', () => {
   const config = defaultConfig(); assert.equal(config.enabled, false); assert.equal(config.haptic, true);
   assert.deepEqual(config.actions.map(a => a.type), ['none', 'none', 'none']);
+  assert.equal(config.menu_width, 196); assert.equal(config.menu_gap, 12);
   assert.match(serialize(config), /single_arg=\ndouble_arg=\nlong_arg=\n/);
 });
 test('包含换行、引号、中文的命令只能作为编码参数传输', () => {
@@ -13,7 +14,7 @@ test('包含换行、引号、中文的命令只能作为编码参数传输', ()
   config.actions[2] = {type: 'shell', argument: "printf '%s\\n' '你好'\necho $(id)"};
   const text = serialize(config), encoded = text.match(/long_arg=(.*)/)[1];
   assert.equal(Buffer.from(encoded, 'hex').toString('utf8'), config.actions[2].argument);
-  assert.equal(text.split('\n').length, 15);
+  assert.equal(text.split('\n').length, 17);
   assert.match(hex(text), /^[0-9a-f]+$/);
 });
 test('拒绝非法阈值、未知动作、超长或空参数', () => {
@@ -28,6 +29,22 @@ test('拒绝非法阈值、未知动作、超长或空参数', () => {
     config.actions[0] = action; assert.throws(() => validate(config));
   }
 });
+test('快捷栏尺寸兼容旧配置，接受边界并拒绝非法值', () => {
+  const config=defaultConfig(); delete config.menu_width; delete config.menu_gap;
+  assert.match(serialize(config), /menu_width=196\nmenu_gap=12\n/);
+  for (const [width,gap] of [[160,0],[360,32],[280,24]]) {
+    config.menu_width=width; config.menu_gap=gap;
+    assert.ok(serialize(config).includes(`menu_width=${width}\nmenu_gap=${gap}\n`));
+  }
+  for (const [key,values] of [['menu_width',[159,361,196.5,NaN,null,'196']],
+    ['menu_gap',[-1,33,1.5,NaN,null,'12']]]) {
+    for (const value of values) {
+      const invalid={...defaultConfig(),[key]:value};
+      assert.throws(()=>validate(invalid));
+    }
+  }
+});
+
 test('Shell 引号不会使参数中的单引号成为新命令', () => {
   assert.equal(quote("a'b"), "'a'\\''b'");
   assert.equal(quote('$(id);echo x'), "'$(id);echo x'");

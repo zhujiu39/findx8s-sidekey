@@ -9,7 +9,7 @@ export const actions = [
 ];
 export const gestureIds = ['single', 'double', 'long'];
 export const defaultConfig = () => ({enabled: false, haptic: true, long_ms: 600, double_ms: 280,
-  actions: gestureIds.map(() => ({type: 'none', argument: ''})), menu_side: 'left', menu_position: 35, menu: []});
+  actions: gestureIds.map(() => ({type: 'none', argument: ''})), menu_side: 'left', menu_position: 35, menu_width: 196, menu_gap: 12, menu: []});
 
 export function validate(config) {
   if (typeof config.enabled !== 'boolean') throw new Error('接管开关无效');
@@ -22,6 +22,12 @@ export function validate(config) {
   if (!['left', 'right'].includes(config.menu_side)) throw new Error('请选择菜单弹出方向');
   if (!Number.isInteger(config.menu_position) || config.menu_position < 10 || config.menu_position > 90)
     throw new Error('菜单高度应在 10%～90% 之间');
+  for (const [key, fallback, minimum, maximum, name] of [
+    ['menu_width', 196, 160, 360, '快捷栏宽度'], ['menu_gap', 12, 0, 32, '应用间距']]) {
+    const value = config[key] === undefined ? fallback : config[key];
+    if (!Number.isInteger(value) || value < minimum || value > maximum)
+      throw new Error(`${name}应在 ${minimum}～${maximum} dp 之间`);
+  }
   if (!Array.isArray(config.menu) || config.menu.length > 2060) throw new Error('菜单数据超出应用目录范围，请刷新应用列表');
   const bytes = text => new TextEncoder().encode(text).length;
   const slots = new Set();
@@ -57,6 +63,7 @@ export function serialize(config) {
   gestureIds.forEach((id, i) => lines.push(`${id}=${config.actions[i].type}`));
   gestureIds.forEach((id, i) => lines.push(`${id}_arg=${hex(config.actions[i].argument)}`));
   lines.push(`menu_count=${config.menu.length}`, `menu_side=${config.menu_side}`, `menu_position=${config.menu_position}`);
+  lines.push(`menu_width=${config.menu_width ?? 196}`, `menu_gap=${config.menu_gap ?? 12}`);
   config.menu.forEach((item, i) => lines.push(`menu_${i}_name=${hex(item.name)}`, `menu_${i}_icon=${hex(item.icon)}`,
     `menu_${i}_slot=${item.slot ?? i}`, `menu_${i}_action=${item.type}`, `menu_${i}_arg=${hex(item.argument)}`));
   return lines.join('\n') + '\n';

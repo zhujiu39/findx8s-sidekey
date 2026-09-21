@@ -8,6 +8,11 @@ public final class MenuGeometry {
 
     public MenuGeometry(int windowWidth, int windowHeight, int insetLeft, int insetTop,
                         int insetRight, int insetBottom, float density, boolean right) {
+        this(windowWidth, windowHeight, insetLeft, insetTop, insetRight, insetBottom, density, right, 196);
+    }
+
+    public MenuGeometry(int windowWidth, int windowHeight, int insetLeft, int insetTop,
+                        int insetRight, int insetBottom, float density, boolean right, int widthDp) {
         int w = Math.max(1, windowWidth), h = Math.max(1, windowHeight);
         int safeLeft = clamp(insetLeft, 0, w - 1);
         safeTop = clamp(insetTop, 0, h - 1);
@@ -15,7 +20,7 @@ public final class MenuGeometry {
         safeHeight = Math.max(1, h - safeTop - Math.max(0, insetBottom));
         int margin = Math.min(px(10, density), (safeWidth - 1) / 2);
         gap = Math.min(px(12, density), (safeHeight - 1) / 2);
-        width = Math.min(px(196, density), safeWidth - margin * 2);
+        width = Math.min(px(clamp(widthDp, 160, 360), density), safeWidth - margin * 2);
         maxHeight = safeHeight - gap * 2;
         left = right ? safeLeft + safeWidth - margin - width : safeLeft + margin;
         compact = safeWidth > safeHeight || safeHeight < px(440, density);

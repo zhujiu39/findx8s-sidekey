@@ -122,6 +122,19 @@ int main(int argc, char **argv)
     assert(hex_decode("414243", decoded, sizeof(decoded)) && !strcmp(decoded, "ABC"));
     assert(config_parse(valid, &config, error, sizeof(error)));
     assert(config.menu_count == 0 && !config.menu_right && config.menu_position == 35);
+    assert(config.menu_width == 196 && config.menu_gap == 12);
+    const char *bad_layout[] = {"menu_width=159\n", "menu_width=361\n", "menu_width=196.5\n",
+        "menu_width=160\nmenu_width=360\n", "menu_gap=-1\n", "menu_gap=33\n", "menu_gap=1.5\n",
+        "menu_gap=0\nmenu_gap=32\n"};
+    for (size_t i = 0; i < sizeof(bad_layout) / sizeof(bad_layout[0]); i++) {
+        snprintf(text, sizeof(text), "%s%s", valid, bad_layout[i]);
+        assert(!config_parse(text, &config, error, sizeof(error)));
+        assert(config.menu_width == 196 && config.menu_gap == 12);
+    }
+    snprintf(text, sizeof(text), "%smenu_width=160\nmenu_gap=0\n", valid);
+    assert(config_parse(text, &config, error, sizeof(error)) && config.menu_width == 160 && config.menu_gap == 0);
+    snprintf(text, sizeof(text), "%smenu_width=360\nmenu_gap=32\n", valid);
+    assert(config_parse(text, &config, error, sizeof(error)) && config.menu_width == 360 && config.menu_gap == 32);
     const char *menu = "menu_count=1\nmenu_side=left\nmenu_position=35\nmenu_0_name=e8aebee7bdae\nmenu_0_icon=e29a99efb88f\nmenu_0_action=torch\nmenu_0_arg=\n";
     snprintf(text, sizeof(text), "%s%s", valid, menu);
     assert(config_parse(text, &config, error, sizeof(error)));
@@ -153,6 +166,29 @@ int main(int argc, char **argv)
     char *duplicate = strstr(text, "menu_1_slot=10"); strcpy(duplicate, "menu_1_slot=3\n");
     assert(!config_parse(text, &config, error, sizeof(error)));
     const char *token = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    /* 空项穿插在前、中、后时，页面索引必须对应筛选后的真实动作。 */
+    static MenuItem snapshot[MENU_CAP];
+    config_defaults(&config);
+    assert(menu_snapshot(&config, snapshot, MENU_CAP) == 0);
+    config.menu_count = 6;
+    config.menu[1].action.kind = ACTION_APP;
+    strcpy(config.menu[1].action.argument, "com.example.app");
+    config.menu[3].action.kind = ACTION_TORCH;
+    config.menu[4].action.kind = ACTION_PLAY_PAUSE;
+    assert(menu_snapshot(&config, snapshot, MENU_CAP) == 3);
+    assert(snapshot[0].action.kind == ACTION_APP_FREEFORM && snapshot[0].slot == 1);
+    assert(!strcmp(snapshot[0].action.argument, "com.example.app"));
+    assert(snapshot[1].action.kind == ACTION_TORCH && snapshot[1].slot == 3);
+    assert(snapshot[2].action.kind == ACTION_PLAY_PAUSE && snapshot[2].slot == 4);
+    assert(config.menu[1].action.kind == ACTION_APP);
+    config_defaults(&config); config.menu_count = MENU_CAP;
+    assert(menu_snapshot(&config, snapshot, MENU_CAP) == 0);
+    for (uint32_t i = 0; i < MENU_CAP; i++) config.menu[i].action.kind = ACTION_TORCH;
+    assert(menu_snapshot(&config, snapshot, MENU_CAP) == MENU_CAP);
+    assert(snapshot[MENU_CAP - 1].slot == MENU_CAP - 1);
+    assert(menu_snapshot(&config, snapshot, MENU_CAP - 1) == 0);
+    assert(menu_snapshot(NULL, snapshot, MENU_CAP) == 0);
+    assert(menu_snapshot(&config, NULL, MENU_CAP) == 0);
     uint32_t selected = 99;
     snprintf(text, sizeof(text), "ITEMS %s 16", token);
     assert(menu_authorize(text, token, 60000, 59999, 200, &selected) == MENU_ITEMS && selected == 16);

@@ -20,7 +20,7 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '0.5.1'
+VERSION = '0.5.2'
 
 
 def run(arguments):
@@ -148,7 +148,7 @@ def build_menu():
              '--ks-pass', 'file:' + str(password), '--out', output, aligned])
         run([java, '-jar', signer, 'verify', '--verbose', output])
         badging = run([find('build-tools/*/aapt.exe'), 'dump', 'badging', output])
-        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='51'" not in badging:
+        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='52'" not in badging:
             raise RuntimeError('菜单 APK 包名或版本无效')
         with zipfile.ZipFile(output) as apk:
             if apk.testzip() or not apk.read('classes.dex').startswith(b'dex\n'):
@@ -182,7 +182,7 @@ def main():
     run([node, '--test', *sorted((ROOT / 'tests').glob('*.test.js'))])
     fixture = run([node, '--input-type=module', '-e',
         "import {defaultConfig,serialize} from './module/webroot/model.js';"
-        "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu=[{slot:3,name:'设置',icon:'⚙️',type:'app_freeform',argument:'com.android.settings'},{slot:10,name:'灯光',icon:'',type:'torch',argument:''}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
+        "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu_width=280;c.menu_gap=24;c.menu=[{slot:3,name:'设置',icon:'⚙️',type:'app_freeform',argument:'com.android.settings'},{slot:10,name:'灯光',icon:'',type:'torch',argument:''}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
         "process.stdout.write(serialize(c));"])
     fixture_path = BUILD / 'config-fixture.conf'
     fixture_path.write_bytes(fixture.encode('utf-8'))
@@ -196,7 +196,9 @@ def main():
         raise RuntimeError('震动开关配置往返验证失败')
     if decoded['menu'][0]['slot'] != 3 or decoded['menu'][1]['slot'] != 10 or decoded['menu'][0]['type'] != 'app_freeform' or decoded['menu'][0]['name'] != '设置' or decoded['menu'][0]['icon'] != '⚙️' or decoded['actions'][1]['type'] != 'menu':
         raise RuntimeError('菜单 UTF-8 配置往返验证失败')
-    LOG.append('通过：WebUI → C 配置解析 → JSON，中文、引号、换行保持一致。')
+    if decoded['menu_width'] != 280 or decoded['menu_gap'] != 24:
+        raise RuntimeError('快捷栏宽度与间距配置往返验证失败')
+    LOG.append('通过：WebUI → C 配置解析 → JSON，尺寸、中文、引号、换行保持一致。')
     bash = (r'C:\Program Files\Git\bin\bash.exe' if os.name == 'nt' and Path(r'C:\Program Files\Git\bin\bash.exe').exists() else shutil.which('bash'))
     if not bash or not Path(bash).exists():
         raise RuntimeError('未找到 Bash，无法执行 Shell 语法检查')
@@ -220,7 +222,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_ColorOS仅小窗启动修复')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_透明快捷栏与布局自定义')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -250,13 +252,13 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 测试版\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '修正小窗启动：通过 OPlus 专用接口发起请求，连续读取目标应用的可见小窗状态后才确认成功；取消普通全屏回退，菜单应用统一只使用小窗。\n\n'
+        '移除快捷栏外的黑色遮罩；只展示已配置的开关和应用，全部为空时不打开。新增快捷栏宽度与应用行列间距调节，保持双列滚动与 ColorOS 仅小窗启动。\n\n'
         f'安装：在 KernelSU 覆盖安装 test_oppo_sidekey_v{VERSION}.zip 后重启。升级保留已有动作。'
         '模块会自动安装侧键快捷菜单组件；在 WebUI 将某个手势改为“弹出快捷菜单”，添加捷径并保存。'
-        '应用从手机列表批量勾选，名称与图标自动读取。点击使用所选应用，再保存设置。顶部两个开关与双列滚动布局沿用。原菜单中选择普通打开的应用也统一使用小窗；手势单独绑定的普通应用动作继续按原配置执行。\n\n'
+        '应用从手机列表批量勾选，名称与图标自动读取。点击使用所选应用，再保存设置。开关不再限制为两项，未设置动作的草稿不显示。宽度可调 160～360 dp，应用间距可调 0～32 dp；点击保存后生效。原菜单中选择普通打开的应用也统一使用小窗；手势单独绑定的普通应用动作继续按原配置执行。\n\n'
         '菜单组件只接收名称、图标、应用标识和一次性会话；动作由模块执行。使用本机回环网络通信，'
         '不访问远端，不需要悬浮窗、无障碍或单独 Root 授权。卸载模块时移除菜单组件。\n\n'
-        '本次本地验证覆盖 OPlus 接口签名、延迟状态确认、错误应用／用户／全屏状态拒绝、超时和失败不回退，以及原有手势、配置、WebUI、Shell、'
+        '本次本地验证覆盖布局参数往返、旧配置兼容、空项筛选与点击映射、可调宽度下的横竖屏边界；回归原有小窗、手势、配置、WebUI、Shell、'
         'ARM64 静态 ELF、手电筒 DEX、菜单 APK 签名以及 ZIP 完整性。真实命令结果见构建日志。\n\n'
         '**这是功能测试版：本次没有连接手机，ColorOS 后台启动、实际滑出动画和点击动作仍需你刷入实测。** '
         '锁屏时不弹出菜单；不会唤醒或绕过锁屏。菜单会话 60 秒失效，配置变化或服务退出后自动收起。\n\n'

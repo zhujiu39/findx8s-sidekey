@@ -11,7 +11,6 @@ import android.graphics.Insets;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
@@ -19,6 +18,7 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
+import android.view.WindowManager;
 import android.view.animation.PathInterpolator;
 import android.widget.LinearLayout;
 import android.widget.ImageView;
@@ -46,14 +46,12 @@ public final class MenuActivity extends Activity {
     private MenuPanelHost root;
     private LinearLayout panel;
     private ListView scroll;
-    private View shade;
     private Session session;
     private boolean closing, dispatched, entered;
-    private int selection = -1, position;
+    private int selection = -1, position, widthDp, appGapDp;
     private boolean right;
-    private int foreground, muted, surface, tileTop, tileBottom, stroke;
+    private int foreground, muted, surface, tileTop, stroke;
     private JSONArray currentItems;
-    private final java.util.ArrayList<SwitchGlyph> torchSwitches = new java.util.ArrayList<>();
 
     private static final class Session {
         final int port;
@@ -64,6 +62,8 @@ public final class MenuActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        getWindow().setDimAmount(0f);
         // targetSdk 35 使用系统边到边布局；内容通过 WindowInsets 避让状态栏和挖孔。
         overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, 0, 0);
         overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0);
@@ -91,6 +91,8 @@ public final class MenuActivity extends Activity {
             if (keyguard == null || keyguard.isKeyguardLocked()) { closeNow(); return; }
             right = "right".equals(intent.getStringExtra("side"));
             position = Math.max(10, Math.min(90, intent.getIntExtra("position", 35)));
+            widthDp = Math.max(160, Math.min(360, intent.getIntExtra("width", 196)));
+            appGapDp = Math.max(0, Math.min(32, intent.getIntExtra("gap", 12)));
             final Session current = session;
             network.execute(() -> {
                 try {
@@ -121,11 +123,11 @@ public final class MenuActivity extends Activity {
         super.onConfigurationChanged(configuration);
         if (closing || currentItems == null) return;
         boolean wasEntered = entered;
-        panel.animate().cancel(); shade.animate().cancel();
+        panel.animate().cancel();
         try {
             build(currentItems);
             // 已打开的会话在旋转或换主题后继续显示；未握手的会话继续等待原回调。
-            panel.setAlpha(wasEntered ? 1 : 0); shade.setAlpha(wasEntered ? 1 : 0);
+            panel.setAlpha(wasEntered ? 1 : 0);
         } catch (Exception exception) { closeNow(); }
     }
 
@@ -135,9 +137,7 @@ public final class MenuActivity extends Activity {
         muted = Color.parseColor(dark ? "#AFB3BA" : "#868D96");
         surface = Color.parseColor(dark ? "#ED303237" : "#EDE3E5E8");
         tileTop = Color.parseColor(dark ? "#393E45" : "#FFFFFF");
-        tileBottom = Color.parseColor(dark ? "#30353B" : "#EAEDF1");
         stroke = Color.parseColor(dark ? "#545960" : "#D6DBE1");
-        shade = new View(this); shade.setBackgroundColor(0x55000000); shade.setAlpha(0);
         panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(dp(14), dp(12), dp(14), dp(16));
         GradientDrawable backdrop = background(surface, 24); backdrop.setStroke(dp(1), stroke);
@@ -150,7 +150,7 @@ public final class MenuActivity extends Activity {
         scroll.setVerticalScrollBarEnabled(false); scroll.setClipToPadding(false);
         panel.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         populate(items, false);
-        root = new MenuPanelHost(this, shade, panel, right, position, new MenuPanelHost.Listener() {
+        root = new MenuPanelHost(this, panel, right, position, widthDp, new MenuPanelHost.Listener() {
             @Override public void compactChanged(boolean compact) {
                 try { populate(items, compact); }
                 catch (Exception exception) { handler.post(MenuActivity.this::closeNow); }
@@ -175,45 +175,36 @@ public final class MenuActivity extends Activity {
     }
 
     private void populate(JSONArray items, boolean compact) throws Exception {
-        torchSwitches.clear();
         panel.setPadding(dp(12), dp(4), dp(12), dp(10));
         java.util.ArrayList<JSONObject> apps = new java.util.ArrayList<>(), switches = new java.util.ArrayList<>();
         for (int i = 0; i < items.length(); i++) {
             JSONObject item = items.getJSONObject(i); String type = item.getString("type");
             if ("app".equals(type) || "app_freeform".equals(type)) apps.add(item);
-            else if (switches.size() < 2) switches.add(item);
+            else if (!"none".equals(type)) switches.add(item);
         }
         ListView old = scroll;
         scroll = new ListView(this); scroll.setDivider(null); scroll.setSelector(android.R.color.transparent);
         scroll.setVerticalScrollBarEnabled(false); scroll.setClipToPadding(false);
-        LinearLayout header = new LinearLayout(this); header.setOrientation(LinearLayout.VERTICAL);
-        for (int i = 0; i < 2; i++) {
-            JSONObject item = i < switches.size() ? switches.get(i) : null;
-            String type = item == null ? "none" : item.getString("type");
-            LinearLayout card = new LinearLayout(this); card.setGravity(Gravity.CENTER_VERTICAL); card.setPadding(dp(10), dp(8), dp(8), dp(8));
-            card.setBackground(background(tileTop, 16));
-            TextView name = text(item == null ? "开关 " + (i + 1) : item.getString("name"), 12, foreground);
-            name.setMaxLines(2); name.setEllipsize(TextUtils.TruncateAt.END);
-            card.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
-            SwitchGlyph control = new SwitchGlyph("torch".equals(type), "none".equals(type));
-            LinearLayout.LayoutParams controlSize = new LinearLayout.LayoutParams(dp(32), dp(20)); controlSize.leftMargin = dp(5);
-            card.addView(control, controlSize); if ("torch".equals(type)) torchSwitches.add(control);
-            card.setAlpha("none".equals(type) ? 0.55f : 1); card.setEnabled(!"none".equals(type));
-            if (item != null) bindSelection(card, item);
-            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, dp(56)); size.bottomMargin = dp(8); header.addView(card, size);
-        }
-        scroll.addHeaderView(header, null, false);
         scroll.setAdapter(new BaseAdapter() {
-            @Override public int getCount() { return Math.max(1, (apps.size() + 1) / 2); }
+            @Override public int getCount() { return switches.size() + (apps.size() + 1) / 2; }
             @Override public Object getItem(int index) { return index; }
             @Override public long getItemId(int index) { return index; }
             @Override public boolean isEnabled(int index) { return false; }
+            @Override public int getViewTypeCount() { return 2; }
+            @Override public int getItemViewType(int index) { return index < switches.size() ? 0 : 1; }
             @Override public View getView(int index, View recycled, ViewGroup parent) {
+                if (index < switches.size()) {
+                    SwitchRow row = recycled instanceof SwitchRow ? (SwitchRow)recycled : new SwitchRow();
+                    row.bind(switches.get(index));
+                    row.setPadding(0, 0, 0, index < getCount() - 1 ? dp(8) : 0);
+                    return row;
+                }
                 AppRow row = recycled instanceof AppRow ? (AppRow)recycled : new AppRow();
                 for (int column = 0; column < 2; column++) {
-                    int offset = index * 2 + column;
-                    row.cells[column].bind(offset < apps.size() ? apps.get(offset) : null, apps.isEmpty());
+                    int offset = (index - switches.size()) * 2 + column;
+                    row.cells[column].bind(offset < apps.size() ? apps.get(offset) : null);
                 }
+                row.setPadding(0, 0, 0, index < getCount() - 1 ? dp(appGapDp) : 0);
                 return row;
             }
         });
@@ -230,7 +221,10 @@ public final class MenuActivity extends Activity {
         final AppCell[] cells = new AppCell[2];
         AppRow() {
             super(MenuActivity.this); setOrientation(HORIZONTAL); setBaselineAligned(false);
-            for (int i = 0; i < 2; i++) { cells[i] = new AppCell(); addView(cells[i], new LinearLayout.LayoutParams(0, -2, 1)); }
+            for (int i = 0; i < 2; i++) {
+                if (i > 0) addView(new View(MenuActivity.this), new LinearLayout.LayoutParams(dp(appGapDp), 1));
+                cells[i] = new AppCell(); addView(cells[i], new LinearLayout.LayoutParams(0, -2, 1));
+            }
         }
     }
 
@@ -243,11 +237,10 @@ public final class MenuActivity extends Activity {
             label = text("", 11, foreground); label.setGravity(Gravity.CENTER); label.setMaxLines(2); label.setEllipsize(TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, Math.max(dp(30), label.getLineHeight() * 2)); size.topMargin = dp(5); addView(label, size);
         }
-        void bind(JSONObject item, boolean empty) {
+        void bind(JSONObject item) {
             setOnClickListener(null); image.setImageDrawable(null);
             if (item == null) {
-                setVisibility(empty ? View.VISIBLE : View.INVISIBLE); setEnabled(false);
-                label.setText(empty ? "勾选应用" : ""); image.setImageDrawable(getPackageManager().getDefaultActivityIcon()); setAlpha(0.35f); return;
+                setVisibility(View.INVISIBLE); setEnabled(false); label.setText(""); return;
             }
             setVisibility(View.VISIBLE); setEnabled(true); setAlpha(1);
             String packageName = item.optString("packageName"), name = item.optString("name");
@@ -265,33 +258,43 @@ public final class MenuActivity extends Activity {
     }
 
     private void updateSwitches() {
-        for (SwitchGlyph control : torchSwitches) { control.state = session == null ? -1 : session.torchState; control.invalidate(); }
+        if (scroll == null) return;
+        for (int i = 0; i < scroll.getChildCount(); i++)
+            if (scroll.getChildAt(i) instanceof SwitchRow) ((SwitchRow)scroll.getChildAt(i)).updateState();
     }
 
-    private final class AppGlyph extends View {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        AppGlyph() { super(MenuActivity.this); }
-        @Override protected void onDraw(Canvas canvas) {
-            paint.setColor(muted);
-            float gap = dp(3), size = (getWidth() - gap) / 2f;
-            for (int y = 0; y < 2; y++) for (int x = 0; x < 2; x++) {
-                float left = x * (size + gap), top = y * (size + gap);
-                canvas.drawRoundRect(new RectF(left, top, left + size, top + size), dp(4), dp(4), paint);
-            }
+    private final class SwitchRow extends LinearLayout {
+        final LinearLayout card;
+        final TextView name;
+        final SwitchGlyph control;
+        SwitchRow() {
+            super(MenuActivity.this); setOrientation(VERTICAL);
+            card = new LinearLayout(MenuActivity.this); card.setGravity(Gravity.CENTER_VERTICAL);
+            card.setPadding(dp(10), dp(8), dp(8), dp(8)); card.setBackground(background(tileTop, 16));
+            name = text("", 12, foreground); name.setMaxLines(2); name.setEllipsize(TextUtils.TruncateAt.END);
+            card.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+            control = new SwitchGlyph();
+            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(dp(32), dp(20)); size.leftMargin = dp(5);
+            card.addView(control, size); addView(card, new LinearLayout.LayoutParams(-1, dp(56)));
         }
+        void bind(JSONObject item) {
+            name.setText(item.optString("name")); control.stateful = "torch".equals(item.optString("type"));
+            card.setContentDescription(name.getText()); bindSelection(card, item); updateState();
+        }
+        void updateState() { control.state = session == null ? -1 : session.torchState; control.invalidate(); }
     }
 
     private final class SwitchGlyph extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final boolean stateful, empty;
+        boolean stateful;
         int state = -1;
-        SwitchGlyph(boolean stateful, boolean empty) { super(MenuActivity.this); this.stateful = stateful; this.empty = empty; }
+        SwitchGlyph() { super(MenuActivity.this); }
         @Override protected void onDraw(Canvas canvas) {
             float w = getWidth(), h = getHeight();
             paint.setColor(stateful && state == 1 ? Color.rgb(83, 221, 161) : stroke);
             canvas.drawRoundRect(new RectF(0, 0, w, h), h / 2, h / 2, paint);
             paint.setColor(stateful && state >= 0 ? Color.WHITE : muted);
-            if (empty || (stateful && state >= 0)) {
+            if (stateful && state >= 0) {
                 float radius = h / 2 - dp(3), center = state == 1 ? w - h / 2 : h / 2;
                 canvas.drawCircle(center, h / 2, radius, paint);
             } else {
@@ -306,7 +309,6 @@ public final class MenuActivity extends Activity {
         if (closing || entered) return;
         if (root.getWidth() == 0) { root.post(this::enter); return; }
         panel.setTranslationX(root.offscreenTranslation()); entered = true;
-        shade.animate().alpha(1).setDuration(240).start();
         panel.animate().translationX(0).alpha(1).setDuration(280)
             .setInterpolator(new PathInterpolator(0.2f, 0, 0, 1)).start();
         panel.announceForAccessibility("快捷菜单");
@@ -316,7 +318,6 @@ public final class MenuActivity extends Activity {
         if (closing) return;
         closing = true; handler.removeCallbacksAndMessages(null);
         if (panel == null) { closeNow(); return; }
-        shade.animate().alpha(0).setDuration(160).start();
         panel.animate().translationX(root.offscreenTranslation()).alpha(0)
             .setDuration(180).withEndAction(this::closeNow).start();
     }

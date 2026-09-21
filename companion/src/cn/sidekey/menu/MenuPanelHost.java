@@ -2,7 +2,6 @@ package cn.sidekey.menu;
 
 import android.content.Context;
 import android.graphics.Insets;
-import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
@@ -12,21 +11,20 @@ final class MenuPanelHost extends FrameLayout {
         void compactChanged(boolean compact);
         void positioned();
     }
-    private final View shade;
     private final LinearLayout panel;
     private final Listener listener;
     private final boolean right;
-    private final int position;
+    private final int position, widthDp;
     private Boolean compact;
     private MenuGeometry geometry;
     private Insets safeInsets = Insets.NONE;
 
-    MenuPanelHost(Context context, View shade, LinearLayout panel, boolean right, int position, Listener listener) {
+    MenuPanelHost(Context context, LinearLayout panel, boolean right, int position, int widthDp, Listener listener) {
         super(context);
-        this.shade = shade; this.panel = panel; this.right = right; this.position = position; this.listener = listener;
-        // 遮罩覆盖整个窗口；安全边距只约束面板，不能裁掉系统栏区域的背景。
+        this.panel = panel; this.right = right; this.position = position; this.widthDp = widthDp; this.listener = listener;
+        // 窗口其余区域保持透明，仅面板按系统栏、挖孔和当前方向避让。
         setClipToPadding(false);
-        addView(shade); addView(panel);
+        addView(panel);
     }
 
     void setSafeInsets(Insets insets) {
@@ -39,18 +37,16 @@ final class MenuPanelHost extends FrameLayout {
     @Override protected void onMeasure(int widthSpec, int heightSpec) {
         int width = MeasureSpec.getSize(widthSpec), height = MeasureSpec.getSize(heightSpec);
         geometry = new MenuGeometry(width, height, safeInsets.left, safeInsets.top, safeInsets.right, safeInsets.bottom,
-                                    getResources().getDisplayMetrics().density, right);
+                                    getResources().getDisplayMetrics().density, right, widthDp);
         if (compact == null || compact != geometry.compact) {
             compact = geometry.compact; listener.compactChanged(compact);
         }
-        shade.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
         panel.measure(MeasureSpec.makeMeasureSpec(geometry.width, MeasureSpec.EXACTLY),
                       MeasureSpec.makeMeasureSpec(geometry.maxHeight, MeasureSpec.AT_MOST));
         setMeasuredDimension(width, height);
     }
 
     @Override protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        shade.layout(0, 0, right - left, bottom - top);
         if (geometry == null) return;
         int y = geometry.top(panel.getMeasuredHeight(), position);
         panel.layout(geometry.left, y, geometry.left + panel.getMeasuredWidth(), y + panel.getMeasuredHeight());

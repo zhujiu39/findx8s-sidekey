@@ -3,9 +3,9 @@ import cn.sidekey.menu.MenuGeometry;
 public final class MenuGeometryTest {
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
     private static void within(int width, int height, int left, int top, int right, int bottom, float density) {
-        for (boolean edge : new boolean[]{false, true}) {
-            MenuGeometry bounds = new MenuGeometry(width, height, left, top, right, bottom, density, edge);
-            check(bounds.width > 0 && bounds.width <= Math.round(196 * density), "面板宽度上限");
+        for (boolean edge : new boolean[]{false, true}) for (int widthDp : new int[]{160, 196, 280, 360}) {
+            MenuGeometry bounds = new MenuGeometry(width, height, left, top, right, bottom, density, edge, widthDp);
+            check(bounds.width > 0 && bounds.width <= Math.round(widthDp * density), "面板宽度上限");
             check(bounds.left >= left && bounds.left + bounds.width <= width - right, "左右安全边界");
             check(bounds.maxHeight > 0 && bounds.maxHeight <= height - top - bottom, "可用高度");
             for (int position : new int[]{10, 35, 50, 90}) {
@@ -31,6 +31,12 @@ public final class MenuGeometryTest {
         check(landscape.width == 196 && landscape.compact, "横屏限制宽度并启用紧凑布局");
         check(landscape.left == 54 && landscape.maxHeight == 345, "横屏避开侧面挖孔和底部手势区");
         check(landscape.top(316, 35) + 316 <= 369, "横屏常规字体下完整容纳内容");
+        MenuGeometry wide = new MenuGeometry(390, 844, 0, 44, 0, 34, 1, true, 280);
+        check(wide.width == 280 && wide.left == 100, "自定义宽度与右侧对齐");
+        MenuGeometry oversized = new MenuGeometry(320, 240, 24, 0, 24, 24, 1, false, 360);
+        check(oversized.width == 252 && oversized.left == 34, "窄窗口内自动收窄");
+        check(new MenuGeometry(1000, 1000, 0, 0, 0, 0, 1, false, 1).width == 160, "异常意图宽度下界");
+        check(new MenuGeometry(1000, 1000, 0, 0, 0, 0, 1, false, 999).width == 360, "异常意图宽度上界");
         MenuGeometry tiny = new MenuGeometry(1, 1, 9, 9, 9, 9, 3, false);
         check(tiny.width == 1 && tiny.maxHeight == 1 && tiny.top(1, 90) == 0, "瞬态零空间不出现负尺寸");
         System.out.println("PASS: portrait / landscape / reverse landscape, screenshot-size windows, density, safe insets, position bounds and small-window fallback");

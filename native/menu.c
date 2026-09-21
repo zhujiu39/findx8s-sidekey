@@ -145,13 +145,10 @@ static bool show_menu(const Config *config, uint64_t now)
     collect_output();
     if (launch_output >= 0) { close(launch_output); launch_output = -1; }
     if (launch_log >= 0) { close(launch_log); launch_log = -1; }
+    snapshot_count = menu_snapshot(config, snapshot, MENU_CAP);
+    /* 空菜单正常结束，不启动透明 Activity，也不等待不存在的组件握手。 */
+    if (!snapshot_count) return true;
     if (!random_token(session)) return false;
-    snapshot_count = config->menu_count;
-    for (uint32_t i = 0; i < snapshot_count; i++) {
-        snapshot[i] = config->menu[i];
-        /* 菜单应用统一使用小窗；兼容旧配置里的普通应用项，不改手势绑定。 */
-        if (snapshot[i].action.kind == ACTION_APP) snapshot[i].action.kind = ACTION_APP_FREEFORM;
-    }
     expires = now + 60000;
     int output_pipe[2];
     if (pipe2(output_pipe, O_CLOEXEC) != 0) { menu_cancel(); return false; }
@@ -172,13 +169,16 @@ static bool show_menu(const Config *config, uint64_t now)
         if (input < 0 || dup2(input, STDIN_FILENO) < 0 ||
             dup2(output_pipe[1], STDOUT_FILENO) < 0 || dup2(output_pipe[1], STDERR_FILENO) < 0) _exit(126);
         close(input); close(output_pipe[1]); menu_close_descriptors();
-        char port_text[16], position[16];
+        char port_text[16], position[16], width[16], gap[16];
         snprintf(port_text, sizeof(port_text), "%u", port);
         snprintf(position, sizeof(position), "%u", config->menu_position);
+        snprintf(width, sizeof(width), "%u", config->menu_width);
+        snprintf(gap, sizeof(gap), "%u", config->menu_gap);
         execl("/system/bin/am", "am", "start", "--user", "current", "-W", "--activity-no-animation",
               "-n", "cn.sidekey.menu/.MenuActivity", "--ei", "port", port_text,
               "--es", "token", session,
-              "--es", "side", config->menu_right ? "right" : "left", "--ei", "position", position, (char *)NULL);
+              "--es", "side", config->menu_right ? "right" : "left", "--ei", "position", position,
+              "--ei", "width", width, "--ei", "gap", gap, (char *)NULL);
         _exit(127);
     }
     close(output_pipe[1]);
@@ -249,7 +249,7 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
             char expected[96]; snprintf(expected, sizeof(expected), "SHOW %s", root_token);
             if (!strcmp(expected, clients[i].text)) {
                 accepted = show_menu(config, now);
-                if (accepted) { show_client = clients[i].fd; clients[i].fd = -1; continue; }
+                if (accepted && snapshot_count) { show_client = clients[i].fd; clients[i].fd = -1; continue; }
             }
             else {
                 uint32_t index = 0;
