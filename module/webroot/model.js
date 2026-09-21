@@ -5,7 +5,7 @@ export const actions = [
   ['next', '下一首'], ['previous', '上一首'], ['volume_up', '增大音量'],
   ['volume_down', '减小音量'], ['mute', '切换媒体静音'], ['camera', '打开相机'],
   ['torch', '切换手电筒（系统最高亮度）'],
-  ['app', '启动应用'], ['keycode', '发送 Android 按键'], ['shell', '自定义 Shell 命令'],
+  ['app_freeform', '启动应用（请求小窗）'], ['app', '启动应用'], ['keycode', '发送 Android 按键'], ['shell', '自定义 Shell 命令'],
 ];
 export const gestureIds = ['single', 'double', 'long'];
 export const defaultConfig = () => ({enabled: false, haptic: true, long_ms: 600, double_ms: 280,
@@ -24,7 +24,11 @@ export function validate(config) {
     throw new Error('菜单高度应在 10%～90% 之间');
   if (!Array.isArray(config.menu) || config.menu.length > 12) throw new Error('菜单最多支持 12 项');
   const bytes = text => new TextEncoder().encode(text).length;
-  for (const item of config.menu) {
+  const slots = new Set();
+  for (const [index, item] of config.menu.entries()) {
+    const slot = item.slot ?? index;
+    if (!Number.isInteger(slot) || slot < 0 || slot > 11 || slots.has(slot)) throw new Error('菜单位置必须唯一，范围为 0～11');
+    slots.add(slot);
     if (typeof item.name !== 'string' || !item.name.trim() || item.name.includes('\0') || bytes(item.name) > 96)
       throw new Error('菜单名称不能为空，最多 96 个 UTF-8 字节');
     if (typeof item.icon !== 'string' || item.icon.includes('\0') || bytes(item.icon) > 24)
@@ -35,12 +39,12 @@ export function validate(config) {
     if (!actions.some(([id]) => id === action.type)) throw new Error('不支持的动作');
     if (typeof action.argument !== 'string' || action.argument.includes('\0') || new TextEncoder().encode(action.argument).length > 512)
       throw new Error('动作参数最多为 512 个 UTF-8 字节，不能包含空字符');
-    if (action.type === 'app' && !/^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+$/.test(action.argument))
+    if (['app','app_freeform'].includes(action.type) && !/^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+$/.test(action.argument))
       throw new Error('请输入有效的应用包名，例如 com.android.settings');
     if (action.type === 'keycode' && (!/^\d+$/.test(action.argument) || Number(action.argument) < 1 || Number(action.argument) > 2047))
       throw new Error('Android 按键码应为 1～2047 的整数');
     if (action.type === 'shell' && !action.argument.trim()) throw new Error('请输入要执行的 Shell 命令');
-    if (!['app', 'keycode', 'shell'].includes(action.type) && action.argument !== '') throw new Error('该动作不需要参数');
+    if (!['app', 'app_freeform', 'keycode', 'shell'].includes(action.type) && action.argument !== '') throw new Error('该动作不需要参数');
   }
   return config;
 }
@@ -54,7 +58,7 @@ export function serialize(config) {
   gestureIds.forEach((id, i) => lines.push(`${id}_arg=${hex(config.actions[i].argument)}`));
   lines.push(`menu_count=${config.menu.length}`, `menu_side=${config.menu_side}`, `menu_position=${config.menu_position}`);
   config.menu.forEach((item, i) => lines.push(`menu_${i}_name=${hex(item.name)}`, `menu_${i}_icon=${hex(item.icon)}`,
-    `menu_${i}_action=${item.type}`, `menu_${i}_arg=${hex(item.argument)}`));
+    `menu_${i}_slot=${item.slot ?? i}`, `menu_${i}_action=${item.type}`, `menu_${i}_arg=${hex(item.argument)}`));
   return lines.join('\n') + '\n';
 }
 export function quote(text) { return "'" + String(text).replaceAll("'", "'\\''") + "'"; }

@@ -20,7 +20,7 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '0.4.0'
+VERSION = '0.4.1'
 
 
 def run(arguments):
@@ -145,7 +145,7 @@ def build_menu():
              '--ks-pass', 'file:' + str(password), '--out', output, aligned])
         run([java, '-jar', signer, 'verify', '--verbose', output])
         badging = run([find('build-tools/*/aapt.exe'), 'dump', 'badging', output])
-        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='40'" not in badging:
+        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='41'" not in badging:
             raise RuntimeError('菜单 APK 包名或版本无效')
         with zipfile.ZipFile(output) as apk:
             if apk.testzip() or not apk.read('classes.dex').startswith(b'dex\n'):
@@ -178,7 +178,7 @@ def main():
     run([node, '--test', 'tests/webui.test.js'])
     fixture = run([node, '--input-type=module', '-e',
         "import {defaultConfig,serialize} from './module/webroot/model.js';"
-        "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu=[{name:'设置',icon:'⚙️',type:'app',argument:'com.android.settings'}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
+        "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu=[{slot:3,name:'设置',icon:'⚙️',type:'app_freeform',argument:'com.android.settings'},{slot:10,name:'灯光',icon:'',type:'torch',argument:''}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
         "process.stdout.write(serialize(c));"])
     fixture_path = BUILD / 'config-fixture.conf'
     fixture_path.write_bytes(fixture.encode('utf-8'))
@@ -190,7 +190,7 @@ def main():
         raise RuntimeError('手电筒动作配置往返验证失败')
     if decoded['haptic'] is not False:
         raise RuntimeError('震动开关配置往返验证失败')
-    if decoded['menu'][0]['name'] != '设置' or decoded['menu'][0]['icon'] != '⚙️' or decoded['actions'][1]['type'] != 'menu':
+    if decoded['menu'][0]['slot'] != 3 or decoded['menu'][1]['slot'] != 10 or decoded['menu'][0]['type'] != 'app_freeform' or decoded['menu'][0]['name'] != '设置' or decoded['menu'][0]['icon'] != '⚙️' or decoded['actions'][1]['type'] != 'menu':
         raise RuntimeError('菜单 UTF-8 配置往返验证失败')
     LOG.append('通过：WebUI → C 配置解析 → JSON，中文、引号、换行保持一致。')
     bash = (r'C:\Program Files\Git\bin\bash.exe' if os.name == 'nt' and Path(r'C:\Program Files\Git\bin\bash.exe').exists() else shutil.which('bash'))
@@ -214,7 +214,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_左侧快捷菜单')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_网格菜单与系统主题')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -244,10 +244,10 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 测试版\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '新增可自定义快捷菜单：默认空白，从屏幕左侧滑出，可调整弹出方向和中心高度。\n\n'
+        '新增可自定义快捷菜单：应用和动作默认未配置，显示 2×4 应用卡片与 4 个开关占位，从左侧滑出，跟随系统深浅色。\n\n'
         f'安装：在 KernelSU 覆盖安装 test_oppo_sidekey_v{VERSION}.zip 后重启。升级保留已有动作。'
         '模块会自动安装侧键快捷菜单组件；在 WebUI 将某个手势改为“弹出快捷菜单”，添加捷径并保存。'
-        '支持名称、emoji、动作参数及上下排序，最多 12 项。\n\n'
+        '支持名称、emoji、动作参数、槽位选择和同组排序；8 个应用卡片、4 个快捷开关。应用默认请求系统小窗。\n\n'
         '菜单组件只接收名称、图标和一次性会话；动作由模块执行。使用本机回环网络通信，'
         '不访问远端，不需要悬浮窗、无障碍或单独 Root 授权。卸载模块时移除菜单组件。\n\n'
         '本次本地验证覆盖手势、旧配置升级、菜单边界和非法请求、UTF-8 往返、WebUI、Shell、'

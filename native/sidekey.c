@@ -200,6 +200,8 @@ static void execute_action(const Action *action)
         execl("/system/bin/cmd", "cmd", "statusbar", "expand-settings", (char *)NULL); break;
     case ACTION_CAMERA:
         execl("/system/bin/am", "am", "start", "--user", "current", "-a", "android.media.action.STILL_IMAGE_CAMERA", (char *)NULL); break;
+    case ACTION_APP_FREEFORM:
+        execl("/system/bin/am", "am", "start", "--user", "current", "--windowingMode", "5", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER", "-p", action->argument, (char *)NULL); break;
     case ACTION_APP:
         execl("/system/bin/am", "am", "start", "--user", "current", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER", "-p", action->argument, (char *)NULL); break;
     case ACTION_SHELL:
@@ -409,7 +411,7 @@ static int run_daemon(void)
             torch_pid = torch_supervise(needs_torch, module_dir, data_dir, now);
             write_status();
         }
-        int menu_error = menu_poll(&config, now, menu_selected);
+        int menu_error = menu_poll(&config, now, menu_selected, torch_pid);
         if (menu_error) log_event("菜单启动失败或超时，代码 %d；请查看菜单组件日志", menu_error);
         poll_action();
         feedback_poll();

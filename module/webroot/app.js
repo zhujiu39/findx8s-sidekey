@@ -28,20 +28,20 @@ function buildCards() {
 }
 function updateArgument(id) {
   const type = $(`action-${id}`).value, block = $(`argument-${id}`), input = $(`value-${id}`), shell = $(`shell-${id}`);
-  block.hidden = !['app', 'keycode', 'shell'].includes(type);
+  block.hidden = !['app', 'app_freeform', 'keycode', 'shell'].includes(type);
   input.hidden = type === 'shell'; shell.hidden = type !== 'shell';
   const label = block.querySelector('label');
   label.htmlFor = type === 'shell' ? `shell-${id}` : `value-${id}`;
-  label.textContent = type === 'app' ? '应用包名' : type === 'keycode' ? 'Android 按键码' : 'Shell 命令（Root）';
+  label.textContent = ['app','app_freeform'].includes(type) ? '应用包名' : type === 'keycode' ? 'Android 按键码' : 'Shell 命令（Root）';
   input.type = type === 'keycode' ? 'number' : 'text';
-  input.placeholder = type === 'app' ? 'com.android.settings' : '例如 3（主页）';
-  if (type === 'app') input.setAttribute('list', 'packages'); else input.removeAttribute('list');
+  input.placeholder = ['app','app_freeform'].includes(type) ? 'com.android.settings' : '例如 3（主页）';
+  if (['app','app_freeform'].includes(type)) input.setAttribute('list', 'packages'); else input.removeAttribute('list');
   shell.placeholder = '例如：input keyevent 3';
-  block.querySelector('p').textContent = type === 'app' ? '可在下方运行状态中读取已安装应用包名。' : type === 'keycode' ? '使用 Android KeyEvent 编码，不是底层 Linux 输入键码。' : '使用系统 Shell 执行，最长 10 秒；只运行你确认过的命令。';
+  block.querySelector('p').textContent = ['app','app_freeform'].includes(type) ? '可在下方运行状态中读取已安装应用包名。' : type === 'keycode' ? '使用 Android KeyEvent 编码，不是底层 Linux 输入键码。' : '使用系统 Shell 执行，最长 10 秒；只运行你确认过的命令。';
 }
 function formConfig() {
   return {enabled: $('enabled').checked, haptic: $('haptic').checked, long_ms: Number($('long-ms').value), double_ms: Number($('double-ms').value),
-    actions: gestureIds.map(id => { const type = $(`action-${id}`).value; return {type, argument: type === 'shell' ? $(`shell-${id}`).value : ['app','keycode'].includes(type) ? $(`value-${id}`).value.trim() : ''}; }), ...readMenu()};
+    actions: gestureIds.map(id => { const type = $(`action-${id}`).value; return {type, argument: type === 'shell' ? $(`shell-${id}`).value : ['app','app_freeform','keycode'].includes(type) ? $(`value-${id}`).value.trim() : ''}; }), ...readMenu()};
 }
 function dirty() { try { return serialize(formConfig()) !== serialize(saved); } catch { return true; } }
 function updateDirty() {

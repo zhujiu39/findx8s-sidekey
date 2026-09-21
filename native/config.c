@@ -13,7 +13,7 @@
 const char *const action_names[ACTION_COUNT] = {
     "none", "home", "back", "recents", "notifications", "quick_settings",
     "screenshot", "screen_off", "play_pause", "next", "previous", "volume_up",
-    "volume_down", "mute", "camera", "app", "keycode", "shell", "torch", "menu"
+    "volume_down", "mute", "camera", "app", "keycode", "shell", "torch", "menu", "app_freeform"
 };
 
 void config_defaults(Config *c)
@@ -24,6 +24,7 @@ void config_defaults(Config *c)
     c->long_ms = 600;
     c->double_ms = 280;
     c->menu_position = 35;
+    for (uint32_t i = 0; i < MENU_CAP; i++) c->menu[i].slot = i;
 }
 
 static int hex_digit(char c)
@@ -86,8 +87,8 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
         for (int i = 0; i < 14; i++) if (!strcmp(keys[i], line)) key = i;
         if (key < 0) {
             bool matched = false;
-            const char *fields[] = {"name", "icon", "action", "arg"};
-            for (uint32_t i = 0; i < MENU_CAP; i++) for (int f = 0; f < 4; f++) {
+            const char *fields[] = {"name", "icon", "action", "arg", "slot"};
+            for (uint32_t i = 0; i < MENU_CAP; i++) for (int f = 0; f < 5; f++) {
                 char expected[40];
                 snprintf(expected, sizeof(expected), "menu_%u_%s", i, fields[f]);
                 if (strcmp(line, expected)) continue;
@@ -96,6 +97,7 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
                 MenuItem *item = &next.menu[i];
                 if (f == 0 && !hex_decode(equal, item->name, MENU_NAME_CAP)) goto invalid;
                 if (f == 1 && !hex_decode(equal, item->icon, MENU_ICON_CAP)) goto invalid;
+                if (f == 4 && !number(equal, 0, MENU_CAP - 1, &item->slot)) goto invalid;
                 if (f == 3 && !hex_decode(equal, item->action.argument, ARG_CAP)) goto invalid;
                 if (f == 2) {
                     int action = -1;
@@ -135,12 +137,15 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
     if ((seen & 1023) != 1023) goto invalid;
     if ((seen & (7u << 11)) && (seen & (7u << 11)) != (7u << 11)) goto invalid;
     for (uint32_t i = 0; i < MENU_CAP; i++) {
-        if (menu_seen[i] != (i < next.menu_count ? 15u : 0u)) goto invalid;
+        if (i < next.menu_count) {
+            if ((menu_seen[i] & 15u) != 15u) goto invalid;
+            for (uint32_t j = 0; j < i; j++) if (next.menu[j].slot == next.menu[i].slot) goto invalid;
+        } else if (menu_seen[i]) goto invalid;
         if (i < next.menu_count && !next.menu[i].name[0]) goto invalid;
     }
     for (uint32_t i = 0; i < 3 + next.menu_count; i++) {
         Action *a = i < 3 ? &next.actions[i] : &next.menu[i - 3].action;
-        if (a->kind == ACTION_APP) {
+        if (a->kind == ACTION_APP || a->kind == ACTION_APP_FREEFORM) {
             if (!*a->argument || !strchr(a->argument, '.')) goto invalid;
             for (const unsigned char *p = (unsigned char *)a->argument; *p; p++)
                 if (!isalnum(*p) && *p != '.' && *p != '_') goto invalid;
@@ -194,7 +199,7 @@ bool config_write(const char *directory, const Config *config)
         const MenuItem *item = &config->menu[i];
         const char *fields[] = {"name", "icon", "arg"};
         const char *values[] = {item->name, item->icon, item->action.argument};
-        fprintf(file, "menu_%u_action=%s\n", i, action_names[item->action.kind]);
+        fprintf(file, "menu_%u_slot=%u\nmenu_%u_action=%s\n", i, item->slot, i, action_names[item->action.kind]);
         for (int f = 0; f < 3; f++) {
             fprintf(file, "menu_%u_%s=", i, fields[f]);
             for (const unsigned char *p = (const unsigned char *)values[f]; *p; p++) fprintf(file, "%02x", *p);
@@ -230,7 +235,7 @@ void config_json(FILE *out, const Config *c)
     fprintf(out, "],\"menu_side\":\"%s\",\"menu_position\":%u,\"menu\":[", c->menu_right ? "right" : "left", c->menu_position);
     for (uint32_t i = 0; i < c->menu_count; i++) {
         if (i) fputc(',', out);
-        fputs("{\"name\":", out); json_string(out, c->menu[i].name);
+        fprintf(out, "{\"slot\":%u,\"name\":", c->menu[i].slot); json_string(out, c->menu[i].name);
         fputs(",\"icon\":", out); json_string(out, c->menu[i].icon);
         fputs(",\"type\":", out); json_string(out, action_names[c->menu[i].action.kind]);
         fputs(",\"argument\":", out); json_string(out, c->menu[i].action.argument);

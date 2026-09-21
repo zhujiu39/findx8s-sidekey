@@ -131,6 +131,18 @@ int main(int argc, char **argv)
     snprintf(text, sizeof(text), "%s%s", valid, menu);
     char *recursive = strstr(text, "torch"); memmove(recursive + 4, recursive + 5, strlen(recursive + 5) + 1); memcpy(recursive, "menu", 4);
     assert(!config_parse(text, &config, error, sizeof(error)));
+    snprintf(text, sizeof(text), "%s%smenu_0_slot=10\n", valid, menu);
+    assert(config_parse(text, &config, error, sizeof(error)) && config.menu[0].slot == 10);
+    snprintf(text, sizeof(text), "%s%smenu_0_slot=12\n", valid, menu);
+    assert(!config_parse(text, &config, error, sizeof(error)));
+    snprintf(text, sizeof(text), "%s%smenu_0_slot=1\nmenu_0_slot=2\n", valid, menu);
+    assert(!config_parse(text, &config, error, sizeof(error)));
+    const char *grid = "menu_count=2\nmenu_side=left\nmenu_position=35\nmenu_0_name=61\nmenu_0_icon=\nmenu_0_action=app_freeform\nmenu_0_arg=636f6d2e617070\nmenu_0_slot=3\nmenu_1_name=62\nmenu_1_icon=\nmenu_1_action=torch\nmenu_1_arg=\nmenu_1_slot=10\n";
+    snprintf(text, sizeof(text), "%s%s", valid, grid);
+    assert(config_parse(text, &config, error, sizeof(error)));
+    assert(config.menu[0].action.kind == ACTION_APP_FREEFORM && config.menu[1].slot == 10);
+    char *duplicate = strstr(text, "menu_1_slot=10"); strcpy(duplicate, "menu_1_slot=3\n");
+    assert(!config_parse(text, &config, error, sizeof(error)));
     const char *token = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     uint32_t selected = 99;
     snprintf(text, sizeof(text), "SELECT %s 11", token);

@@ -14,10 +14,10 @@ typedef enum {
     ACTION_QUICK_SETTINGS, ACTION_SCREENSHOT, ACTION_SCREEN_OFF, ACTION_PLAY_PAUSE,
     ACTION_NEXT, ACTION_PREVIOUS, ACTION_VOLUME_UP, ACTION_VOLUME_DOWN,
     ACTION_MUTE, ACTION_CAMERA, ACTION_APP, ACTION_KEYCODE, ACTION_SHELL,
-    ACTION_TORCH, ACTION_MENU, ACTION_COUNT
+    ACTION_TORCH, ACTION_MENU, ACTION_APP_FREEFORM, ACTION_COUNT
 } ActionKind;
 typedef struct { ActionKind kind; char argument[ARG_CAP]; } Action;
-typedef struct { char name[MENU_NAME_CAP], icon[MENU_ICON_CAP]; Action action; } MenuItem;
+typedef struct { uint32_t slot; char name[MENU_NAME_CAP], icon[MENU_ICON_CAP]; Action action; } MenuItem;
 typedef struct {
     bool enabled, haptic, menu_right;
     uint32_t long_ms, double_ms, menu_position, menu_count;

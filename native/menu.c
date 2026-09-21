@@ -96,7 +96,7 @@ static bool show_menu(const Config *config, uint64_t now)
     fputc('[', out);
     for (uint32_t i = 0; i < config->menu_count; i++) {
         if (i) fputc(',', out);
-        fputs("{\"name\":", out); json_string(out, config->menu[i].name);
+        fprintf(out, "{\"slot\":%u,\"type\":\"%s\",\"name\":", config->menu[i].slot, action_names[config->menu[i].action.kind]); json_string(out, config->menu[i].name);
         fputs(",\"icon\":", out); json_string(out, config->menu[i].icon); fputc('}', out);
     }
     fputc(']', out);
@@ -127,7 +127,20 @@ static bool show_menu(const Config *config, uint64_t now)
     return true;
 }
 
-int menu_poll(const Config *config, uint64_t now, MenuSelect selected)
+static int torch_state(int32_t expected_pid)
+{
+    if (expected_pid <= 0) return -1;
+    char path[1024], buffer[4096]; snprintf(path, sizeof(path), "%s/torch.json", data_directory);
+    FILE *file = fopen(path, "r"); if (!file) return -1;
+    size_t n = fread(buffer, 1, sizeof(buffer) - 1, file); fclose(file); buffer[n] = 0;
+    char *pid = strstr(buffer, "\"pid\":");
+    if (!pid || strtol(pid + 6, NULL, 10) != expected_pid ||
+        !strstr(buffer, "\"known\":true") || !strstr(buffer, "\"available\":true")) return -1;
+    if (strstr(buffer, "\"enabled\":true")) return 1;
+    return strstr(buffer, "\"enabled\":false") ? 0 : -1;
+}
+
+int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t torch_pid)
 {
     int failure = 0;
     if (launcher > 0) {
@@ -152,7 +165,7 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected)
         if (n > 0) clients[i].size += (size_t)n;
         clients[i].text[clients[i].size] = 0;
         char *newline = memchr(clients[i].text, '\n', clients[i].size);
-        bool accepted = false;
+        bool accepted = false, ping = false;
         if (newline && newline == clients[i].text + clients[i].size - 1 && !memchr(clients[i].text, 0, clients[i].size)) {
             *newline = 0;
             char expected[96]; snprintf(expected, sizeof(expected), "SHOW %s", root_token);
@@ -160,7 +173,7 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected)
             else {
                 uint32_t index = 0;
                 MenuCommand command = menu_authorize(clients[i].text, session, expires, now, snapshot_count, &index);
-                if (command == MENU_PING) accepted = true;
+                if (command == MENU_PING) { accepted = true; ping = true; }
                 else if (command == MENU_CLOSE) { session[0] = 0; expires = 0; accepted = true; }
                 else if (command == MENU_SELECT) {
                     session[0] = 0; expires = 0;
@@ -168,7 +181,10 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected)
                 }
             }
         } else if (n > 0 && !newline && clients[i].size < REQUEST_CAP - 1 && now < clients[i].until) continue;
-        (void)send(clients[i].fd, accepted ? "OK\n" : "ERR\n", accepted ? 3 : 4, MSG_NOSIGNAL);
+        char response[32];
+        int response_size = ping ? snprintf(response, sizeof(response), "OK %d\n", torch_state(torch_pid)) :
+            snprintf(response, sizeof(response), "%s\n", accepted ? "OK" : "ERR");
+        (void)send(clients[i].fd, response, (size_t)response_size, MSG_NOSIGNAL);
         close(clients[i].fd); clients[i].fd = -1;
     }
     return failure;
