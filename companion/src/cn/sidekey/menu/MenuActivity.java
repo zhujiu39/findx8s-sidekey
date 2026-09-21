@@ -155,7 +155,7 @@ public final class MenuActivity extends Activity {
         root.setOnClickListener(view -> dismiss());
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            ((MenuPanelHost)view).setSafeInsets(bars);
             return insets;
         });
         setContentView(root); root.requestApplyInsets();

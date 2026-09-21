@@ -1,6 +1,7 @@
 package cn.sidekey.menu;
 
 import android.content.Context;
+import android.graphics.Insets;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -18,16 +19,26 @@ final class MenuPanelHost extends FrameLayout {
     private final int position;
     private Boolean compact;
     private MenuGeometry geometry;
+    private Insets safeInsets = Insets.NONE;
 
     MenuPanelHost(Context context, View shade, LinearLayout panel, boolean right, int position, Listener listener) {
         super(context);
         this.shade = shade; this.panel = panel; this.right = right; this.position = position; this.listener = listener;
+        // 遮罩覆盖整个窗口；安全边距只约束面板，不能裁掉系统栏区域的背景。
+        setClipToPadding(false);
         addView(shade); addView(panel);
+    }
+
+    void setSafeInsets(Insets insets) {
+        Insets next = insets == null ? Insets.NONE : insets;
+        if (safeInsets.equals(next)) return;
+        safeInsets = next;
+        requestLayout();
     }
 
     @Override protected void onMeasure(int widthSpec, int heightSpec) {
         int width = MeasureSpec.getSize(widthSpec), height = MeasureSpec.getSize(heightSpec);
-        geometry = new MenuGeometry(width, height, getPaddingLeft(), getPaddingTop(), getPaddingRight(), getPaddingBottom(),
+        geometry = new MenuGeometry(width, height, safeInsets.left, safeInsets.top, safeInsets.right, safeInsets.bottom,
                                     getResources().getDisplayMetrics().density, right);
         if (compact == null || compact != geometry.compact) {
             compact = geometry.compact; listener.compactChanged(compact);

@@ -20,7 +20,7 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '0.4.3'
+VERSION = '0.4.4'
 
 
 def run(arguments):
@@ -147,7 +147,7 @@ def build_menu():
              '--ks-pass', 'file:' + str(password), '--out', output, aligned])
         run([java, '-jar', signer, 'verify', '--verbose', output])
         badging = run([find('build-tools/*/aapt.exe'), 'dump', 'badging', output])
-        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='43'" not in badging:
+        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='44'" not in badging:
             raise RuntimeError('菜单 APK 包名或版本无效')
         with zipfile.ZipFile(output) as apk:
             if apk.testzip() or not apk.read('classes.dex').startswith(b'dex\n'):
@@ -217,7 +217,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_横屏菜单布局修复')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_菜单顶部遮罩修复')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -247,7 +247,7 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 测试版\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '修复横屏菜单过宽和底部开关显示不完整：限制为 360 dp 侧边面板，横屏紧凑排版，按窗口与系统安全区域重新测量；空间不足时滚动内容并保留关闭按钮。\n\n'
+        '修复菜单顶部亮带：全窗口遮罩与面板安全边距分离，关闭容器边距裁剪和系统栏额外对比度底色。保留横屏紧凑布局、360 dp 宽度上限及内容滚动。\n\n'
         f'安装：在 KernelSU 覆盖安装 test_oppo_sidekey_v{VERSION}.zip 后重启。升级保留已有动作。'
         '模块会自动安装侧键快捷菜单组件；在 WebUI 将某个手势改为“弹出快捷菜单”，添加捷径并保存。'
         '应用从手机列表按名称搜索选择，自动填写卡片名称；保留手动命名。菜单启动等待组件握手，失败不再显示成功。支持名称、emoji、动作参数、槽位选择和同组排序；8 个应用卡片、4 个快捷开关。应用默认请求系统小窗。\n\n'
