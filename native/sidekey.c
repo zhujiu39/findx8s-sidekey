@@ -3,6 +3,7 @@
 #include "gesture.h"
 #include "torch.h"
 #include "haptic.h"
+#include "menu.h"
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -209,6 +210,7 @@ static void execute_action(const Action *action)
         log_event("手电筒：%s", message);
         _exit(result);
     }
+    case ACTION_MENU: _exit(menu_request(data_dir));
     case ACTION_NONE: _exit(0);
     default: _exit(126);
     }
@@ -230,6 +232,7 @@ static void start_action(const Action *action)
             for (int fd = 0; fd <= 2; fd++) (void)dup2(null_fd, fd);
             if (null_fd > 2) close(null_fd);
         }
+        menu_close_descriptors();
         execute_action(action);
     }
     (void)setpgid(child, child);
@@ -272,6 +275,7 @@ static void poll_action(void)
 static void cancel_actions(void)
 {
     queue_size = 0;
+    menu_cancel();
     haptic_stop();
     if (action_pid > 0) {
         (void)kill(-action_pid, SIGKILL);
@@ -308,6 +312,14 @@ static void on_gesture(GestureKind kind, void *context)
         else error_message("动作队列已满，本次动作未执行");
     }
     write_status();
+}
+
+static bool menu_selected(const Action *action)
+{
+    if (!action || action->kind == ACTION_MENU || queue_size >= QUEUE_CAP) return false;
+    queue[queue_size++] = *action;
+    log_event("菜单选择：%s", action_names[action->kind]);
+    return true;
 }
 
 static bool daemon_running(void)
@@ -349,6 +361,7 @@ static int run_daemon(void)
     reset_gesture();
     gesture.callback = on_gesture;
     log_event("监听服务启动，PID %ld", (long)getpid());
+    if (!menu_init(data_dir)) log_event("快捷菜单本地接口启动失败");
     uint64_t check_at = 0, discover_at = 0;
     struct stat previous = {0};
     bool ignore_until_release = false, sync_dropped = false;
@@ -391,9 +404,13 @@ static int run_daemon(void)
             bool needs_torch = false;
             for (int i = 0; i < 3; i++)
                 if (config.actions[i].kind == ACTION_TORCH) needs_torch = true;
+            for (uint32_t i = 0; i < config.menu_count; i++)
+                if (config.menu[i].action.kind == ACTION_TORCH) needs_torch = true;
             torch_pid = torch_supervise(needs_torch, module_dir, data_dir, now);
             write_status();
         }
+        int menu_error = menu_poll(&config, now, menu_selected);
+        if (menu_error) log_event("菜单启动失败或超时，代码 %d；请查看菜单组件日志", menu_error);
         poll_action();
         feedback_poll();
         if (!action_pid && queue_size) {
@@ -403,15 +420,16 @@ static int run_daemon(void)
         }
         uint64_t deadline = gesture_deadline(&gesture);
         int wait_ms = action_pid > 0 || queue_size || haptic_active() ? 100 : 500;
+        if (menu_wait_ms() < wait_ms) wait_ms = menu_wait_ms();
         if (check_at <= now) wait_ms = 0;
         else if (check_at - now < (uint64_t)wait_ms) wait_ms = (int)(check_at - now);
         if (input_fd >= 0 && deadline < now + (uint64_t)wait_ms) wait_ms = deadline > now ? (int)(deadline - now) : 0;
-        struct pollfd descriptor = {.fd = input_fd, .events = POLLIN};
-        int ready = poll(&descriptor, 1, wait_ms);
+        struct pollfd descriptors[2] = {{.fd = input_fd, .events = POLLIN}, {.fd = menu_descriptor(), .events = POLLIN}};
+        int ready = poll(descriptors, 2, wait_ms);
         if (ready < 0 && errno != EINTR) { error_message("输入轮询失败"); release_device(); }
-        if (ready > 0 && (descriptor.revents & (POLLERR | POLLHUP | POLLNVAL))) {
+        if (ready > 0 && (descriptors[0].revents & (POLLERR | POLLHUP | POLLNVAL))) {
             error_message("输入设备已离线"); release_device();
-        } else if (ready > 0 && (descriptor.revents & POLLIN)) {
+        } else if (ready > 0 && (descriptors[0].revents & POLLIN)) {
             struct input_event events[32];
             ssize_t count;
             while ((count = read(input_fd, events, sizeof(events))) > 0) {
@@ -444,6 +462,7 @@ static int run_daemon(void)
         if (input_fd >= 0 && !ignore_until_release) gesture_tick(&gesture, monotonic_ms());
     }
     cancel_actions();
+    menu_stop();
     torch_stop(); torch_pid = 0;
     release_device();
     log_event("监听服务已停止");
@@ -492,7 +511,18 @@ static void print_state(void)
     }
     buffer[n] = 0; log_start = buffer;
     while (((unsigned char)*log_start & 0xc0) == 0x80) log_start++;
-    fputs(",\"torch_logs\":", stdout); json_string(stdout, log_start); fputs("}\n", stdout);
+    fputs(",\"torch_logs\":", stdout); json_string(stdout, log_start);
+    const char *menu_files[] = {"menu-install.log", "menu-launch.log"};
+    fputs(",\"menu_logs\":", stdout);
+    char menu_logs[8192] = {0}; size_t used = 0;
+    for (int i = 0; i < 2; i++) {
+        path_for(path, sizeof(path), menu_files[i]); file = fopen(path, "r");
+        if (file) {
+            used += fread(menu_logs + used, 1, 4000, file); fclose(file);
+            menu_logs[used++] = '\n';
+        }
+    }
+    menu_logs[used] = 0; json_string(stdout, menu_logs); fputs("}\n", stdout);
 }
 
 static int stop_daemon(void)

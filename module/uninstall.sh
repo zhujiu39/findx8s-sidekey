@@ -5,3 +5,8 @@ MODDIR=${0%/*}
     exit 1
 }
 rm -rf /data/adb/oppo_sidekey
+
+# 只卸载本模块拥有的菜单包，失败时可在系统应用管理手动移除。
+if command -v timeout >/dev/null 2>&1; then
+    timeout 15 pm uninstall cn.sidekey.menu >/dev/null 2>&1
+fi

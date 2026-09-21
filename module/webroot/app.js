@@ -1,3 +1,4 @@
+import {initMenuEditor, fillMenu, readMenu, menuBusy} from './menu-editor.js';
 import {actions, gestureIds, defaultConfig, validate, serialize, hex} from './model.js';
 import {api, exec, available} from './bridge.js';
 const $ = id => document.getElementById(id);
@@ -40,11 +41,12 @@ function updateArgument(id) {
 }
 function formConfig() {
   return {enabled: $('enabled').checked, haptic: $('haptic').checked, long_ms: Number($('long-ms').value), double_ms: Number($('double-ms').value),
-    actions: gestureIds.map(id => { const type = $(`action-${id}`).value; return {type, argument: type === 'shell' ? $(`shell-${id}`).value : ['app','keycode'].includes(type) ? $(`value-${id}`).value.trim() : ''}; })};
+    actions: gestureIds.map(id => { const type = $(`action-${id}`).value; return {type, argument: type === 'shell' ? $(`shell-${id}`).value : ['app','keycode'].includes(type) ? $(`value-${id}`).value.trim() : ''}; }), ...readMenu()};
 }
-function dirty() { return JSON.stringify(formConfig()) !== JSON.stringify(saved); }
+function dirty() { try { return serialize(formConfig()) !== serialize(saved); } catch { return true; } }
 function updateDirty() {
   $('long-output').value = `${$('long-ms').value} ms`; $('double-output').value = `${$('double-ms').value} ms`;
+  menuBusy(busy);
   $('save').disabled = busy || !loaded;
   $('save-state').textContent = busy ? '正在保存…' : !loaded ? '配置未加载' : dirty() ? '有未保存的修改' : '设置已同步';
   gestureIds.forEach((id, i) => { $(`test-${id}`).disabled = busy || !loaded || dirty() || saved.actions[i].type === 'none' || !available(); });
@@ -52,7 +54,7 @@ function updateDirty() {
   if (!available()) $('start-service').disabled = true;
 }
 function fill(config) {
-  validate(config); saved = structuredClone(config);
+  validate(config); saved = structuredClone(config); fillMenu(config);
   $('enabled').checked = config.enabled; $('haptic').checked = config.haptic; $('long-ms').value = config.long_ms; $('double-ms').value = config.double_ms;
   gestureIds.forEach((id, i) => {
     $(`action-${id}`).value = config.actions[i].type;
@@ -78,11 +80,11 @@ function runtime(data) {
   $('result-info').textContent = r.busy ? '动作执行中' : !r.last_action ? '—' : r.last_result === 0 ? '执行成功' : r.last_result === 124 ? '执行超时（10 秒）' : `退出码 ${r.last_result}`;
   const t = data.torch || {};
   const torchActive = data.running && r.torch_pid > 0 && r.torch_pid === t.pid;
-  $('torch-info').textContent = !data.config.actions.some(a => a.type === 'torch') ? '未配置手电筒动作' :
+  $('torch-info').textContent = ![...data.config.actions, ...data.config.menu].some(a => a.type === 'torch') ? '未配置手电筒动作' :
     !torchActive ? '服务准备中，或启动失败（见下方日志）' : t.error ? t.error :
     !t.known ? '等待系统状态' : !t.available ? '不可用（相机占用或系统限制）' :
     `${t.enabled ? '已开启' : '已关闭'} · ${t.maximum > 1 ? `亮度 ${t.strength || 0} / ${t.maximum}` : '系统仅开放默认亮度'}`;
-  $('logs').textContent = (data.logs || '暂无日志') + (data.torch_logs ? '\n手电筒服务：\n' + data.torch_logs : '');
+  $('logs').textContent = (data.logs || '暂无日志') + (data.torch_logs ? '\n手电筒服务：\n' + data.torch_logs : '') + (data.menu_logs ? '\n菜单组件：\n' + data.menu_logs : '');
   if (r.error && data.config.enabled) notice(r.error);
 }
 async function refresh(initial = false) {
@@ -108,7 +110,7 @@ async function save() {
 async function testAction(id) {
   if (dirty()) { toast('请先保存设置，再测试动作'); return; }
   busy = true; updateDirty();
-  try { const data = await api('test', id); toast(data.result === 0 ? '动作已执行' : `动作退出码 ${data.result}`); }
+  try { const data = await api('test', id); toast(data.result === 0 ? (saved.actions[gestureIds.indexOf(id)].type === 'menu' ? '菜单打开请求已提交，未显示时请查看菜单日志' : '动作已执行') : `动作退出码 ${data.result}`); }
   catch (error) { notice(error.message); }
   finally { busy = false; updateDirty(); refresh(); }
 }
@@ -123,9 +125,15 @@ async function packages() {
   } catch (error) { notice(error.message); }
   finally { $('reload-apps').disabled = false; }
 }
+initMenuEditor(updateDirty);
 buildCards();
 ['enabled', 'haptic', 'long-ms', 'double-ms'].forEach(id => $(id).addEventListener('input', updateDirty));
 $('save').addEventListener('click', save);
+$('prepare-menu').addEventListener('click', async () => {
+  if (!available()) { toast('请从 KernelSU 中准备菜单组件'); return; }
+  try { await api('prepare-menu'); toast('已开始准备菜单组件，请稍后在运行日志查看结果'); }
+  catch (error) { notice(error.message); }
+});
 $('refresh').addEventListener('click', () => { notice(''); refresh(!dirty()); });
 $('reload-apps').addEventListener('click', packages);
 $('start-service').addEventListener('click', async () => {

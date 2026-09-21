@@ -9,6 +9,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 import urllib.request
 import zipfile
 
@@ -19,7 +20,7 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '0.3.1'
+VERSION = '0.4.0'
 
 
 def run(arguments):
@@ -101,6 +102,57 @@ def build_torch():
         LOG.append(f'通过：Android API 35 编译、纯 Java 状态测试、D8 DEX 校验；DEX {len(data)} 字节。')
 
 
+def build_menu():
+    import secrets
+    import tempfile
+    sdk = ROOT / 'tools/android'
+    def find(pattern):
+        matches = sorted(sdk.glob(pattern))
+        if not matches:
+            raise RuntimeError(f'缺少菜单编译工具：{pattern}，请运行 bootstrap_android.py')
+        return matches[0]
+    java, javac, keytool = (find(f'jdk/*/bin/{name}.exe') for name in ['java', 'javac', 'keytool'])
+    android_jar, d8 = find('platform/*/android.jar'), find('build-tools/*/lib/d8.jar')
+    aapt2, align, signer = find('build-tools/*/aapt2.exe'), find('build-tools/*/zipalign.exe'), find('build-tools/*/lib/apksigner.jar')
+    # 签名私钥仅在被 Git 忽略的 tools/private 中保存，不进入源码包或模块包。
+    private = ROOT / 'tools/private'
+    private.mkdir(exist_ok=True)
+    key, password = private / 'sidekey-menu.p12', private / 'sidekey-menu.pass'
+    if not key.exists():
+        password.write_text(secrets.token_hex(32), encoding='ascii')
+        run([keytool, '-genkeypair', '-keystore', key, '-storetype', 'PKCS12', '-alias', 'sidekey',
+             '-storepass:file', password, '-keypass:file', password, '-keyalg', 'RSA', '-keysize', '3072',
+             '-validity', '10000', '-dname', 'CN=Find X8s Sidekey', '-noprompt'])
+    if not password.exists():
+        raise RuntimeError('菜单签名口令文件缺失，请恢复 tools/private 中的签名备份')
+    with tempfile.TemporaryDirectory(prefix='menu-', dir=BUILD) as temporary:
+        temporary = Path(temporary)
+        resources, unsigned, aligned = (temporary / name for name in ['resources.zip', 'unsigned.apk', 'aligned.apk'])
+        run([aapt2, 'compile', '--dir', ROOT / 'companion/res', '-o', resources])
+        run([aapt2, 'link', '-I', android_jar, '--manifest', ROOT / 'companion/AndroidManifest.xml',
+             '--min-sdk-version', '35', '--target-sdk-version', '35', '-o', unsigned, resources])
+        classes, dex = temporary / 'classes', temporary / 'dex'
+        classes.mkdir(); dex.mkdir()
+        run([javac, '-J-Dfile.encoding=UTF-8', '-J-Dstdout.encoding=UTF-8', '-J-Dstderr.encoding=UTF-8', '--release', '8', '-Xlint:deprecation,-options', '-Werror', '-encoding', 'UTF-8', '-classpath', android_jar,
+             '-d', classes, *sorted((ROOT / 'companion/src').rglob('*.java'))])
+        run([java, '-cp', d8, 'com.android.tools.r8.D8', '--release', '--min-api', '34',
+             '--lib', android_jar, '--output', dex, *sorted(classes.rglob('*.class'))])
+        with zipfile.ZipFile(unsigned, 'a', zipfile.ZIP_DEFLATED) as apk:
+            for path in dex.glob('*.dex'): apk.write(path, path.name)
+        run([align, '-f', '4', unsigned, aligned])
+        output = MODULE / 'lib/sidekey-menu.apk'
+        run([java, '-jar', signer, 'sign', '--ks', key, '--ks-key-alias', 'sidekey',
+             '--ks-pass', 'file:' + str(password), '--out', output, aligned])
+        run([java, '-jar', signer, 'verify', '--verbose', output])
+        badging = run([find('build-tools/*/aapt.exe'), 'dump', 'badging', output])
+        if "package: name='cn.sidekey.menu'" not in badging or "versionCode='40'" not in badging:
+            raise RuntimeError('菜单 APK 包名或版本无效')
+        with zipfile.ZipFile(output) as apk:
+            if apk.testzip() or not apk.read('classes.dex').startswith(b'dex\n'):
+                raise RuntimeError('菜单 APK 完整性检查失败')
+        LOG.append('通过：菜单 APK 的 API 35 编译、DEX、包名、版本及 APK 签名校验。')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--bootstrap', action='store_true')
@@ -113,11 +165,12 @@ def main():
     sources = ['native/gesture.c', 'native/config.c']
     common = ['-Wall', '-Wextra', '-Werror', '-std=c11', '-I', 'native']
     run([zig, 'cc', '-target', 'aarch64-linux-musl', '-static', '-O2', *common,
-         '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', 'native/torch.c', 'native/haptic.c', *sources, '-o', MODULE / 'bin/sidekey'])
+         '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', 'native/torch.c', 'native/haptic.c', 'native/menu.c', 'native/menu_protocol.c', *sources, '-o', MODULE / 'bin/sidekey'])
     validate_elf(MODULE / 'bin/sidekey')
     build_torch()
+    build_menu()
     test_binary = BUILD / ('native_tests.exe' if os.name == 'nt' else 'native_tests')
-    run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', *sources, '-o', test_binary])
+    run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', 'native/menu_protocol.c', *sources, '-o', test_binary])
     run([test_binary])
     node = shutil.which('node')
     if not node:
@@ -125,24 +178,27 @@ def main():
     run([node, '--test', 'tests/webui.test.js'])
     fixture = run([node, '--input-type=module', '-e',
         "import {defaultConfig,serialize} from './module/webroot/model.js';"
-        "const c=defaultConfig();c.enabled=true;c.haptic=false;c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
+        "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu=[{name:'设置',icon:'⚙️',type:'app',argument:'com.android.settings'}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
         "process.stdout.write(serialize(c));"])
     fixture_path = BUILD / 'config-fixture.conf'
     fixture_path.write_bytes(fixture.encode('utf-8'))
-    decoded = json.loads(run([test_binary, fixture_path]))
+    with tempfile.TemporaryDirectory(prefix='config-', dir=BUILD) as config_directory:
+        decoded = json.loads(run([test_binary, fixture_path, config_directory]))
     if decoded['actions'][2]['argument'] != "printf '%s' '你好'\necho test":
         raise RuntimeError('前后端配置往返验证失败')
     if decoded['actions'][0]['type'] != 'torch':
         raise RuntimeError('手电筒动作配置往返验证失败')
     if decoded['haptic'] is not False:
         raise RuntimeError('震动开关配置往返验证失败')
+    if decoded['menu'][0]['name'] != '设置' or decoded['menu'][0]['icon'] != '⚙️' or decoded['actions'][1]['type'] != 'menu':
+        raise RuntimeError('菜单 UTF-8 配置往返验证失败')
     LOG.append('通过：WebUI → C 配置解析 → JSON，中文、引号、换行保持一致。')
-    bash = shutil.which('bash') or (r'C:\Program Files\Git\bin\bash.exe' if os.name == 'nt' else None)
+    bash = (r'C:\Program Files\Git\bin\bash.exe' if os.name == 'nt' and Path(r'C:\Program Files\Git\bin\bash.exe').exists() else shutil.which('bash'))
     if not bash or not Path(bash).exists():
         raise RuntimeError('未找到 Bash，无法执行 Shell 语法检查')
     files = sorted(path for path in MODULE.rglob('*') if path.is_file())
     required = {'module.prop', 'skip_mount', 'customize.sh', 'service.sh', 'action.sh',
-                'uninstall.sh', 'scripts/control.sh', 'bin/sidekey', 'lib/torch.jar', 'webroot/index.html',
+                'uninstall.sh', 'scripts/control.sh', 'bin/sidekey', 'lib/torch.jar', 'lib/sidekey-menu.apk', 'scripts/menu-install.sh', 'webroot/index.html',
                 'LICENSES/sidekey-LICENSE.txt'}
     if not required.issubset({path.relative_to(MODULE).as_posix() for path in files}):
         raise RuntimeError('模块文件不完整')
@@ -158,7 +214,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_开源发布')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_左侧快捷菜单')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -179,7 +235,7 @@ def main():
     LOG.append('通过：ZIP 根目录、完整性、权限标志及文件内容校验。')
     with zipfile.ZipFile(delivery / '源码与测试.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
         paths = [ROOT / name for name in ['README.md', 'LICENSE', 'build.py', 'bootstrap_android.py', 'package.json', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md']]
-        paths += [path for directory in ['native', 'android', 'tests', 'module', 'diagnostics'] for path in (ROOT / directory).rglob('*') if path.is_file()]
+        paths += [path for directory in ['native', 'android', 'companion', 'tests', 'module', 'diagnostics'] for path in (ROOT / directory).rglob('*') if path.is_file()]
         for path in sorted(paths):
             archive.write(path, path.relative_to(ROOT).as_posix())
     shutil.copyfile(ROOT / 'README.md', delivery / '使用说明.md')
@@ -188,30 +244,19 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 测试版\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '本次交付用于 GitHub 开源发布：新增 MIT 许可证、仓库和安装包下载说明，'
-        '安装包与源码包均包含项目许可证；运行功能保持 v0.3.1。\n\n'
-        f'安装文件：`test_oppo_sidekey_v{VERSION}.zip`，在 KernelSU 管理器中覆盖安装并重启。'
-        '升级保留配置；进入 WebUI 将长按从旧 Shell 改为“切换手电筒（系统最高亮度）”，保存设置。'
-        '新增“触发时震动”默认开启；可在 WebUI 的手感调节中关闭并保存。'
-        '升级前先用旧长按动作关灯，避免遗留直接写入硬件的状态。\n\n'
-        '本次新增：有效手势触发时请求一次 35 ms 系统震动，默认开启、WebUI 可关闭，'
-        '长按只在达到阈值时触发一次。反馈使用独立子进程，不阻塞输入或动作，失败只记录日志。'
-        '震动遵循系统震动和勿扰设置，表示手势已接收，不代表后续动作必定成功。\n\n'
-        '保留功能：CameraManager 系统手电筒、最高公开亮度档位、系统状态回调同步、'
-        '按需启动的 Java 服务、父进程退出联动清理、手电筒状态和诊断日志。'
-        '不伪造控制中心状态，不修改系统文件或 SELinux 模式。\n\n'
-        '目标：OPPO Find X8s（PKT110）、Android 15、KernelSU；已实测侧键为 gpio-keys / 735。'
-        '无需刷入新的 boot 或 init_boot，无需元模块或 Zygisk。\n\n'
-        '构建：Zig C 编译为 ARM64 静态 ELF，16 KB 段对齐；JDK 编译与 Android D8 生成手电筒 DEX。'
-        '命令与真实结果见构建日志。'
-        '包内包含 musl 运行时，许可证保存在模块 LICENSES 目录。\n\n'
-        '验证：本机 Java 状态机、C 手势、配置解析、前后端往返、JavaScript、Shell 语法、ELF、DEX 和 ZIP 检查通过；'
-        '界面检查见验证记录。\n\n'
-        '**实机边界：用户选择自行安装。系统手电筒服务和本次震动反馈尚未在该机验证；'
-        'ColorOS 的 app_process 权限、亮度能力、控制中心图标和锁屏行为仍需实测。** '
-        '如果系统只开放 1 档，就使用系统默认亮度，不绕过系统温控限制。\n\n'
-        '恢复：WebUI 关闭接管并保存，或在管理器禁用模块后重启。卸载会停止监听并删除自身配置。'
-        '没有系统文件覆盖、外部资源或烧录地址。\n', encoding='utf-8')
+        '新增可自定义快捷菜单：默认空白，从屏幕左侧滑出，可调整弹出方向和中心高度。\n\n'
+        f'安装：在 KernelSU 覆盖安装 test_oppo_sidekey_v{VERSION}.zip 后重启。升级保留已有动作。'
+        '模块会自动安装侧键快捷菜单组件；在 WebUI 将某个手势改为“弹出快捷菜单”，添加捷径并保存。'
+        '支持名称、emoji、动作参数及上下排序，最多 12 项。\n\n'
+        '菜单组件只接收名称、图标和一次性会话；动作由模块执行。使用本机回环网络通信，'
+        '不访问远端，不需要悬浮窗、无障碍或单独 Root 授权。卸载模块时移除菜单组件。\n\n'
+        '本次本地验证覆盖手势、旧配置升级、菜单边界和非法请求、UTF-8 往返、WebUI、Shell、'
+        'ARM64 静态 ELF、手电筒 DEX、菜单 APK 签名以及 ZIP 完整性。真实命令结果见构建日志。\n\n'
+        '**这是功能测试版：本次没有连接手机，ColorOS 后台启动、实际滑出动画和点击动作仍需你刷入实测。** '
+        '锁屏时不弹出菜单；不会唤醒或绕过锁屏。菜单会话 60 秒失效，配置变化或服务退出后自动收起。\n\n'
+        '恢复：WebUI 关闭接管并保存，或在管理器禁用模块后重启。菜单组件安装异常时，'
+        '点击“准备 / 修复菜单组件”并查看运行日志。签名冲突时需先自行卸载旧菜单组件。\n'
+, encoding='utf-8')
     sums = '\n'.join(f'{sha256(p.read_bytes()).hexdigest()}  {p.name}' for p in sorted(delivery.iterdir()) if p.is_file())
     (delivery / 'SHA256SUMS.txt').write_text(sums + '\n', encoding='utf-8')
     (BUILD / 'latest-delivery.txt').write_text(str(delivery), encoding='utf-8')

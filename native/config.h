@@ -5,16 +5,25 @@
 #include <stdio.h>
 
 #define ARG_CAP 513
-#define CONFIG_CAP 8192
+#define CONFIG_CAP 32768
+#define MENU_CAP 12
+#define MENU_NAME_CAP 97
+#define MENU_ICON_CAP 25
 typedef enum {
     ACTION_NONE, ACTION_HOME, ACTION_BACK, ACTION_RECENTS, ACTION_NOTIFICATIONS,
     ACTION_QUICK_SETTINGS, ACTION_SCREENSHOT, ACTION_SCREEN_OFF, ACTION_PLAY_PAUSE,
     ACTION_NEXT, ACTION_PREVIOUS, ACTION_VOLUME_UP, ACTION_VOLUME_DOWN,
     ACTION_MUTE, ACTION_CAMERA, ACTION_APP, ACTION_KEYCODE, ACTION_SHELL,
-    ACTION_TORCH, ACTION_COUNT
+    ACTION_TORCH, ACTION_MENU, ACTION_COUNT
 } ActionKind;
 typedef struct { ActionKind kind; char argument[ARG_CAP]; } Action;
-typedef struct { bool enabled, haptic; uint32_t long_ms, double_ms; Action actions[3]; } Config;
+typedef struct { char name[MENU_NAME_CAP], icon[MENU_ICON_CAP]; Action action; } MenuItem;
+typedef struct {
+    bool enabled, haptic, menu_right;
+    uint32_t long_ms, double_ms, menu_position, menu_count;
+    Action actions[3];
+    MenuItem menu[MENU_CAP];
+} Config;
 extern const char *const action_names[ACTION_COUNT];
 void config_defaults(Config *config);
 bool config_parse(const char *text, Config *config, char *error, size_t error_cap);

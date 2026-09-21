@@ -1,5 +1,6 @@
 #include "gesture.h"
 #include "config.h"
+#include "menu_protocol.h"
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
@@ -23,7 +24,7 @@ static void reset(bool double_enabled)
 }
 int main(int argc, char **argv)
 {
-    if (argc == 2) {
+    if (argc == 2 || argc == 3) {
         FILE *file = fopen(argv[1], "rb");
         if (!file) return 2;
         char text[CONFIG_CAP], error[256];
@@ -31,6 +32,9 @@ int main(int argc, char **argv)
         fclose(file); text[length] = 0;
         Config config;
         if (!config_parse(text, &config, error, sizeof(error))) return 1;
+        if (argc == 3) {
+            if (!config_write(argv[2], &config) || !config_read(argv[2], &config, error, sizeof(error))) return 3;
+        }
         config_json(stdout, &config);
         return 0;
     }
@@ -107,6 +111,44 @@ int main(int argc, char **argv)
     assert(!hex_decode("xxxx", decoded, sizeof(decoded)));
     assert(!hex_decode("41424344", decoded, sizeof(decoded)));
     assert(hex_decode("414243", decoded, sizeof(decoded)) && !strcmp(decoded, "ABC"));
+    assert(config_parse(valid, &config, error, sizeof(error)));
+    assert(config.menu_count == 0 && !config.menu_right && config.menu_position == 35);
+    const char *menu = "menu_count=1\nmenu_side=left\nmenu_position=35\nmenu_0_name=e8aebee7bdae\nmenu_0_icon=e29a99efb88f\nmenu_0_action=torch\nmenu_0_arg=\n";
+    snprintf(text, sizeof(text), "%s%s", valid, menu);
+    assert(config_parse(text, &config, error, sizeof(error)));
+    assert(config.menu_count == 1 && config.menu[0].action.kind == ACTION_TORCH);
+    assert(!strcmp(config.menu[0].name, "设置"));
+    const char *bad[] = {"menu_count=13\nmenu_side=left\nmenu_position=35\n",
+        "menu_count=1\nmenu_side=left\nmenu_position=35\n", "menu_count=0\n",
+        "menu_count=0\nmenu_side=top\nmenu_position=35\n", "menu_count=0\nmenu_side=right\nmenu_position=91\n",
+        "menu_0_name=61\n"};
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        snprintf(text, sizeof(text), "%s%s", valid, bad[i]);
+        assert(!config_parse(text, &config, error, sizeof(error)));
+    }
+    snprintf(text, sizeof(text), "%s%smenu_0_arg=\n", valid, menu);
+    assert(!config_parse(text, &config, error, sizeof(error)));
+    snprintf(text, sizeof(text), "%s%s", valid, menu);
+    char *recursive = strstr(text, "torch"); memmove(recursive + 4, recursive + 5, strlen(recursive + 5) + 1); memcpy(recursive, "menu", 4);
+    assert(!config_parse(text, &config, error, sizeof(error)));
+    const char *token = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    uint32_t selected = 99;
+    snprintf(text, sizeof(text), "SELECT %s 11", token);
+    assert(menu_authorize(text, token, 60000, 59999, 12, &selected) == MENU_SELECT && selected == 11);
+    assert(menu_authorize(text, token, 60000, 60000, 12, &selected) == MENU_INVALID);
+    assert(menu_authorize(text, token, 60000, 1, 11, &selected) == MENU_INVALID);
+    assert(menu_authorize(text, "", 60000, 1, 12, &selected) == MENU_INVALID);
+    const char *tails[] = {"-1", "12", "00", "1;id", "1 ", "1\n", "99999999999999999999"};
+    for (size_t i = 0; i < sizeof(tails) / sizeof(tails[0]); i++) {
+        snprintf(text, sizeof(text), "SELECT %s %s", token, tails[i]);
+        assert(menu_authorize(text, token, 60000, 1, 12, &selected) == MENU_INVALID);
+    }
+    snprintf(text, sizeof(text), "PING %s", token);
+    assert(menu_authorize(text, token, 60000, 1, 0, &selected) == MENU_PING);
+    text[5] = 'x'; assert(menu_authorize(text, token, 60000, 1, 0, &selected) == MENU_INVALID);
+    snprintf(text, sizeof(text), "CLOSE %s", token);
+    assert(menu_authorize(text, token, 60000, 1, 0, &selected) == MENU_CLOSE);
+    puts("PASS: menu config migration, strict bounds, session token / expiry / index validation");
     puts("PASS: 9 gesture scenarios, strict config / hex validation and haptic upgrade compatibility");
     return 0;
 }

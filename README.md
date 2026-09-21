@@ -7,13 +7,13 @@
 为 **OPPO Find X8s** 开发的 KernelSU 侧键自定义模块。<br>
 在 WebUI 中配置短按、双击和长按，把手电筒、相机、媒体控制和常用操作放在指尖。
 
-[![Version](https://img.shields.io/badge/version-v0.3.1%20%7C%20pre--release-orange)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.3.1)
+[![Version](https://img.shields.io/badge/version-v0.4.0%20%7C%20pre--release-orange)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.4.0)
 [![Device](https://img.shields.io/badge/device-OPPO%20Find%20X8s-2d6a4f)](#compatibility)
 [![Android](https://img.shields.io/badge/Android-15-3DDC84?logo=android&logoColor=white)](#compatibility)
 [![KernelSU](https://img.shields.io/badge/Root-KernelSU-1565C0)](https://kernelsu.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-[下载模块](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.3.1) ·
+[下载模块](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.4.0) ·
 [快速开始](#quick-start) ·
 [支持的动作](#actions) ·
 [常见问题](#faq) ·
@@ -23,10 +23,10 @@
 </div>
 
 > [!TIP]
-> 想直接安装？下载 **[test_oppo_sidekey_v0.3.1.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v0.3.1/test_oppo_sidekey_v0.3.1.zip)**，在 KernelSU 管理器中安装并重启。Release 附带 `SHA256SUMS.txt`；GitHub 自动生成的 **Source code** 压缩包用于开发，不能直接安装。
+> 想直接安装？下载 **[test_oppo_sidekey_v0.4.0.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v0.4.0/test_oppo_sidekey_v0.4.0.zip)**，在 KernelSU 管理器中安装并重启。Release 附带 `SHA256SUMS.txt`；GitHub 自动生成的 **Source code** 压缩包用于开发，不能直接安装。
 
 > [!IMPORTANT]
-> 当前是 **v0.3.1 功能测试版**。侧键输入设备与键码已通过 ADB 确认，本地构建和自动化测试已通过；新增系统手电筒、控制中心图标同步、震动以及锁屏／息屏响应仍需目标手机验证。详细范围见[兼容性与验证状态](#compatibility)。
+> 当前是 **v0.4.0 功能测试版**。侧键输入设备与键码已通过 ADB 确认，本地构建和自动化测试已通过；快捷菜单在 ColorOS 上的弹出与点击，以及系统手电筒、图标同步、震动和锁屏／息屏响应仍需目标手机验证。详细范围见[兼容性与验证状态](#compatibility)。
 
 ## ✨ 一眼看懂
 
@@ -44,6 +44,7 @@
 | --- | --- |
 | 三种手势独立配置 | 短按、双击、长按分别选择动作，也可单独设为不执行 |
 | 替换原有侧键功能 | 开启接管后，由模块处理该侧键；关闭并保存即可恢复系统接收 |
+| 左侧滑出菜单 | 侧键触发后从左侧平滑滑出；空白起步，支持名称、emoji、动作和排序 |
 | 离线 WebUI | 配置动作、调节手感、测试动作、查看状态和日志 |
 | 系统手电筒 | 通过 Android 相机服务切换状态，使用系统公开的最高亮度档位 |
 | 触发反馈 | 有效动作触发时请求一次 35 ms 短震动，可关闭 |
@@ -72,8 +73,8 @@
 | C 手势状态机、配置校验与旧配置兼容 | 本地测试通过 |
 | Java 手电筒状态逻辑、外部状态变化与超时处理 | 本地测试通过 |
 | WebUI 配置、桥接模拟与手机尺寸预览 | 本地检查通过 |
-| ARM64 ELF、DEX、脚本语法及安装 ZIP | 构建与校验通过 |
-| 完整接管、系统手电筒、震动与锁屏／息屏行为 | 待目标手机实机验证 |
+| ARM64 ELF、DEX、菜单 APK 签名、脚本语法及安装 ZIP | 构建与校验通过 |
+| 完整接管、ColorOS 菜单启动与点击、系统手电筒、震动和锁屏／息屏行为 | 待目标手机实机验证 |
 
 原始适配依据见[侧边按键识别结果](diagnostics/侧边按键识别结果.md)，本地检查及实机待测项见[模块本地验证](diagnostics/模块本地验证.md)。
 
@@ -83,7 +84,7 @@
 
 ### 第一次安装
 
-1. 从 [Releases](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.3.1) 下载 `test_oppo_sidekey_v0.3.1.zip`。
+1. 从 [Releases](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v0.4.0) 下载 `test_oppo_sidekey_v0.4.0.zip`。
 2. 打开 **KernelSU → 模块 → 从本地安装**，选择 ZIP，安装完成后重启。
 3. 从模块卡片打开 **WebUI**，为短按、双击、长按选择动作。
 4. 按需设置长按时间、双击间隔和“触发时震动”。
@@ -96,9 +97,23 @@
 
 在 **“长按”** 中选择 **“切换手电筒（系统最高亮度）”**，保存后等待几秒，让手电筒服务完成初始化。随后长按开灯，再次长按关灯；“运行状态与日志”可查看系统手电筒状态及亮度上限。
 
+### 把侧键设为快捷菜单
+
+1. 将短按、双击或长按中的一个动作改为 **“弹出快捷菜单”**。
+2. 在 **“你的快捷菜单”** 中点击 **“＋ 添加捷径”**，填写名称和可选 emoji，再选择执行动作。支持系统操作、应用、手电筒、Android 按键及 Shell，最多 **12 项**。
+3. 用 ↑ / ↓ 调整顺序，或删除项目。菜单默认空白，不替你预置任何内容。
+4. 默认从屏幕 **左侧** 滑出，面板中心高度默认 **35%**，可调整至 10%～90%；也能改为右侧。靠近屏幕边缘时会自动限制位置，长菜单可以滚动。
+5. 点击 **“预览滑出效果”** 检查外观，再保存设置。网页预览不执行动作；手势卡片的 **“测试”** 才会请求打开手机上的菜单。
+
+手机菜单使用短暂的透明 Activity：左侧滑入，点击空白处或返回键滑出，选择项目时先收起再提交动作。每次菜单会话最长 60 秒；修改配置、暂停服务或关闭模块后会话失效。**锁屏时不显示，也不负责唤醒屏幕或解锁。**
+
+模块重启后会自动安装 **“侧键快捷菜单”** 组件（`cn.sidekey.menu`），不显示桌面图标，可在系统应用管理中找到。无需悬浮窗、无障碍或单独的 Root 授权。组件仅通过 `127.0.0.1` 与模块通信，Android 的 `INTERNET` 权限用于本机连接；没有远端地址、统计或上传。实际动作参数和 Shell 命令只保留在 Root 服务中，组件只能用一次性会话选择预先配置的项目。
+
+如果没有弹出，请在 WebUI 点击 **“准备 / 修复菜单组件”**，等几秒后查看 **“运行状态与日志 → 菜单组件”**。安装错误与 Android 启动错误会显示在那里。ColorOS 是否允许当前 ROM 的后台启动路径，需要刷入实测。
+
 ### 从旧版升级
 
-- 在 KernelSU 中覆盖安装新版并重启，已有配置会保留。
+- 在 KernelSU 中覆盖安装新版并重启，已有配置会保留；v0.4.0 不自动改动你的手势，菜单初始为空。
 - 如果此前用 Shell 直接控制 LED，先用旧脚本关灯，再升级。
 - 升级后，手动将对应动作改为内置手电筒并保存；模块不会自动替换你的 Shell 命令。
 - v0.3.1 对旧配置默认开启触发震动，可以在“手感调节”中关闭并保存。
@@ -109,6 +124,7 @@
 
 | 类别 | 可选动作 | 需要填写什么 |
 | --- | --- | --- |
+| 快捷菜单 | 弹出可自定义的侧边面板 | 在“你的快捷菜单”添加内容；菜单内不支持递归打开菜单 |
 | 系统导航 | 回到桌面、返回上一页、最近任务 | 无 |
 | 快捷操作 | 展开通知栏、展开快捷设置、截屏、息屏 | 无 |
 | 媒体控制 | 播放／暂停、上一首、下一首、增大／减小音量、切换媒体静音 | 无 |
@@ -164,7 +180,7 @@
 
 正常接管时，模块独占目标输入设备，系统原有侧键功能被替换。即使某个手势设为“不执行动作”，它也不会回到系统功能。
 
-恢复原功能：关闭“接管侧边键”并保存。停用模块：在 KernelSU 中禁用，必要时重启。卸载会停止监听并删除模块自己的配置目录。
+恢复原功能：关闭“接管侧边键”并保存。停用模块：在 KernelSU 中禁用，必要时重启。卸载会停止监听、删除模块自己的配置目录，并尝试移除菜单组件；如果卸载时系统包管理器不可用，可在系统应用管理手动移除“侧键快捷菜单”。
 
 </details>
 
@@ -224,7 +240,9 @@ python build.py --bootstrap
 
 工具准备完成后，使用 `python build.py` 重新构建。Android 工具位于忽略提交的 `tools/android/`，Zig 也保存在 `tools/`；已有 Zig 时可通过 `ZIG` 环境变量指定路径。当前脚本使用 Windows 版工具路径，Linux / macOS 构建流程尚未适配。
 
-每次完整构建都会执行 C、Java、JavaScript 测试，以及配置往返、Shell 语法、ELF、DEX 和 ZIP 校验，并新建独立的 `交付文件/时间_test_v0.3.1_开源发布/` 目录。目录内包含安装包、源码与测试、说明文档、真实构建日志和 SHA256。
+每次完整构建都会执行 C、Java、JavaScript 测试，以及配置往返、Shell 语法、ELF、DEX、APK 签名和 ZIP 校验，并新建独立的 `交付文件/时间_test_v0.4.0_左侧快捷菜单/` 目录。目录内包含安装包、源码与测试、说明文档、真实构建日志和 SHA256。
+
+菜单 APK 使用 API 35 编译，随模块 ZIP 一起分发。首次构建会在 **被 Git 忽略的 `tools/private/`** 生成本地签名私钥和口令文件，后续构建复用；请自行备份，**不要提交或公开这两个文件**。源码包和 Release 不包含私钥。自行构建的签名与仓库发布版本不同，交叉安装提示签名冲突时，先在手机应用管理中卸载旧菜单组件，再点 WebUI 的“准备 / 修复菜单组件”；手势与菜单配置保存在模块目录，不受单独卸载组件影响。
 
 只运行 WebUI 单元测试：
 
@@ -251,6 +269,9 @@ flowchart TD
     E --> F["动作队列"]
     E --> G["可选的短震动反馈"]
     F --> H["系统操作 / 应用 / Shell"]
+    F --> M["透明 Activity · 左侧快捷菜单"]
+    M --> N["一次性会话 + 选择索引"]
+    N --> F
     F --> I["手电筒服务 · CameraManager"]
     I --> J["系统回调与诊断状态"]
     J --> A
@@ -267,6 +288,7 @@ flowchart TD
 - 震动反馈独立执行，最多 4 个并发请求，每个请求 2 秒超时。
 - 模块 ID 为 `oppo_sidekey`，持久配置与日志位于 `/data/adb/oppo_sidekey/`，目录权限为 `0700`。升级保留，卸载删除。
 - 配置采用严格解析的文本格式，参数以 UTF-8 十六进制保存并原子替换，不作为 Shell 文件直接加载。
+- 菜单接口只监听本机回环地址的随机端口；打开请求使用 Root 私有令牌，点击请求使用 256 位一次性随机令牌，60 秒后失效。限制连接数量、请求长度和等待时间，不接受客户端传入的命令。
 - WebUI 离线运行，不加载 CDN，也不上传设备信息。
 
 </details>
@@ -277,12 +299,13 @@ flowchart TD
 findx8s-sidekey/
 ├─ native/                   # 监听服务、手势、配置、手电筒 IPC 与震动
 ├─ android/cn/sidekey/        # CameraManager 服务与可独立测试的状态逻辑
+├─ companion/                # 快捷菜单 Android Activity、Manifest 与主题
 ├─ module/
 │  ├─ webroot/               # 离线 WebUI
 │  ├─ scripts/               # 配置保存、服务控制与动作测试入口
 │  ├─ LICENSES/              # 随模块分发的许可证
 │  ├─ bin/sidekey            # 构建生成的 ARM64 程序
-│  └─ lib/torch.jar          # 构建生成的 DEX 容器，不是安装 APK
+│  └─ lib/                   # 构建生成的 torch.jar 与 sidekey-menu.apk
 ├─ tests/                    # C、Java、JavaScript 测试
 ├─ diagnostics/              # 侧键适配依据与验证记录
 ├─ bootstrap_android.py      # 下载并校验 Android 编译工具
@@ -296,7 +319,8 @@ findx8s-sidekey/
 
 | 版本 | 主要变化 |
 | --- | --- |
-| **v0.3.1** | 新增 35 ms 触发震动、WebUI 反馈开关、旧配置兼容；公开发布源码与 MIT 许可证 |
+| **v0.4.0** | 新增左侧滑出快捷菜单、空白 DIY 项目、排序、位置调节、WebUI 预览与自动准备菜单组件 |
+| v0.3.1 | 新增 35 ms 触发震动、WebUI 反馈开关、旧配置兼容；公开发布源码与 MIT 许可证 |
 | v0.3.0 | 新增系统手电筒动作、最高公开亮度、真实状态回调与诊断信息 |
 | v0.2.0 | 实现侧键独占接管、三种手势、离线 WebUI、持久配置与动作超时 |
 
