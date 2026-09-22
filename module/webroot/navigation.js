@@ -8,6 +8,7 @@ export function initNavigation() {
       document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
     });
     if (focus) target.focus();
+    document.dispatchEvent(new CustomEvent('sidekey-page', {detail: target.dataset.page}));
     window.scrollTo({top: 0, behavior: 'instant'});
   }
   tabs.forEach((tab, index) => {

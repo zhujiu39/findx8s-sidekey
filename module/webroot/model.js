@@ -5,6 +5,7 @@ export const actions = [
   ['next', '下一首'], ['previous', '上一首'], ['volume_up', '增大音量'],
   ['volume_down', '减小音量'], ['mute', '切换媒体静音'], ['camera', '打开相机'],
   ['torch', '切换手电筒（系统最高亮度）'],
+  ['mijia', '执行米家动作'],
   ['app_freeform', '启动应用（ColorOS 小窗）'], ['app', '启动应用'], ['keycode', '发送 Android 按键'], ['shell', '自定义 Shell 命令'],
 ];
 export const gestureIds = ['single', 'double', 'long'];
@@ -50,7 +51,8 @@ export function validate(config) {
     if (action.type === 'keycode' && (!/^\d+$/.test(action.argument) || Number(action.argument) < 1 || Number(action.argument) > 2047))
       throw new Error('Android 按键码应为 1～2047 的整数');
     if (action.type === 'shell' && !action.argument.trim()) throw new Error('请输入要执行的 Shell 命令');
-    if (!['app', 'app_freeform', 'keycode', 'shell'].includes(action.type) && action.argument !== '') throw new Error('该动作不需要参数');
+    if (action.type === 'mijia' && !/^[a-f0-9]{32}$/.test(action.argument)) throw new Error('请在米家页选择设备或场景并添加绑定');
+    if (!['app', 'app_freeform', 'keycode', 'shell', 'mijia'].includes(action.type) && action.argument !== '') throw new Error('该动作不需要参数');
   }
   return config;
 }

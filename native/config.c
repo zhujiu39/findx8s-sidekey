@@ -13,7 +13,7 @@
 const char *const action_names[ACTION_COUNT] = {
     "none", "home", "back", "recents", "notifications", "quick_settings",
     "screenshot", "screen_off", "play_pause", "next", "previous", "volume_up",
-    "volume_down", "mute", "camera", "app", "keycode", "shell", "torch", "menu", "app_freeform"
+    "volume_down", "mute", "camera", "app", "keycode", "shell", "torch", "menu", "app_freeform", "mijia"
 };
 
 void config_defaults(Config *c)
@@ -161,6 +161,10 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
         } else if (a->kind == ACTION_KEYCODE) {
             uint32_t keycode;
             if (!number(a->argument, 1, 2047, &keycode)) goto invalid;
+        } else if (a->kind == ACTION_MIJIA) {
+            if (strlen(a->argument) != 32) goto invalid;
+            for (const char *p = a->argument; *p; p++)
+                if (!(*p >= '0' && *p <= '9') && !(*p >= 'a' && *p <= 'f')) goto invalid;
         } else if (a->kind == ACTION_SHELL) {
             if (!*a->argument) goto invalid;
         } else if (*a->argument) goto invalid;

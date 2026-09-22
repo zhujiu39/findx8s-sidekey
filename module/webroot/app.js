@@ -1,8 +1,9 @@
-import {initMenuEditor, fillMenu, readMenu, menuBusy} from './menu-editor.js';
+import {initMenuEditor, fillMenu, readMenu, menuBusy, addMijiaEntry} from './menu-editor.js';
 import {actions, gestureIds, defaultConfig, validate, serialize, hex} from './model.js';
 import {api, available, saveConfiguration} from './bridge.js';
 import {appCatalog, createAppChoice} from './app-picker.js';
 import {initNavigation} from './navigation.js';
+import {initMijia, chooseMijia, mijiaBindingLabel} from './mijia.js';
 const $ = id => document.getElementById(id);
 let saved = defaultConfig(), loaded = false, busy = false, refreshBusy = false;
 let toastTimer;
@@ -33,6 +34,12 @@ function buildCards() {
       $(`value-${id}`).value = app.packageName; updateDirty();
     }, `${titles[index]}应用`);
     appChoice.id = `app-${id}`; $(`argument-${id}`).insertBefore(appChoice, $(`value-${id}`));
+    const mijiaChoice = document.createElement('button'); mijiaChoice.type = 'button';
+    mijiaChoice.id = `mijia-${id}`; mijiaChoice.className = 'secondary mijia-gesture-choice';
+    mijiaChoice.addEventListener('click', () => chooseMijia(entry => {
+      $(`value-${id}`).value = entry.id; updateArgument(id); updateDirty();
+    }));
+    $(`argument-${id}`).append(mijiaChoice);
     const select = $(`action-${id}`);
     actions.forEach(([value, name]) => select.add(new Option(name, value)));
     select.addEventListener('change', () => { $(`value-${id}`).value = ''; $(`shell-${id}`).value = ''; updateArgument(id); updateDirty(); });
@@ -43,21 +50,23 @@ function buildCards() {
 }
 function updateArgument(id) {
   const type = $(`action-${id}`).value, block = $(`argument-${id}`), input = $(`value-${id}`), shell = $(`shell-${id}`);
-  block.hidden = !['app', 'app_freeform', 'keycode', 'shell'].includes(type);
+  block.hidden = !['app', 'app_freeform', 'keycode', 'shell', 'mijia'].includes(type);
+  $(`mijia-${id}`).hidden = type !== 'mijia';
+  $(`mijia-${id}`).textContent = input.value && type === 'mijia' ? mijiaBindingLabel(input.value) : '选择米家动作';
   const isApp = ['app','app_freeform'].includes(type);
   input.hidden = type !== 'keycode'; shell.hidden = type !== 'shell';
   $(`app-${id}`).hidden = !isApp; $(`app-${id}`).refreshAppChoice();
   const label = block.querySelector('label');
   label.htmlFor = isApp ? `app-${id}` : type === 'shell' ? `shell-${id}` : `value-${id}`;
-  label.textContent = isApp ? '应用' : type === 'keycode' ? 'Android 按键码' : 'Shell 命令（Root）';
+  label.textContent = type === 'mijia' ? '米家动作' : isApp ? '应用' : type === 'keycode' ? 'Android 按键码' : 'Shell 命令（Root）';
   input.type = type === 'keycode' ? 'number' : 'text';
   input.placeholder = '例如 3（主页）';
   shell.placeholder = '例如：input keyevent 3';
-  block.querySelector('p').textContent = isApp ? '' : type === 'keycode' ? '填写 Android KeyEvent 编码，范围 1～2047。' : '以 Root 执行，最长 10 秒；动作结束时清理后台进程。';
+  block.querySelector('p').textContent = type === 'mijia' ? '执行结果可在米家页面查看。' : isApp ? '' : type === 'keycode' ? '填写 Android KeyEvent 编码，范围 1～2047。' : '以 Root 执行，最长 10 秒；动作结束时清理后台进程。';
 }
 function formConfig() {
   return {enabled: $('enabled').checked, haptic: $('haptic').checked, long_ms: Number($('long-ms').value), double_ms: Number($('double-ms').value),
-    actions: gestureIds.map(id => { const type = $(`action-${id}`).value; return {type, argument: type === 'shell' ? $(`shell-${id}`).value : ['app','app_freeform','keycode'].includes(type) ? $(`value-${id}`).value.trim() : ''}; }), ...readMenu()};
+    actions: gestureIds.map(id => { const type = $(`action-${id}`).value; return {type, argument: type === 'shell' ? $(`shell-${id}`).value : ['app','app_freeform','keycode','mijia'].includes(type) ? $(`value-${id}`).value.trim() : ''}; }), ...readMenu()};
 }
 function dirty() { try { return serialize(formConfig()) !== serialize(saved); } catch { return true; } }
 function updateActionSummaries() {
@@ -69,6 +78,7 @@ function updateActionSummaries() {
       if (app) label = (type === 'app_freeform' ? '小窗 · ' : '') + app.label;
     }
     $(`summary-${id}`).textContent = label;
+    if (type === 'mijia') $(`summary-${id}`).textContent = mijiaBindingLabel($(`value-${id}`).value);
     $(`edit-${id}`).setAttribute('aria-label', `编辑${titles[index]}动作：${label}`);
   });
 }
@@ -79,7 +89,9 @@ function updateDirty() {
   $('save').disabled = busy || !loaded;
   $('save-state').textContent = busy ? '正在保存…' : !loaded ? '配置未加载' : dirty() ? '有未保存的修改' : '设置已同步';
   gestureIds.forEach((id, i) => { $(`test-${id}`).disabled = busy || !loaded || dirty() || saved.actions[i].type === 'none' || !available(); });
-  document.querySelectorAll('main input:not([name="appearance"]), main select, main textarea, .app-choice, #refresh, #start-service, #reload-apps').forEach(element => { element.disabled = busy; });
+  document.querySelectorAll('main input:not([name="appearance"]), main select, main textarea, .app-choice, #refresh, #start-service, #reload-apps').forEach(element => {
+    if (!element.closest('#page-mijia')) element.disabled = busy;
+  });
   if (!available()) $('start-service').disabled = true;
 }
 function fill(config) {
@@ -106,7 +118,7 @@ function runtime(data) {
   $('last-event').textContent = titles[gestureIds.indexOf(r.last_gesture)] || '尚未识别';
   $('event-count').textContent = String(r.count || 0);
   $('device-info').textContent = r.device ? `${r.device} · Linux 735` : '等待接管';
-  $('result-info').textContent = r.busy ? '动作执行中' : !r.last_action ? '—' : r.last_result === 0 ? '执行成功' : r.last_result === 124 ? '执行超时（10 秒）' : `退出码 ${r.last_result}`;
+  $('result-info').textContent = r.busy ? '动作执行中' : !r.last_action ? '—' : r.last_result === 0 ? (r.last_action === 'mijia' ? '已提交米家任务，结果见米家页' : '执行成功') : r.last_result === 124 ? '执行超时（10 秒）' : `退出码 ${r.last_result}`;
   const t = data.torch || {};
   const torchActive = data.running && r.torch_pid > 0 && r.torch_pid === t.pid;
   $('torch-info').textContent = ![...data.config.actions, ...data.config.menu].some(a => a.type === 'torch') ? '未配置手电筒动作' :
@@ -139,7 +151,7 @@ async function save() {
 async function testAction(id) {
   if (dirty()) { toast('请先保存设置'); return; }
   busy = true; updateDirty();
-  try { const data = await api('test', id); toast(data.result === 0 ? '动作已执行' : `执行失败（${data.result}），请查看运行日志`); }
+  try { const data = await api('test', id); toast(data.result === 0 ? (saved.actions[gestureIds.indexOf(id)].type === 'mijia' ? '米家任务已提交，结果见米家页' : '动作已执行') : `执行失败（${data.result}），请查看运行日志`); }
   catch (error) { notice(error.message); }
   finally { busy = false; updateDirty(); refresh(); }
 }
@@ -156,6 +168,19 @@ async function packages() {
 initNavigation();
 initMenuEditor(updateDirty);
 buildCards();
+initMijia((target, entry) => {
+  if (busy || !loaded) throw new Error('请等待模块配置加载完成');
+  if (target === 'menu') addMijiaEntry(entry);
+  else if (gestureIds.includes(target)) {
+    $(`action-${target}`).value = 'mijia'; $(`value-${target}`).value = entry.id;
+    updateArgument(target); updateDirty();
+  }
+  toast('米家动作已加入草稿，请保存设置');
+});
+document.addEventListener('sidekey-mijia-bindings', () => {
+  gestureIds.forEach(id => { if ($(`action-${id}`).value === 'mijia') updateArgument(id); });
+  updateActionSummaries();
+});
 ['enabled', 'haptic', 'long-ms', 'double-ms'].forEach(id => $(id).addEventListener('input', updateDirty));
 $('save').addEventListener('click', save);
 $('prepare-menu').addEventListener('click', async () => {

@@ -1,0 +1,137 @@
+package cn.sidekey.mijia;
+
+import java.nio.file.*;
+import java.util.*;
+import org.json.*;
+
+public final class MijiaTest {
+    private static int checks;
+    static void check(boolean value, String name) { checks++; if (!value) throw new AssertionError(name); }
+    interface Throwing { void run() throws Exception; }
+    static void rejects(Throwing fn, String code) throws Exception {
+        try { fn.run(); throw new AssertionError("expected " + code); }
+        catch (Failure error) { check(code.equals(error.code), "failure code " + error.code); }
+    }
+    static JSONObject await(MijiaBridge bridge, JSONObject request) throws Exception {
+        JSONObject start = bridge.handle(request); String id = start.getString("job"); long limit = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < limit) {
+            JSONObject job = bridge.handle(Json.obj("op", "job", "id", id));
+            if (job.getString("state").equals("done")) return job.getJSONObject("result");
+            Thread.sleep(10);
+        }
+        throw new AssertionError("job timeout");
+    }
+    static class FakeCloud extends MiCloud {
+        Object actual = false; int writes, actions, scenes; int writeCode; boolean disconnect, offline; String account = "10001";
+        FakeCloud(PrivateStore store) { super(store); }
+        @Override JSONObject authenticated(MiHttp h) throws Exception { return Json.obj("userId", account); }
+        @Override JSONArray homes(MiHttp h, JSONObject a) throws Exception { return new JSONArray().put(home(h, a, "1")); }
+        @Override JSONObject home(MiHttp h, JSONObject a, String id) throws Exception { return Json.obj("id", "1", "uid", 10001, "name", "fixture"); }
+        @Override JSONObject catalog(MiHttp h, JSONObject a, String id) throws Exception {
+            return Json.obj("devices", new JSONArray().put(Json.obj("did", "2", "home", "1", "model", "test.light.fixture", "online", true)),
+                    "scenes", new JSONArray().put(Json.obj("id", "3", "name", "fixture", "home", "1")), "owner", 10001, "sceneError", "");
+        }
+        @Override Object call(MiHttp h, JSONObject a, String uri, JSONObject data) throws Exception {
+            if (uri.endsWith("NewRunScene")) { scenes++; return true; }
+            if (uri.equals("/miotspec/action")) { actions++; return Json.obj("code", 0); }
+            JSONArray params = data.getJSONArray("params"), result = new JSONArray();
+            for (int i = 0; i < params.length(); i++) {
+                JSONObject param = params.getJSONObject(i), item = Json.copy(param);
+                if (uri.endsWith("/set")) {
+                    writes++; if (disconnect) throw new java.net.SocketTimeoutException("synthetic credential=DO_NOT_PRINT");
+                    if (writeCode == 0) actual = param.get("value"); item.put("code", writeCode);
+                } else item.put("code", offline ? -704042011 : 0).put("value", actual);
+                result.put(item);
+            }
+            return result;
+        }
+    }
+    static void cancelledLogin(PrivateStore store) throws Exception {
+        java.util.concurrent.CountDownLatch entered=new java.util.concurrent.CountDownLatch(1), release=new java.util.concurrent.CountDownLatch(1);
+        MiCloud cloud=new FakeCloud(store) {
+            @Override JSONObject prepareLogin(MiHttp h,JSONObject identity) throws Exception {
+                return Json.obj("image","data:image/png;base64,fixture","loginUrl","https://account.xiaomi.com/fixture","lp","PRIVATE_POLLING_URL");
+            }
+            @Override JSONObject completeLogin(MiHttp h,JSONObject identity,JSONObject qr) throws Exception {
+                entered.countDown();
+                try { release.await(2,java.util.concurrent.TimeUnit.SECONDS); }
+                catch(InterruptedException cancelled) { /* 模拟取消后仍迟到的网络响应。 */ }
+                return Json.obj("userId","10001","serviceToken","LATE_SECRET");
+            }
+        };
+        try(MijiaBridge bridge=new MijiaBridge(store,cloud)) {
+            check(await(bridge,Json.obj("op","login-start")).optBoolean("ok"),"login prepared asynchronously");
+            check(entered.await(1,java.util.concurrent.TimeUnit.SECONDS),"login worker started");
+            check(!bridge.handle(Json.obj("op","status")).toString().contains("PRIVATE_POLLING_URL"),"private polling URL excluded");
+            bridge.handle(Json.obj("op","login-cancel")); release.countDown();
+        }
+        check(!Files.exists(store.root.resolve("auth.json")),"late cancelled login must not restore credentials");
+    }
+    public static void main(String[] args) throws Exception {
+        if (args.length > 0 && args[0].equals("live")) {
+            Path path=Files.createTempDirectory("mijia-live-");
+            try (MiHttp http=new MiHttp(45000)) {
+                JSONObject qr=new MiCloud(new PrivateStore(path)).prepareLogin(http,MiCloud.identity());
+                check(qr.getString("image").startsWith("data:image/"),"live QR");
+                JSONObject spec=new MiSpec(new PrivateStore(path)).get(http,"yeelink.light.lamp4");
+                check(MiSpec.find(spec,2,1,false).getString("name").equals("开关"),"live spec Chinese name");
+                System.out.println("真实服务匿名扫码握手、二维码读取和公开设备规格解析通过；未登录账号，未保存凭据。");
+            } finally { Files.deleteIfExists(path.resolve("spec-yeelink.light.lamp4.json")); Files.deleteIfExists(path); }
+            return;
+        }
+        JSONObject prefixed = MiCloud.loginResponse("&&&START&&&{\"code\":0}"); check(prefixed.getInt("code") == 0, "login prefix");
+        // RC4-drop1024 对照 RFC 6229 的 40-bit key、offset 1024 测试向量。
+        byte[] stream = MiCrypto.rc4("AQIDBAU=", new byte[16]);
+        StringBuilder hex = new StringBuilder(); for (byte b : stream) hex.append(String.format("%02x", b & 255));
+        check(hex.toString().equals("30abbcc7c20b01609f23ee2d5f6bb7df"), "RFC6229 vector");
+        String signed = MiCrypto.signedNonce("AQIDBAUGBwg=", "AAECAwQFBgcICQoL");
+        check(signed.equals("DFXr8deWFOsLCnohPorzia8O35FOiJYoKlRYl0a8apo="), "signed nonce reference");
+        Map<String,String> params=MiCrypto.params("/miotspec/prop/get","{\"params\":[]}","AQIDBAUGBwg=","AAECAwQFBgcICQoL");
+        check(new String(MiCrypto.rc4(signed,MiCrypto.decode(params.get("data"))),java.nio.charset.StandardCharsets.UTF_8).equals("{\"params\":[]}"),"encrypted data roundtrip");
+        check(params.keySet().toString().equals("[data, rc4_hash__, signature, ssecurity, _nonce]"),"signature field order");
+        rejects(()->MiHttp.allowed("https://account.xiaomi.com.attacker.invalid/"),"PROTOCOL");
+        rejects(()->MiHttp.allowed("http://account.xiaomi.com/"),"PROTOCOL");
+        rejects(()->MiHttp.allowed("https://account.xiaomi.com:8080/"),"PROTOCOL");
+        check(MiHttp.query("https://account.xiaomi.com/a?x=a%2Bb&z=1").get("x").equals("a+b"),"query encoding");
+        JSONObject property=Json.obj("siid",2,"piid",1,"format","bool","read",true,"write",true,"values",new JSONArray());
+        MiSpec.value(property,false); rejects(()->MiSpec.value(property,0),"VALUE");
+        JSONObject level=Json.obj("siid",2,"piid",2,"format","uint8","read",true,"write",true,"range",new JSONArray("[1,99,2]"),"values",new JSONArray());
+        MiSpec.value(level,51); for(int invalid:new int[]{0,50,100,257}) rejects(()->MiSpec.value(level,invalid),"VALUE");
+        String page="<script data-page=\"app\" type=\"application/json\">{\"props\":{\"tree\":{\"services\":[{\"iid\":2,\"description\":\"Light\",\"properties\":[{\"iid\":1,\"type\":\"on\",\"description\":\"Switch\",\"format\":\"bool\",\"access\":[\"read\",\"write\"]}],\"actions\":[{\"iid\":1,\"description\":\"Toggle\",\"in\":[]}]}]}}}</script>";
+        check(MiSpec.parse(page,"fixture").getJSONArray("properties").getJSONObject(0).getString("name").equals("Switch"),"missing translation allowed");
+        rejects(()->MiSpec.parse("<html>not spec</html>","fixture"),"SPEC");
+        Path folder=Files.createTempDirectory("sidekey-mijia-test-");
+        try {
+            PrivateStore store=new PrivateStore(folder);
+            JSONObject spec=Json.obj("schema",1,"time",System.currentTimeMillis(),"properties",new JSONArray().put(property).put(level),
+                    "actions",new JSONArray().put(Json.obj("siid",2,"aiid",1,"in",new JSONArray())));
+            store.write("spec-test.light.fixture.json",spec);
+            store.write("auth.json",Json.obj("userId","10001","serviceToken","SYNTHETIC_TEST_ONLY"));
+            FakeCloud cloud=new FakeCloud(store);
+            try(MijiaBridge bridge=new MijiaBridge(store)) {
+                JSONObject status=bridge.handle(Json.obj("op","status")); check(!status.toString().contains("SYNTHETIC_TEST_ONLY"),"no credentials in status");
+            }
+            try(MijiaBridge bridge=new MijiaBridge(store,cloud)) {
+                JSONObject action=Json.obj("kind","toggle","home","1","did","2","siid",2,"piid",1);
+                JSONObject result=await(bridge,Json.obj("op","run","action",action)); check(result.optString("state").equals("confirmed"),"toggle readback"); check(cloud.writes==1 && Boolean.TRUE.equals(cloud.actual),"toggle once");
+                cloud.disconnect=true;result=await(bridge,Json.obj("op","run","action",action));check(result.optString("code").equals("UNKNOWN"),"ambiguous timeout");check(cloud.writes==2,"no retry on write timeout");cloud.disconnect=false;
+                cloud.writeCode=1;result=await(bridge,Json.obj("op","run","action",action));check(result.optString("state").equals("accepted"),"accepted != confirmed");cloud.writeCode=0;
+                cloud.offline=true;int before=cloud.writes;result=await(bridge,Json.obj("op","run","action",action));check(!result.optBoolean("ok") && cloud.writes==before,"offline blocks toggle");cloud.offline=false;
+                JSONObject binding=await(bridge,Json.obj("op","binding-save","action",action,"name","fixture switch"));check(binding.optBoolean("ok"),"binding persisted");
+                result=await(bridge,Json.obj("op","trigger","id",binding.getString("id")));check(result.optBoolean("ok"),"binding executes");
+                cloud.account="other";result=await(bridge,Json.obj("op","trigger","id",binding.getString("id")));check(result.optString("code").equals("BINDING"),"account binding isolation");cloud.account="10001";
+                JSONObject request=Json.obj("op","run","action",action,"requestId","abcdabcdabcdabcdabcdabcdabcdabcd");
+                String first=bridge.handle(request).getString("job");check(first.equals(bridge.handle(request).getString("job")),"dedupe request id");
+                result=await(bridge,Json.obj("op","run","action",Json.obj("kind","scene","home","1","scene","3")));check(result.optString("state").equals("accepted") && cloud.scenes==1,"scene accepted");
+                result=await(bridge,Json.obj("op","logout"));check(result.optBoolean("ok") && !Files.exists(folder.resolve("auth.json")) && !Files.exists(folder.resolve("bindings.json")),"logout erases private auth");
+            }
+            JSONObject redacted=Failure.json(new java.io.IOException("token=SECRET"));check(!redacted.toString().contains("SECRET"),"exception redaction");
+            cancelledLogin(store);
+            store.write("last.json",Json.obj("state","pending"));
+            try(MijiaBridge bridge=new MijiaBridge(store)) {check(bridge.handle(Json.obj("op","status")).getJSONObject("last").getString("state").equals("unknown"),"restart uncertain operation");}
+        } finally {
+            try(java.util.stream.Stream<Path> paths=Files.walk(folder)) {for(Path path:(Iterable<Path>)paths.sorted(Comparator.reverseOrder())::iterator) Files.delete(path);}
+        }
+        System.out.println("米家主机测试通过："+checks+" 项断言（合成设备，无真实账号）。");
+    }
+}

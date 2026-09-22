@@ -18,6 +18,10 @@ start_service() {
 }
 
 case "$1" in
+    mijia)
+        [ "$#" -eq 2 ] || exit 2
+        exec sh "$MODDIR/scripts/mijia.sh" request "$2"
+        ;;
     prepare-menu)
         [ ! -f "$MODDIR/disable" ] && [ ! -f "$MODDIR/remove" ] || exit 1
         nohup sh "$MODDIR/scripts/menu-install.sh" >/dev/null 2>&1 &

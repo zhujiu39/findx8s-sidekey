@@ -1,5 +1,9 @@
 # 第三方组件
 
+米家独立服务 `module/lib/mijia.jar`：GPL-3.0-or-later，适配自 Do1e/mijia-api 4.2.1（提交 `353363f79ea6f368461dc77c6de22d6f85623990`）。源码、修改范围与复现方法见 `mijia/README.md`，完整对应源码同时附在模块的 `lib/mijia-source.zip`。许可文本为 `module/LICENSES/mijia-GPL-3.0.txt`。其 RC4 签名适配保留上游 micloud/Sammy Svensson MIT 版权声明，见 `module/LICENSES/micloud-MIT.txt`。本服务独立于 MIT 监听器、菜单和 WebUI 运行，以本地 JSON IPC 交互。
+
+主机测试使用 Apache-2.0 的 Android JSON 实现 `com.vaadin.external.google:android-json:0.0.20131108.vaadin1`，只在忽略提交的 `tools/` 中使用，不随 Android 产物分发。固定下载来源及 SHA256 见 `build_mijia.py`。
+
 监听程序通过 Zig 0.15.2 的 C 编译器构建，静态链接 musl libc，并可能包含 Zig compiler-rt 的运行时实现。
 
 - musl libc：版权及各组件许可的完整说明位于 `module/LICENSES/musl-COPYRIGHT.txt`。

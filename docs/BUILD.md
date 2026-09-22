@@ -20,9 +20,9 @@ python build.py
 
 工具保存在忽略提交的 `tools/` 中。已有 Zig 时可用 `ZIG` 环境变量指定路径。Linux / macOS 构建流程尚未适配。
 
-完整构建会编译 ARM64 监听程序、Java 服务及菜单 APK，运行 C、Java、JavaScript、配置与脚本检查，随后校验 ELF、DEX、APK 和 ZIP。每次新建独立的 `交付文件/时间_release_v1.0.0_首个正式版/`，内含安装包、源码与测试、使用说明、验证记录、构建日志及 SHA256。
+完整构建会编译 ARM64 监听程序、Java 服务及菜单 APK，运行 C、Java、JavaScript、配置与脚本检查，随后校验 ELF、DEX、APK 和 ZIP。每次新建独立的 `交付文件/时间_test_v1.1.0-test.1_米家接入/`，内含安装包、源码与测试、使用说明、验证记录、构建日志及 SHA256。
 
-只有 `release_oppo_sidekey_v1.0.0.zip` 用于 KernelSU 安装。测试程序、模拟数据和构建工具不进入模块 ZIP。
+只有 `test_oppo_sidekey_v1.1.0-test.1.zip` 用于 KernelSU 安装。米家服务对应源码以 lib/mijia-source.zip 随模块提供；模拟家庭、个人数据、签名私钥和桌面调试服务器不进入安装包。
 
 ## 签名
 
@@ -76,3 +76,5 @@ build.py                编译、检查与打包
 正式版本需统一更新模块、菜单 APK、WebUI、安装脚本、`package.json` 和构建版本。保留原 APK 签名，增加 versionCode 后覆盖升级。
 
 运行完整构建后审核提交范围与安装包内容，创建对应 Git 标签。GitHub Release 上传模块 ZIP 和匹配的 `SHA256SUMS.txt`，关闭预发布标记，并从公开下载链接再次核对 SHA256。
+
+米家服务可以单独使用 `python build_mijia.py` 构建；可选 `--live` 验证匿名扫码握手和二维码读取，不登录或保存账号凭据。详见 [米家服务说明](../mijia/README.md)。构建不会执行 Git push、创建 Tag 或发布 Release。

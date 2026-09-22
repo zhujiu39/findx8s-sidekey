@@ -1,0 +1,33 @@
+# 米家 Android 服务
+
+此目录是独立运行的 GPL-3.0-or-later 组件，通过仅 Root 可访问的本地 Unix socket 与侧键模块通信。WebUI 和监听器不加载本目录的类。`module/lib/mijia.jar` 与 `module/lib/mijia-source.zip` 一起分发；后者提供本组件完整对应源码、构建脚本及测试。其余项目文件继续遵循根目录 MIT 许可，各组件权利以文件标记和第三方声明为准。
+
+接口、扫码登录流程及规格解析移植自 [Do1e/mijia-api](https://github.com/Do1e/mijia-api)，版本 4.2.1，固定参考提交 `353363f79ea6f368461dc77c6de22d6f85623990`，原项目作者 Do1e 及其贡献者。修改日期：2026-09-22。移植范围：`apis.py` 的扫码、登录刷新、家庭/设备/场景和 MIOT 请求，`devices.py` 的规格提取，`miutils.py` 的请求签名与 RC4-drop1024。使用 Java/Android 内置网络与 JSON API，不打包 Python 解释器。原始 `miutils.py` 标记的 micloud/Sammy Svensson MIT 版权声明另行保留。
+
+修改包括：独立 Android 进程、私有凭据存储、本地 IPC、请求队列、明确超时、响应大小限制、日志脱敏、属性类型/步长验证、写后读回、账号隔离和自动生成绑定编号。没有移植上游 MCP、CLI、账号密码登录或整个 Python 运行时。
+
+## 构建和复现
+
+1. 在仓库根目录运行 `python bootstrap_android.py`，获取固定版本并校验过的 JDK 21、Android API 35 和 Build Tools。
+2. 运行 `python build_mijia.py`，进行 javac、主机测试和 D8 构建。输出在 `module/lib/`。Java 入口为 `cn.sidekey.mijia.MijiaMain`。
+3. 可选 `python build_mijia.py --live`：匿名访问真实扫码端点验证握手和二维码读取，不登录账号、不保存二维码或凭据。此检查需要网络，不属于默认离线测试。
+4. 整个模块使用 `python build.py`。构建用的 JSON 主机实现仅用于测试，固定 Maven URL 和 SHA256 见 `build_mijia.py`；Android 产物只使用手机自带的 `org.json`，不包含该 JAR。
+
+## 运行和数据
+
+- 目标 Android 15 / ARM64 / KernelSU。随 `service.sh` 启动，进程用 `setsid` 脱离侧键动作进程组，文件锁防止重复实例。模块禁用或移除后服务退出。不会开放 TCP 端口。
+- 目录 `/data/adb/oppo_sidekey/mijia` 权限 0700；凭据、绑定、缓存和执行记录权限 0600，采用临时文件和原子替换；本地 socket 0600，并验证客户端和服务端 UID 为 0。
+- HTTP 只使用 HTTPS，保留系统证书与主机名校验；允许米家登录/云 API 和规格站点地址，拒绝明文和自定义端口。跨域重定向不转发显式 Cookie。扫码图片由后台读取后作为 data URL 展示，WebUI 不接触登录令牌。
+- 中国大陆账号；云 API `api.mijia.tech`、账号服务 `account.xiaomi.com`，与参考版本一致。公开设备规格来自 `home.miot-spec.com`，首次读取需要网络，缓存 7 天。
+- 本地请求是 4 字节大端长度加 UTF-8 JSON；请求上限 32 KiB，响应上限 2 MiB。网络任务单队列执行，最多排队 4 项，排队超过 60 秒不再发送。普通网络任务总预算 55 秒，连接 8 秒，单次读取 12 秒；扫码长轮询预算 150 秒。WebUI 轮询任务编号。
+- 写入不会自动重试；网络中断返回“结果未知”，网关 code=1 表示受理，只有读回值一致才显示状态已确认。场景和动作回应不能证明所有设备的实际行为。
+- 每个米家绑定属于创建它的账号；配置仅保存随机动作编号。退出会删除凭据和绑定；旧手势或菜单中的米家项需要重新设置。卸载模块删除私有数据。
+- 公共 `status` 和错误消息不返回原始 HTTP 内容、认证地址、令牌或堆栈。设备/家庭名称只在本机显示和保存，不进入安装包。
+
+## 覆盖边界
+
+支持扫码登录、家庭、家庭内设备、手动场景、MIOT 属性读写/布尔切换和参数明确的 MIOT 动作。没有 MIOT 规格的旧设备可通过米家 App 手动场景控制；不猜测 miIO 指令。云接口并非本模块拥有的稳定服务，服务端变化会导致兼容问题。构建通过和匿名握手通过均不代表已完成手机账号及真实设备的端到端验证。
+
+完整许可见 `module/LICENSES/mijia-GPL-3.0.txt` 与 `module/LICENSES/micloud-MIT.txt`。
+
+回退到尚不支持米家的旧版模块前，应先在本测试版移除所有米家手势和快捷栏绑定并保存，避免旧版无法识别新动作类型。

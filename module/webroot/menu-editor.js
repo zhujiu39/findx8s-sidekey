@@ -3,6 +3,7 @@ import {appCatalog, chooseApps} from './app-picker.js';
 import {menuAppName} from './app-catalog.js';
 import {isApp, applyAppSelection} from './app-selection.js';
 import {appIcon, releaseAppIcons} from './app-icons.js';
+import {chooseMijia, mijiaBindingLabel} from './mijia.js';
 const $ = id => document.getElementById(id);
 let entries = [], onChange = () => {}, isBusy = false;
 const element = (tag, className, text) => {
@@ -39,6 +40,11 @@ function render() {
     const name=element('input',''); name.value=item.name; name.addEventListener('input',()=>{item.name=name.value;onChange();}); card.append(field('开关名称',name));
     const action=element('select',''); actions.filter(([id])=>!['menu','app','app_freeform'].includes(id)).forEach(([id,label])=>action.add(new Option(label,id)));
     action.value=item.type; card.append(field('开关动作',action));
+    if (item.type==='mijia') {
+      const choice=element('button','secondary',mijiaBindingLabel(item.argument));choice.type='button';
+      choice.dataset.mijiaBinding=item.argument;
+      choice.addEventListener('click',()=>chooseMijia(entry=>{item.argument=entry.id;item.name=entry.name;changed();}));card.append(choice);
+    }
     const parameter=element('textarea',''); parameter.value=item.argument; parameter.rows=2;
     const parameterField=field('动作参数',parameter); parameterField.hidden=!['shell','keycode'].includes(item.type); card.append(parameterField);
     action.addEventListener('change',()=>{item.type=action.value;item.argument='';changed();});
@@ -66,6 +72,9 @@ function renderSummary(apps, switches) {
 }
 export function initMenuEditor(change) {
   onChange=change;
+  document.addEventListener('sidekey-mijia-bindings',()=>{
+    $('menu-items').querySelectorAll('[data-mijia-binding]').forEach(item=>{item.textContent=mijiaBindingLabel(item.dataset.mijiaBinding);});
+  });
   $('choose-menu-apps').addEventListener('click',()=>{
     if (isBusy) return;
     const selected=entries.filter(isApp).map(item=>appCatalog.lookup(item.argument) || {packageName:item.argument,label:item.name});
@@ -89,6 +98,10 @@ export function fillMenu(config) {
   entries=structuredClone(config.menu).map((item,index)=>({...item,slot:item.slot??index,type:isApp(item)?'app_freeform':item.type})).sort((a,b)=>a.slot-b.slot);
   $('menu-side').value=config.menu_side;$('menu-position').value=config.menu_position;
   $('menu-width').value=config.menu_width??196;$('menu-gap').value=config.menu_gap??12;render();
+}
+export function addMijiaEntry(entry) {
+  if (isBusy || entries.length>=2060) throw new Error('快捷栏暂时无法添加，请稍后重试');
+  entries.push({name:entry.name,icon:'',type:'mijia',argument:entry.id}); changed();
 }
 export function readMenu() { return {menu_side:$('menu-side').value,menu_position:Number($('menu-position').value),
   menu_width:Number($('menu-width').value),menu_gap:Number($('menu-gap').value),menu:structuredClone(entries)}; }

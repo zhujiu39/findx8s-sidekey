@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.0.0'
-VERSION_CODE = 100
+VERSION = '1.1.0-test.1'
+VERSION_CODE = 101
 
 
 def run(arguments):
@@ -175,6 +175,8 @@ def main():
     validate_elf(MODULE / 'bin/sidekey')
     build_torch()
     build_menu()
+    from build_mijia import build as build_mijia
+    build_mijia(run)
     test_binary = BUILD / ('native_tests.exe' if os.name == 'nt' else 'native_tests')
     run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', 'native/menu_protocol.c', 'native/menu_launch.c', *sources, '-o', test_binary])
     run([test_binary])
@@ -186,7 +188,7 @@ def main():
     run([node, '--test', *sorted((ROOT / 'tests').glob('*.test.js'))])
     fixture = run([node, '--input-type=module', '-e',
         "import {defaultConfig,serialize} from './module/webroot/model.js';"
-        "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu_width=280;c.menu_gap=24;c.menu=[{slot:3,name:'设置',icon:'⚙️',type:'app_freeform',argument:'com.android.settings'},{slot:10,name:'灯光',icon:'',type:'torch',argument:''}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
+        "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu_width=280;c.menu_gap=24;c.menu=[{slot:3,name:'设置',icon:'⚙️',type:'app_freeform',argument:'com.android.settings'},{slot:10,name:'灯光',icon:'',type:'torch',argument:''},{slot:11,name:'米家台灯',icon:'',type:'mijia',argument:'0123456789abcdef0123456789abcdef'}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
         "process.stdout.write(serialize(c));"])
     fixture_path = BUILD / 'config-fixture.conf'
     fixture_path.write_bytes(fixture.encode('utf-8'))
@@ -200,6 +202,8 @@ def main():
         raise RuntimeError('震动开关配置往返验证失败')
     if decoded['menu'][0]['slot'] != 3 or decoded['menu'][1]['slot'] != 10 or decoded['menu'][0]['type'] != 'app_freeform' or decoded['menu'][0]['name'] != '设置' or decoded['menu'][0]['icon'] != '⚙️' or decoded['actions'][1]['type'] != 'menu':
         raise RuntimeError('菜单 UTF-8 配置往返验证失败')
+    if decoded['menu'][2]['type'] != 'mijia' or decoded['menu'][2]['argument'] != '0123456789abcdef0123456789abcdef':
+        raise RuntimeError('米家动作编号跨语言配置往返失败')
     if decoded['menu_width'] != 280 or decoded['menu_gap'] != 24:
         raise RuntimeError('快捷栏宽度与间距配置往返验证失败')
     LOG.append('通过：WebUI → C 配置解析 → JSON，尺寸、中文、引号、换行保持一致。')
@@ -211,7 +215,8 @@ def main():
     files = sorted(path for path in MODULE.rglob('*') if path.is_file())
     required = {'module.prop', 'skip_mount', 'customize.sh', 'service.sh', 'action.sh',
                 'uninstall.sh', 'scripts/control.sh', 'scripts/app-launch.sh', 'bin/sidekey', 'lib/torch.jar', 'lib/sidekey-menu.apk', 'scripts/menu-install.sh', 'webroot/index.html',
-                'LICENSES/sidekey-LICENSE.txt'}
+                'LICENSES/sidekey-LICENSE.txt', 'lib/mijia.jar', 'lib/mijia-source.zip', 'scripts/mijia.sh',
+                'webroot/mijia.js', 'LICENSES/mijia-GPL-3.0.txt', 'LICENSES/micloud-MIT.txt'}
     if not required.issubset({path.relative_to(MODULE).as_posix() for path in files}):
         raise RuntimeError('模块文件不完整')
     for path in files:
@@ -226,9 +231,9 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_release_v{VERSION}_首个正式版')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_米家接入')
     delivery.mkdir(parents=True, exist_ok=False)
-    package = delivery / f'release_oppo_sidekey_v{VERSION}.zip'
+    package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
         for path in files:
             name = path.relative_to(MODULE).as_posix()
@@ -246,29 +251,31 @@ def main():
                 raise RuntimeError('模块 ZIP 与源码不一致')
     LOG.append('通过：ZIP 根目录、完整性、权限标志及文件内容校验。')
     with zipfile.ZipFile(delivery / '源码与测试.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-        paths = [ROOT / name for name in ['README.md', 'CHANGELOG.md', 'LICENSE', 'build.py', 'bootstrap_android.py', 'package.json', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md']]
-        paths += [path for directory in ['native', 'android', 'companion', 'tests', 'module', 'diagnostics', 'docs'] for path in (ROOT / directory).rglob('*') if path.is_file()]
+        paths = [ROOT / name for name in ['README.md', 'CHANGELOG.md', 'LICENSE', 'build.py', 'build_mijia.py', 'bootstrap_android.py', 'package.json', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md']]
+        paths += [path for directory in ['native', 'android', 'companion', 'mijia', 'tests', 'module', 'diagnostics', 'docs'] for path in (ROOT / directory).rglob('*') if path.is_file()]
         for path in sorted(paths):
             archive.write(path, path.relative_to(ROOT).as_posix())
     shutil.copyfile(ROOT / 'README.md', delivery / '使用说明.md')
     shutil.copyfile(ROOT / 'diagnostics/模块本地验证.md', delivery / '验证记录.md')
     (delivery / '构建日志.txt').write_text('\n'.join(LOG), encoding='utf-8')
     (delivery / '交付说明.md').write_text(
-        f'# 侧键自定义 v{VERSION} 正式版\n\n'
+        f'# 侧键自定义 v{VERSION} 本地测试包\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '首个正式版：精简 WebUI 和安装提示，整理用户文档，将维护工具收进运行状态与日志。'
-        '保留现有手势、快捷菜单、ColorOS 小窗、手电筒与震动功能。\n\n'
-        f'安装文件：release_oppo_sidekey_v{VERSION}.zip。通过 KernelSU 安装后重启；升级保留已有配置。'
-        '适用范围为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。无需刷写 boot 或 init_boot，也没有单独的外部资源烧录步骤。\n\n'
-        '构建：python build.py，使用 Zig 0.15.2、JDK 21 和 Android API 35。'
-        '构建完成前已运行 C、Java、JavaScript、配置往返和脚本测试，并校验 ARM64 ELF、DEX、APK 签名和模块 ZIP。'
-        '命令输出见构建日志；应用目录编译保留既有过时 API 提示，不影响生成。\n\n'
-        '验证范围：本地自动化与界面检查，不包含本次目标手机实测。小窗依赖 ColorOS 接口和应用支持，锁屏时不显示快捷菜单。\n\n'
-        '文件：模块 ZIP、源码与测试.zip、使用说明.md、验证记录.md、构建日志.txt，以及 SHA256SUMS.txt。'
-        '模块 ZIP 仅包含运行文件与许可证，调试工具、测试数据和签名私钥不随模块安装。\n\n'
-        '恢复原功能：关闭“接管侧边键”并保存，或在 KernelSU 禁用模块后重启。'
-        '快捷菜单无法打开时，在“运行状态与日志”中点击“修复快捷菜单”。\n'
-, encoding='utf-8')
+        '新增米家扫码登录、家庭与设备列表、MIOT 属性控制、手动场景及侧键/快捷栏绑定。'
+        '内置墨白极简与石墨工具箱两套 WebUI；手机快捷菜单外观和 ColorOS 小窗实现沿用现有版本。\n\n'
+        f'安装文件：test_oppo_sidekey_v{VERSION}.zip。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
+        '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU；无需额外安装 Python 或 Termux。\n\n'
+        '测试顺序：进入米家页，点击登录米家，生成二维码，用米家扫一扫授权；本机可截图后从相册识别。'
+        '选择家庭，先测试一个设备开关或手动场景，再添加绑定并保存设置，最后用侧键验证。'
+        '该接入当前面向中国大陆账号；没有 MIOT 规格的设备可通过米家手动场景使用。\n\n'
+        '最近执行结果位于米家页。已受理不等于设备状态已确认；请求中断时不会自动重发。'
+        '登录凭据保存在手机私有目录，WebUI 不显示令牌，退出账号删除本机凭据和米家动作。\n\n'
+        '本地 C/Java/JavaScript/配置往返/脚本测试、ARM64 ELF、DEX、APK 签名、ZIP 和权限检查的命令输出见构建日志。'
+        '真实服务的匿名扫码握手、二维码读取和公开设备规格解析已通过；本包未完成目标手机账号与真实设备端到端实测。\n\n'
+        '包内 lib/mijia-source.zip 是 GPL 米家服务的完整对应源码，不是另一个安装包；无需解压。'
+        '其余源码与测试、说明、日志及 SHA256 在本交付目录提供。没有包含个人账号、设备数据、ADB 标识或签名私钥。\n\n'
+        '本次仅本地打包，没有推送 GitHub、创建 Tag 或发布 Release。恢复原侧键可关闭接管，或禁用模块后重启。\n',
+        encoding='utf-8')
     sums = '\n'.join(f'{sha256(p.read_bytes()).hexdigest()}  {p.name}' for p in sorted(delivery.iterdir()) if p.is_file())
     (delivery / 'SHA256SUMS.txt').write_text(sums + '\n', encoding='utf-8')
     (BUILD / 'latest-delivery.txt').write_text(str(delivery), encoding='utf-8')

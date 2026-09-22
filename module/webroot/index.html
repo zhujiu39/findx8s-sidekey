@@ -9,6 +9,7 @@
   <script src="appearance.js"></script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="webui.css">
+  <link rel="stylesheet" href="mijia.css">
   <link rel="stylesheet" href="menu-layout.css">
 </head>
 <body>
@@ -23,6 +24,7 @@
     <nav class="page-tabs" role="tablist" aria-label="设置页面">
       <button id="tab-gestures" type="button" role="tab" aria-controls="page-gestures" aria-selected="true" data-page="gestures">手势</button>
       <button id="tab-menu" type="button" role="tab" aria-controls="page-menu" aria-selected="false" tabindex="-1" data-page="menu">快捷栏</button>
+      <button id="tab-mijia" type="button" role="tab" aria-controls="page-mijia" aria-selected="false" tabindex="-1" data-page="mijia">米家</button>
       <button id="tab-settings" type="button" role="tab" aria-controls="page-settings" aria-selected="false" tabindex="-1" data-page="settings">设置</button>
     </nav>
     <div id="notice" class="notice" role="status" hidden></div>
@@ -66,6 +68,20 @@
       <p class="hint">将手势设为“弹出快捷菜单”，解锁后按侧键即可使用。</p>
     </section>
 
+    <section id="page-mijia" class="page" role="tabpanel" aria-labelledby="tab-mijia" hidden>
+      <div class="page-heading"><div><p class="overline">MI HOME</p><h2>让侧键，连接家。</h2></div><button id="mijia-refresh" class="secondary" type="button">刷新 ↗</button></div>
+      <div class="mijia-account-row"><p id="mijia-account">未登录 · 中国大陆</p><button id="mijia-login" class="text-button" type="button">登录米家</button></div>
+      <label id="mijia-home-row" class="mijia-home-row" hidden><span>当前家庭</span><select id="mijia-home" aria-label="选择米家家庭"></select></label>
+      <p id="mijia-message" role="status" hidden></p>
+      <div class="section-heading"><h2>手动场景</h2><span>把习惯交给侧键</span></div>
+      <div id="mijia-scenes" class="mijia-scenes"></div>
+      <div class="section-heading"><h2>我的设备</h2><span>按需读取状态</span></div>
+      <div id="mijia-devices" class="mijia-devices"></div>
+      <section id="mijia-bindings-section" hidden><div class="section-heading"><h2>已保存的米家动作</h2><span>重复使用</span></div><div id="mijia-bindings"></div></section>
+      <div class="section-heading"><h2>最近执行结果</h2></div><p id="mijia-last" role="status">暂无执行记录</p>
+      <p class="hint">米家控制需要联网。设备和场景中的“添加绑定”会加入设置草稿，保存后侧键立即生效。</p>
+    </section>
+
     <section id="page-settings" class="page" role="tabpanel" aria-labelledby="tab-settings" hidden>
       <div class="page-heading"><div><p class="overline">PREFERENCES</p><h2>手感与设置</h2></div></div>
       <fieldset class="appearance-group">
@@ -95,12 +111,13 @@
         <p class="hint">启用双击后，短按会等待双击间隔结束再执行。</p>
       </section>
       <details class="diagnostics"><summary>运行状态与日志 <span aria-hidden="true">＋</span></summary><div class="diagnostics-body"><dl><dt>监听服务</dt><dd id="service-info">—</dd><dt>最近手势</dt><dd id="last-event">—</dd><dt>累计识别</dt><dd id="event-count">—</dd><dt>输入设备</dt><dd id="device-info">—</dd><dt>动作结果</dt><dd id="result-info">—</dd><dt>系统手电筒</dt><dd id="torch-info">—</dd></dl><div class="tools"><button id="start-service" class="secondary">启动监听服务</button><button id="reload-apps" class="secondary">刷新应用列表</button><button id="prepare-menu" class="secondary" type="button">修复快捷菜单</button></div><pre id="logs">暂无日志</pre></div></details>
-      <div class="about"><strong>findx8s sidekey</strong><p>本地保存 · 离线可用 <span>v1.0.0</span></p></div>
+      <div class="about"><strong>findx8s sidekey</strong><p>本地配置 · 米家需联网 <span>v1.1.0-test.1</span></p></div>
     </section>
   </main>
   <div class="save-bar"><div><strong id="save-state">正在加载配置</strong><span>保存后立即应用</span></div><button id="save" class="primary" disabled>保存设置 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button></div>
   <div id="toast" role="status" aria-live="polite" hidden></div>
   <div id="menu-preview" class="menu-preview" role="dialog" aria-modal="true" aria-label="快捷菜单外观预览" hidden><section id="menu-preview-panel"><div class="menu-preview-heading"><button id="close-preview" class="icon-button" aria-label="关闭预览">—</button></div><div class="menu-preview-scroll"><div id="menu-preview-switches" class="menu-switch-grid"></div><div id="menu-preview-items" class="menu-app-grid"></div></div></section></div>
+  <dialog id="mijia-dialog" class="mijia-dialog" aria-labelledby="mijia-dialog-title"><header><h2 id="mijia-dialog-title">米家</h2><button id="mijia-dialog-close" type="button" aria-label="关闭米家窗口">关闭</button></header><div id="mijia-dialog-body"></div><p id="mijia-dialog-message" role="status"></p></dialog>
   <script type="module" src="app.js"></script>
 </body>
 </html>

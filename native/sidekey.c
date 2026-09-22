@@ -206,6 +206,10 @@ static void execute_action(const Action *action)
         execl("/system/bin/sh", "sh", script, action->argument,
               action->kind == ACTION_APP_FREEFORM ? "freeform" : "normal", (char *)NULL); break;
     }
+    case ACTION_MIJIA: {
+        char script[1024]; snprintf(script, sizeof(script), "%s/scripts/mijia.sh", module_dir);
+        execl("/system/bin/sh", "sh", script, "trigger", action->argument, (char *)NULL); break;
+    }
     case ACTION_SHELL:
         execl("/system/bin/sh", "sh", "-c", action->argument, (char *)NULL); break;
     case ACTION_TORCH: {
