@@ -30,6 +30,7 @@ function render() {
   const host=$('menu-items'); releaseAppIcons(host); host.replaceChildren();
   const apps=entries.filter(isApp), switches=entries.filter(item=>!isApp(item));
   const configured=switches.filter(item=>item.type!=='none');
+  renderSummary(apps,configured);
   $('menu-empty').hidden=apps.length + configured.length !== 0;
   $('menu-count').textContent=apps.length + ' 个应用 · ' + configured.length + ' 个开关';
   switches.forEach((item,index)=>{
@@ -52,6 +53,16 @@ function render() {
     host.append(row);
   });
   menuBusy(isBusy);
+}
+function renderSummary(apps, switches) {
+  const host=$('shortcut-apps'); releaseAppIcons(host); host.replaceChildren();
+  apps.slice(0,6).forEach(item=>{
+    const label=appCatalog.lookup(item.argument)?.label || item.name;
+    const icon=appIcon(item.argument,label); icon.title=label; host.append(icon);
+  });
+  if (apps.length>6) host.append(element('span','shortcut-more','+'+(apps.length-6)));
+  $('shortcut-count').textContent=apps.length+' 个应用 · '+switches.length+' 个开关';
+  $('shortcut-empty').hidden=apps.length+switches.length!==0;
 }
 export function initMenuEditor(change) {
   onChange=change;
@@ -85,6 +96,7 @@ export function menuBusy(value) {
   isBusy=value;$('choose-menu-apps').disabled=value;
   $('add-menu-switch').disabled=value || entries.length>=2060;
   $('preview-menu').disabled=value || !entries.some(item=>item.type!=='none');
+  $('preview-shortcuts').disabled=$('preview-menu').disabled;
   $('menu-position-output').value=$('menu-position').value+'%';
   $('menu-width-output').value=$('menu-width').value+' dp';
   $('menu-gap-output').value=$('menu-gap').value+' dp';

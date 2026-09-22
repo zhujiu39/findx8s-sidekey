@@ -1,0 +1,264 @@
+/* 两种外观只作用于设置界面，快捷菜单预览沿用原有样式。 */
+.menu-preview { --green: #355b42; --soft: #e8eee5; }
+@media (prefers-color-scheme: dark) {
+  .menu-preview { --green: #9dbe87; --soft: #2d382c; }
+}
+:root {
+  color-scheme: light dark;
+  --page-bg: #faf9f6;
+  --surface: #faf9f6;
+  --ink: #202020;
+  --muted: #73726c;
+  --line: #dfded6;
+  --green: #202020;
+  --on-accent: #ffffff;
+  --soft: #eae9e3;
+  --control-radius: 4px;
+  --card-radius: 4px;
+  --page-space: 24px;
+  background: var(--page-bg);
+  color: var(--ink);
+  accent-color: var(--green);
+}
+:root[data-theme="graphite"] {
+  --page-bg: #eceff1;
+  --surface: #f9fafb;
+  --ink: #25303a;
+  --muted: #65727d;
+  --line: #d4dae0;
+  --green: #be4c16;
+  --on-accent: #ffffff;
+  --soft: #fae9dd;
+  --control-radius: 8px;
+  --card-radius: 13px;
+  --page-space: 18px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-bg: #141414;
+    --surface: #141414;
+    --ink: #ededeb;
+    --muted: #a6a59f;
+    --line: #383834;
+    --green: #ededeb;
+    --on-accent: #171717;
+    --soft: #33332f;
+  }
+  :root[data-theme="graphite"] {
+    --page-bg: #181b1e;
+    --surface: #24282c;
+    --ink: #f1f3f5;
+    --muted: #a2adb7;
+    --line: #3c434a;
+    --green: #ff934b;
+    --on-accent: #2f1c0c;
+    --soft: #453327;
+  }
+}
+body { background: var(--page-bg); padding-bottom: calc(108px + env(safe-area-inset-bottom)); }
+main.webui { max-width: 560px; padding: 27px var(--page-space) 8px; }
+.webui svg, .save-bar svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; fill: none; flex: none; }
+.webui .app-header { align-items: center; gap: 12px; margin-bottom: 23px; }
+.app-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand-kicker { font: 10px ui-monospace, monospace; letter-spacing: 2px; margin: 0 0 9px; color: var(--muted); }
+.webui h1 { font-size: clamp(27px, 8.2vw, 35px); line-height: 1.3; letter-spacing: -1.6px; font-weight: 500; margin: 0; }
+.brand-symbol { display: none; }
+.webui .icon-button, .app-picker .icon-button {
+  width: 40px; height: 40px; display: grid; place-items: center; flex: none;
+  border: 1px solid var(--line); border-radius: var(--control-radius); background: transparent; color: var(--ink);
+}
+.page-tabs { display: flex; gap: 25px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+.page-tabs button {
+  min-height: 44px; padding: 10px 0; color: var(--muted); background: transparent; border-bottom: 2px solid transparent;
+  font-size: 13px; font-weight: 500; min-width: 42px;
+}
+.page-tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.webui .power-card {
+  color: var(--ink); background: transparent; border-radius: 0; padding: 0 0 23px; border-bottom: 1px solid var(--line); gap: 16px;
+}
+.webui .power-card h2 { font-size: 15px; font-weight: 550; }
+.webui .power-card .overline { display: none; }
+.webui .status { padding: 0; background: transparent; color: var(--muted); margin-top: 9px; font-size: 11px; }
+.webui .status i { background: var(--muted); width: 5px; height: 5px; }
+.webui .status.active i { background: var(--green); box-shadow: none; }
+.webui .status.error { color: var(--danger); }
+.webui .status.error i { background: currentColor; }
+.webui .switch { width: 42px; height: 26px; }
+.webui .switch input { width: 100%; height: 100%; }
+.webui .switch span { background: var(--line); }
+.webui .switch span:after { width: 18px; height: 18px; top: 4px; left: 4px; background: var(--muted); }
+.webui .switch input:checked + span { background: var(--green); }
+.webui .switch input:checked + span:after { background: var(--on-accent); transform: translateX(16px); }
+.webui .section-heading { margin: 23px 0 8px; align-items: center; }
+.webui .section-heading h2 { font-size: 12px; font-weight: 500; }
+.webui .section-heading > span { font-size: 10px; }
+.webui .gesture-list { display: grid; gap: 0; margin-bottom: 26px; }
+.webui .gesture-card { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 0; min-width: 0; }
+.gesture-open { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 87px; padding: 16px 0; text-align: left; color: var(--ink); background: transparent; }
+.gesture-number { width: 18px; flex: none; align-self: flex-start; padding-top: 5px; font: 11px ui-monospace, monospace; color: var(--muted); }
+.gesture-copy { display: flex; flex: 1; min-width: 0; flex-direction: column-reverse; gap: 6px; }
+.gesture-name { font-size: 11px; font-weight: 400; color: var(--muted); }
+.gesture-value { font-size: 19px; font-weight: 450; line-height: 1.4; overflow-wrap: anywhere; }
+.gesture-arrow { font-size: 23px; color: var(--muted); transition: transform .2s; }
+.gesture-open[aria-expanded="true"] .gesture-arrow { transform: rotate(90deg); }
+.gesture-body { padding: 0 0 18px 32px; }
+.gesture-edit-heading { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+.webui .test { min-height: 38px; color: var(--green); }
+.webui select, .webui .argument input, .webui .argument textarea, .webui .menu-field input, .webui .menu-field textarea {
+  border-radius: var(--control-radius); background: var(--surface); border-color: var(--line); color: var(--ink);
+}
+.webui select { min-height: 44px; font-size: 13px; }
+.webui select option { background: var(--surface); color: var(--ink); }
+.webui .app-choice { border-radius: var(--control-radius); }
+.webui .argument { margin-top: 15px; }
+.webui .hint { font-size: 11px; line-height: 1.8; }
+.shortcut-summary { border-bottom: 1px solid var(--line); padding-bottom: 17px; }
+.shortcut-summary .section-heading { margin-top: 0; margin-bottom: 0; }
+.overline { font: 9px ui-monospace, monospace; letter-spacing: 1.8px; color: var(--muted); margin: 0 0 5px; }
+.shortcut-summary .overline { display: none; }
+.text-button { color: var(--green); background: transparent; font-size: 12px; padding: 9px 0 9px 12px; min-height: 40px; }
+.text-button > span { padding-left: 5px; }
+.shortcut-apps { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 15px 0 12px; min-height: 0; }
+.shortcut-apps:empty { display: none; }
+.shortcut-apps .app-image { width: 36px; height: 36px; border-radius: 8px; background: transparent; }
+.shortcut-more { color: var(--muted); font: 11px ui-monospace, monospace; }
+.shortcut-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.shortcut-bottom > span, .menu-toolbar > span { font-size: 11px; color: var(--muted); }
+.webui .secondary, .app-picker .secondary {
+  min-height: 38px; background: transparent; color: var(--green); border: 1px solid var(--line); border-radius: var(--control-radius); padding: 8px 12px; font-size: 11px;
+}
+.webui .feedback-row { padding: 17px 0; margin-top: 1px; min-height: 65px; font-size: 12px; }
+.feedback-copy { display: flex; align-items: center; gap: 10px; }
+.feedback-copy svg { color: var(--muted); width: 18px; height: 18px; }
+.page-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 21px; }
+.page-heading h2 { font-size: 23px; font-weight: 550; letter-spacing: -.5px; margin: 0; }
+.page-heading .overline { display: none; }
+.menu-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.webui .menu-tip { margin-top: 0; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.webui .menu-empty { border: 1px dashed var(--line); border-radius: var(--card-radius); margin: 20px 0; padding: 28px 10px; }
+.webui .menu-empty strong { font-size: 14px; font-weight: 500; }
+.webui .menu-empty p { color: var(--muted); opacity: 1; font-size: 12px; margin-bottom: 0; }
+.webui .menu-item { border-top: 0; border-bottom: 1px solid var(--line); padding: 18px 0; }
+.webui .menu-item-heading strong { font-size: 12px; font-weight: 550; }
+.webui .menu-item-tools { gap: 5px; }
+.webui .menu-item-tools .secondary { min-width: 32px; padding: 7px 9px; }
+.webui .menu-field { font-size: 11px; color: var(--muted); }
+.webui .menu-field input, .webui .menu-field textarea { font-size: 13px; }
+.webui .selected-app-title { font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 18px; }
+.webui .selected-app-row { padding: 12px 0; gap: 8px; }
+.webui .selected-app-row .selected-app strong { font-weight: 500; }
+.webui .selected-app-row .app-image { width: 36px; height: 36px; border-radius: 9px; background: transparent; }
+.wide-button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 14px 0; min-height: 54px; margin-top: 12px; border-top: 1px solid var(--line); border-radius: 0; color: var(--ink); background: transparent; font-size: 13px; }
+.wide-button > span:last-child { font-size: 20px; color: var(--green); }
+.settings-group { margin: 24px 0 0; padding: 0; }
+.settings-group .section-heading { margin: 0 0 4px; }
+.webui .range-label { margin-top: 19px; font-size: 12px; }
+.webui .range-label output { border-radius: var(--control-radius); background: transparent; color: var(--ink); font: 11px ui-monospace, monospace; padding: 3px 0 3px 6px; }
+.webui input[type="range"] { accent-color: var(--green); height: 24px; margin-top: 9px; }
+.webui .range-ends { font-size: 10px; }
+.settings-group > .hint { padding-top: 17px; margin-top: 17px; border-top: 1px solid var(--line); }
+.direction-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); margin-top: 20px; padding-top: 14px; font-size: 12px; }
+.direction-row select { width: 85px; padding: 8px 12px; min-height: 40px; appearance: auto; }
+.appearance-group { border: 0; padding: 0; margin: 0 0 27px; min-width: 0; }
+.appearance-group legend { padding: 0; font-size: 12px; margin-bottom: 14px; }
+.appearance-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.appearance-option { position: relative; display: block; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--card-radius); cursor: pointer; }
+.appearance-option:has(input:checked) { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+.appearance-option input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; }
+.appearance-option:has(input:focus-visible) { outline: 2px solid var(--green); outline-offset: 3px; }
+.appearance-label { display: block; margin-top: 12px; padding-right: 17px; }
+.appearance-label strong { display: block; font-size: 12px; font-weight: 550; white-space: nowrap; }
+.appearance-label small { display: block; margin-top: 5px; font-size: 9px; color: var(--muted); white-space: nowrap; }
+.appearance-check { position: absolute; bottom: 29px; right: 11px; color: var(--green); font-size: 14px; visibility: hidden; }
+.appearance-option:has(input:checked) .appearance-check { visibility: visible; }
+.theme-swatch { display: grid; height: 106px; padding: 11px 12px; gap: 5px; border-radius: 3px; border: 1px solid #deddd6; background: #faf9f6; }
+.theme-swatch i { display: block; width: 45%; height: 6px; background: #252525; margin-bottom: 3px; }
+.theme-swatch b { display: block; height: 14px; border-bottom: 1px solid #d8d7d0; }
+.theme-swatch b:before { content: ""; display: block; width: 65%; height: 3px; margin: 3px 0 0; background: #92918b; }
+.theme-swatch em { display: block; width: 42%; height: 9px; margin-left: auto; margin-top: 1px; background: #252525; }
+.swatch-graphite { background: #202429; border-color: #3c434a; border-radius: 7px; }
+.swatch-graphite i { background: #ff934b; }
+.swatch-graphite b { height: 15px; border: 1px solid #454c54; border-radius: 3px; background: #2e3339; }
+.swatch-graphite b:before { margin-left: 5px; background: #929ba4; }
+.swatch-graphite em { background: #ff934b; border-radius: 2px; }
+.webui .diagnostics { background: transparent; border-radius: var(--card-radius); margin-top: 26px; }
+.webui .diagnostics summary { min-height: 54px; padding: 16px 13px; }
+.webui .diagnostics-body { padding: 0 13px 14px; }
+.webui .diagnostics pre { background: var(--soft); border-radius: var(--control-radius); }
+.about { text-align: center; color: var(--muted); font-size: 10px; padding: 27px 0 4px; }
+.about strong { font-size: 13px; font-weight: 500; color: var(--ink); }
+.about p { margin: 8px 0 0; }
+.about span { margin-left: 10px; font-family: ui-monospace, monospace; }
+.save-bar { max-width: 560px; padding: 14px var(--page-space) calc(14px + env(safe-area-inset-bottom)); background: var(--page-bg); border-top: 1px solid var(--line); gap: 12px; }
+.save-bar strong { font-size: 11px; font-weight: 500; }
+.save-bar > div > span { font-size: 9px; }
+.save-bar .primary, .app-picker .primary { display: flex; justify-content: center; align-items: center; gap: 26px; padding: 13px 17px; min-height: 45px; font-size: 12px; font-weight: 500; background: var(--green); color: var(--on-accent); border-radius: var(--control-radius); }
+.save-bar .primary svg { width: 16px; height: 16px; }
+.webui .notice { border-radius: var(--control-radius); font-size: 11px; }
+.app-picker { background: var(--surface); color: var(--ink); border-radius: calc(var(--card-radius) + 4px); }
+.app-picker h2 { font-size: 19px; font-weight: 550; }
+.app-picker .app-search, .app-picker .app-result.selected { border-radius: var(--control-radius); }
+.app-picker .app-search { background: var(--page-bg); }
+.app-picker .app-result strong { font-weight: 500; }
+.app-picker .app-result small { font-size: 10px; }
+.app-picker .app-image { background: transparent; }
+.webui button:focus-visible, .webui input:focus-visible, .webui select:focus-visible, .webui textarea:focus-visible,
+.webui summary:focus-visible, .app-picker button:focus-visible, .app-picker input:focus-visible, .save-bar button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.webui .switch input:focus-visible + span { outline: 2px solid var(--green); outline-offset: 3px; }
+#toast { background: var(--ink); color: var(--page-bg); border-radius: var(--control-radius); }
+
+/* 石墨工具箱采用紧凑的卡片与横向动作布局。 */
+[data-theme="graphite"] .webui { padding-top: 22px; }
+[data-theme="graphite"] .app-header { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 17px; }
+[data-theme="graphite"] .brand-symbol { display: grid; place-items: center; width: 37px; height: 44px; flex: none; border-radius: 7px; color: var(--on-accent); background: var(--green); }
+[data-theme="graphite"] .brand-symbol svg { width: 23px; height: 23px; }
+[data-theme="graphite"] .brand-kicker { font-size: 9px; letter-spacing: 1.4px; margin-bottom: 5px; }
+[data-theme="graphite"] .webui h1 { font-size: 23px; letter-spacing: -.5px; font-weight: 650; }
+[data-theme="graphite"] .page-tabs { border: 1px solid var(--line); border-radius: 8px; padding: 3px; gap: 3px; margin-bottom: 20px; }
+[data-theme="graphite"] .page-tabs button { flex: 1; border: 0; border-radius: 6px; min-height: 37px; padding: 8px; font-size: 12px; }
+[data-theme="graphite"] .page-tabs button[aria-selected="true"] { color: var(--green); background: var(--surface); }
+[data-theme="graphite"] .power-card { padding: 17px; border: 1px solid var(--line); border-left: 3px solid var(--green); border-radius: var(--card-radius); background: var(--surface); }
+[data-theme="graphite"] .power-card h2 { font-size: 17px; }
+[data-theme="graphite"] .power-card .overline { display: block; font: 9px ui-monospace, monospace; margin: 0 0 7px; opacity: 1; }
+[data-theme="graphite"] .status.active { color: var(--green); }
+[data-theme="graphite"] .gesture-list { gap: 8px; margin-bottom: 18px; }
+[data-theme="graphite"] .gesture-card { border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
+[data-theme="graphite"] .gesture-open { min-height: 79px; padding: 16px 13px; gap: 12px; }
+[data-theme="graphite"] .gesture-number { align-self: center; padding: 0; color: var(--green); width: 20px; }
+[data-theme="graphite"] .gesture-copy { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; align-items: center; }
+[data-theme="graphite"] .gesture-name { font-size: 12px; }
+[data-theme="graphite"] .gesture-value { font-size: 13px; font-weight: 500; }
+[data-theme="graphite"] .gesture-body { padding: 0 13px 16px; }
+[data-theme="graphite"] .shortcut-summary { background: var(--surface); border: 1px solid var(--line); border-radius: var(--card-radius); padding: 14px; }
+[data-theme="graphite"] .shortcut-summary .overline { display: block; }
+[data-theme="graphite"] .shortcut-apps { margin: 14px 0; }
+[data-theme="graphite"] .secondary { background: var(--soft); border-color: transparent; }
+[data-theme="graphite"] .feedback-row { margin-top: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--card-radius); min-height: 54px; }
+[data-theme="graphite"] .page-heading h2 { font-size: 21px; }
+[data-theme="graphite"] .page-heading .overline { display: block; }
+[data-theme="graphite"] .settings-group { background: var(--surface); border: 1px solid var(--line); border-radius: var(--card-radius); padding: 18px 15px; }
+[data-theme="graphite"] .wide-button { padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--card-radius); }
+[data-theme="graphite"] .appearance-option { background: var(--surface); }
+[data-theme="graphite"] .diagnostics { background: var(--surface); }
+[data-theme="graphite"] .menu-item { padding: 15px; margin-top: 13px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--card-radius); }
+@media (max-width: 359px) {
+  :root { --page-space: 18px; }
+  :root[data-theme="graphite"] { --page-space: 14px; }
+  .brand-kicker { font-size: 9px; letter-spacing: 1.5px; }
+  .appearance-options { gap: 9px; }
+  .appearance-option { padding: 9px; }
+  .appearance-label { padding-right: 0; }
+  .appearance-label small { font-size: 8px; }
+  .appearance-check { bottom: 29px; right: 8px; font-size: 11px; }
+  .webui .menu-item-tools { gap: 3px; }
+  .webui .menu-item-tools .secondary { padding: 7px; min-width: 30px; }
+  .save-bar .primary { min-width: 120px; gap: 14px; padding-inline: 13px; }
+}
+@media (max-height: 450px) {
+  body { padding-bottom: calc(79px + env(safe-area-inset-bottom)); }
+  main.webui { padding-top: 15px; }
+  .save-bar { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .webui *, .app-picker *, .save-bar * { transition: none !important; }
+}
