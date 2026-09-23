@@ -75,7 +75,7 @@ final class MijiaBridge implements AutoCloseable {
         if (op.equals("login-status")) return Json.obj("ok", true, "login", publicLogin());
         if (op.equals("login-cancel")) { cancelLogin(); return Json.obj("ok", true); }
         if (op.equals("logout")) cancelLogin();
-        if (!Arrays.asList("homes", "catalog", "device", "run", "binding-save", "binding-delete", "trigger", "login-start", "logout").contains(op))
+        if (!Arrays.asList("homes", "catalog", "device", "run", "binding-save", "binding-delete", "binding-detail", "binding-labels", "trigger", "login-start", "logout").contains(op))
             throw new Failure("INVALID", "未知米家操作");
         String id = menuControl ? Json.text(request, "requestId", 32) : request.optString("requestId", MiCloud.randomId());
         if (!id.matches("[a-f0-9]{32}")) throw new Failure("INVALID", "请求编号无效");
@@ -195,6 +195,7 @@ final class MijiaBridge implements AutoCloseable {
             String stateError = "";
             for (int i = 0; i < properties.length(); i++) {
                 JSONObject property = properties.getJSONObject(i);
+                property.put("label", ReadingValues.defaultLabel(property));
                 if (property.optBoolean("read") || property.optBoolean("notify")) batch.put(Json.obj("did", device.getString("did"), "siid", property.getInt("siid"), "piid", property.getInt("piid")));
                 if (batch.length() == 20 || (i == properties.length() - 1 && batch.length() > 0)) {
                     try {
@@ -218,6 +219,7 @@ final class MijiaBridge implements AutoCloseable {
             all.put(id, Json.obj("name", name, "action", descriptor, "account", auth.get("userId"))); store.write("bindings.json", all);
             return Json.obj("ok", true, "id", id, "name", name, "kind", descriptor.getString("kind"));
         }
+        if (op.equals("binding-detail") || op.equals("binding-labels")) return readingBinding(http, auth, request);
         if (op.equals("binding-delete")) {
             JSONObject all = store.read("bindings.json"); all.remove(Json.id(request, "id")); store.write("bindings.json", all); menuStates.clear(); return Json.obj("ok", true);
         }
@@ -230,6 +232,38 @@ final class MijiaBridge implements AutoCloseable {
         }
         if (descriptor == null) throw new Failure("INVALID", "未选择米家动作");
         return run(http, auth, normalize(http, auth, descriptor), menuControl);
+    }
+
+    private JSONObject readingBinding(MiHttp http, JSONObject auth, JSONObject request) throws Exception {
+        String id = Json.id(request, "id"); JSONObject all = store.read("bindings.json"), binding = all.optJSONObject(id);
+        if (binding == null || !auth.getString("userId").equals(binding.optString("account")))
+            throw new Failure("BINDING", "米家项目已删除或账号已更换，请重新选择");
+        JSONObject action = binding.getJSONObject("action");
+        if (!"read".equals(action.optString("kind"))) throw new Failure("VALUE", "只有读数卡片可以修改文案");
+        JSONArray saved = action.getJSONArray("properties"), result = new JSONArray();
+        if (saved.length() < 1 || saved.length() > ReadingValues.MAX_PROPERTIES) throw new Failure("VALUE", "读数卡片数据不完整");
+        if ("binding-labels".equals(request.getString("op"))) {
+            JSONArray incoming = request.optJSONArray("properties");
+            if (incoming == null || incoming.length() != saved.length()) throw new Failure("VALUE", "读数项目已变化，请重新打开编辑");
+            for (int i = 0; i < saved.length(); i++) {
+                JSONObject original = saved.getJSONObject(i), item = incoming.getJSONObject(i);
+                if (Json.iid(item, "siid") != original.getInt("siid") || Json.iid(item, "piid") != original.getInt("piid"))
+                    throw new Failure("VALUE", "修改文案不能更换数据来源，请重新打开编辑");
+                result.put(Json.copy(original).put("label", ReadingValues.label(item)));
+            }
+            // 原绑定编号和数据来源保持不变，已有快捷项下次展开直接使用新文案。
+            action.put("properties", result); store.write("bindings.json", all);
+            return Json.obj("ok", true, "id", id);
+        }
+        JSONObject spec = specs.get(http, device(http, auth, action).getString("model"));
+        for (int i = 0; i < saved.length(); i++) {
+            JSONObject item = saved.getJSONObject(i);
+            JSONObject property = MiSpec.find(spec, item.getInt("siid"), item.getInt("piid"), false);
+            result.put(Json.obj("siid", item.getInt("siid"), "piid", item.getInt("piid"), "name", property.optString("displayName", property.optString("name")),
+                    "service", property.optString("service"), "displayUnit", property.optString("displayUnit"),
+                    "label", item.has("label") ? ReadingValues.label(item) : ReadingValues.defaultLabel(property)));
+        }
+        return Json.obj("ok", true, "id", id, "name", binding.getString("name"), "properties", result);
     }
 
     private static JSONArray menuIds(JSONObject request) throws Exception {
@@ -345,7 +379,9 @@ final class MijiaBridge implements AutoCloseable {
                                 JSONObject item = selected.getJSONObject(p);
                                 JSONObject property = MiSpec.find(spec, Json.iid(item, "siid"), Json.iid(item, "piid"), false);
                                 if (!ReadingValues.eligible(property)) throw new Failure("READ_ONLY", "属性已不属于可显示的设备读数");
-                                list.add(property);
+                                JSONObject display = Json.copy(property);
+                                if (item.has("label")) display.put("label", ReadingValues.label(item));
+                                list.add(display);
                                 params.put(ReadingValues.key(did, property), Json.obj("did", did, "siid", property.getInt("siid"), "piid", property.getInt("piid")));
                             }
                             readingProperties.put(entry.getKey(), list);
@@ -435,7 +471,9 @@ final class MijiaBridge implements AutoCloseable {
                 JSONObject property = MiSpec.find(spec, siid, piid, false);
                 if (!ReadingValues.eligible(property)) throw new Failure("READ_ONLY", "请选择实际读数，设定值不能当作测量值");
                 if (!seen.add(siid + ":" + piid)) throw new Failure("VALUE", "不能重复选择同一读数");
-                normalized.put(Json.obj("siid", siid, "piid", piid));
+                JSONObject selectedProperty = Json.obj("siid", siid, "piid", piid);
+                if (item.has("label")) selectedProperty.put("label", ReadingValues.label(item));
+                normalized.put(selectedProperty);
             }
             return Json.obj("kind", "read", "home", home, "did", device.getString("did"), "properties", normalized);
         }

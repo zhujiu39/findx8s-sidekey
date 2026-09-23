@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.1.1-test.1'
-VERSION_CODE = 111
+VERSION = '1.1.1-test.2'
+VERSION_CODE = 112
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -246,7 +246,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_米家只读数据')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_读数自定义文案')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -276,8 +276,8 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '新增通用 MIOT 只读数据卡片，可勾选温湿度、冰箱各温区实际温度等数据，最多 4 项合并一张。'
-        '实际测量值与设定值分开，保留在线/离线提示，展开及同设备操作后更新。\n\n'
+        '新增读数自定义文案：每项读数可独立设置前面的文字，留空只显示数值与单位。'
+        '已有卡片从快捷栏或米家管理入口直接修改，无需删除重建；数值仍从原米家属性获取。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'

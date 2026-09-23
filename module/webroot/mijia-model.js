@@ -35,7 +35,20 @@ export function stateLabel(property, state) {
 export function makeReadingAction(home, device, properties) {
   if (!properties.length || properties.length > 4) throw new Error('每张卡片请选择 1～4 项读数，可添加多张卡片');
   if (properties.some(property => !property.reading)) throw new Error('请选择设备读数，不能使用设定值替代');
-  return {kind:'read', home, did:device.did, properties:properties.map(({siid,piid}) => ({siid,piid}))};
+  return {kind:'read', home, did:device.did, properties:readingProperties(properties)};
+}
+export function readingProperties(properties) {
+  return properties.map(property => {
+    const result = {siid:property.siid, piid:property.piid};
+    if (Object.hasOwn(property, 'label')) {
+      if (typeof property.label !== 'string') throw new Error('读数文案必须是文本');
+      const label = property.label.trim();
+      if (new TextEncoder().encode(label).length > 60) throw new Error('读数文案过长，最多 20 个汉字或 60 个英文字母');
+      if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(label)) throw new Error('读数文案不能包含换行或控制字符');
+      result.label = label;
+    }
+    return result;
+  });
 }
 export function bindingName(device, action) {
   const text = `${device} · ${action}`;

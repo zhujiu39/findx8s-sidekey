@@ -1,5 +1,5 @@
 import {mijiaRequest} from './mijia-api.js';
-import {bindingName, makePropertyAction, makeReadingAction, propertyValue, stateLabel} from './mijia-model.js';
+import {bindingName, makePropertyAction, makeReadingAction, readingProperties, propertyValue, stateLabel} from './mijia-model.js';
 import {available} from './bridge.js';
 
 const $ = id => document.getElementById(id);
@@ -162,6 +162,38 @@ function valueInput(property, state) {
   }
   input.setAttribute('aria-label', property.name); return input;
 }
+function readingLabelEditor(property, value) {
+  const field = node('div','mijia-reading-label'), label = node('label','mijia-field','数值前文案');
+  const input = node('input'); input.type='text'; input.maxLength=60;
+  input.value=property.label ?? property.displayName ?? property.name;
+  input.placeholder='留空只显示数值';
+  input.setAttribute('aria-label',`${property.service} ${property.displayName || property.name} 数值前文案`);
+  label.append(input);
+  const preview = node('p','mijia-reading-example');
+  const update = () => { preview.textContent=`显示效果：${input.value.trim() ? input.value.trim()+'：' : ''}${value}`; };
+  input.addEventListener('input',update); update(); field.append(label,preview); return {field,input};
+}
+export async function editReadingLabels(id) {
+  if ($('mijia-dialog').dataset.busy === 'true') return;
+  const body = openDialog('编辑读数文案'), loading = node('p','hint','正在读取卡片…'); body.append(loading);
+  await dialogTask(async () => {
+    const data = await mijiaRequest('binding-detail',{id});
+    if (!loading.isConnected || !$('mijia-dialog').open) return;
+    body.replaceChildren(node('p','hint','每项文案独立设置，留空只显示数值。数值和单位由米家提供。'));
+    const fields = data.properties.map(property => {
+      const card = node('section','mijia-property');
+      card.append(node('small','hint',property.service),node('h3','',property.name));
+      const editor = readingLabelEditor(property,`米家数值${property.displayUnit ? ' '+property.displayUnit : ''}`);
+      card.append(editor.field); body.append(card); return {property,input:editor.input};
+    });
+    body.append(button('保存文案',()=>dialogTask(async()=>{
+      const properties = readingProperties(fields.map(({property,input})=>({...property,label:input.value})));
+      await mijiaRequest('binding-labels',{id,properties});
+      $('mijia-dialog-message').textContent='文案已保存，重新打开快捷栏生效';
+    }),'primary mijia-save-labels'));
+    $('mijia-dialog-message').textContent='';
+  });
+}
 async function showDevice(device) {
   const data = await mijiaRequest('device', {home:device.home,did:device.did});
   message('设备信息已读取'); const body = openDialog(device.name);
@@ -174,23 +206,27 @@ async function showDevice(device) {
   if (readings.length) {
     const selected = new Set(readings.filter(property => /^(?:temperature|relative-humidity)$/.test(property.type)).slice(0,4));
     const count = node('p','mijia-value');
+    const editors = new Map();
     const update = () => { count.textContent = `已选择 ${selected.size} / 4 项`; };
     readings.forEach(property => {
       const row = node('label','mijia-reading-choice'), check = node('input'); check.type='checkbox'; check.checked=selected.has(property);
       const copy = node('span'), state = data.states.find(item => item.siid === property.siid && item.piid === property.piid);
       copy.append(node('strong','',property.displayName || property.name),node('small','',property.service));
       row.append(check,copy,node('span','mijia-reading-value',stateLabel(property,state)));
+      const editor = readingLabelEditor(property,stateLabel(property,state));
+      editors.set(property,editor.input); editor.field.hidden=!check.checked;
       check.addEventListener('change',()=>{
         if (check.checked && selected.size >= 4) {
           check.checked=false; $('mijia-dialog-message').textContent='每张卡片最多 4 项，可另建卡片显示其他温区或读数'; return;
         }
         if (check.checked) selected.add(property); else selected.delete(property);
+        editor.field.hidden=!check.checked;
         update();
       });
-      measurements.append(row);
+      measurements.append(row,editor.field);
     });
     measurements.append(count); update();
-    const chosen = () => readings.filter(property => selected.has(property));
+    const chosen = () => readings.filter(property => selected.has(property)).map(property=>({...property,label:editors.get(property).value}));
     bindingTools(measurements,()=>makeReadingAction(device.home,device,chosen()),
       ()=>bindingName(device.name,chosen().map(property => property.displayName || property.name).join(' / ')), '添加读数卡片');
     measurements.append(node('p','hint','展开快捷栏时获取云端最近上报值。离线时仍会标明离线；没有上报数据的项目显示“暂无数据”。'));
@@ -241,6 +277,7 @@ function renderBindings() {
   bindings.forEach(entry => {
     const row = node('div','mijia-binding'); row.append(node('strong','',entry.name), button('管理 ›', () => {
       const body = openDialog(entry.name);
+      if (entry.kind === 'read') body.append(button('编辑读数文案',()=>editReadingLabels(entry.id),'primary'));
       body.append(button('再次加入快捷菜单', () => {
         attach(entry); $('mijia-dialog-message').textContent='已加入快捷菜单，请保存设置';
       },'primary'),

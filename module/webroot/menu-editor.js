@@ -3,7 +3,7 @@ import {appCatalog, chooseApps} from './app-picker.js';
 import {menuAppName} from './app-catalog.js';
 import {isApp, applyAppSelection} from './app-selection.js';
 import {appIcon, releaseAppIcons} from './app-icons.js';
-import {chooseMijia, mijiaBindingLabel, mijiaBindingIsReading} from './mijia.js';
+import {chooseMijia, mijiaBindingLabel, mijiaBindingIsReading, editReadingLabels} from './mijia.js';
 const $ = id => document.getElementById(id);
 let entries = [], onChange = () => {}, isBusy = false;
 const element = (tag, className, text) => {
@@ -47,6 +47,8 @@ function render() {
       choice.addEventListener('click',()=>chooseMijia(entry=>{item.argument=entry.id;item.name=entry.name;changed();},true));card.append(choice);
       const hint=element('p','hint','只读卡片：展开快捷栏时更新数值，不执行开关操作。');
       hint.dataset.readingHint='';hint.hidden=!reading;card.append(hint);
+      const edit=element('button','secondary','编辑读数文案');edit.type='button';edit.dataset.readingEditor='';edit.hidden=!reading;
+      edit.addEventListener('click',()=>editReadingLabels(item.argument));card.append(edit);
     }
     const parameter=element('textarea',''); parameter.value=item.argument; parameter.rows=2;
     const parameterField=field('动作参数',parameter); parameterField.hidden=!['shell','keycode'].includes(item.type); card.append(parameterField);
@@ -82,6 +84,7 @@ export function initMenuEditor(change) {
       const heading=card.querySelector('.menu-item-heading > strong');
       heading.textContent=heading.textContent.replace(/^(?:读数卡片|快捷开关)/,reading?'读数卡片':'快捷开关');
       card.querySelector('[data-reading-hint]').hidden=!reading;
+      card.querySelector('[data-reading-editor]').hidden=!reading;
     });
   });
   $('choose-menu-apps').addEventListener('click',()=>{

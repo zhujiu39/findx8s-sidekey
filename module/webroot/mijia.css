@@ -101,6 +101,11 @@
 .mijia-reading-choice strong { font-size:12px; font-weight:500; }
 .mijia-reading-choice small { margin-top:4px; }
 .mijia-reading-value { max-width:42%; color:var(--mi-green); font-size:12px; text-align:right; overflow-wrap:anywhere; }
+.mijia-reading-label { padding:10px 0 5px; }
+.mijia-reading-label .mijia-field { gap:6px; margin-bottom:6px; color:var(--mi-muted); font-size:11px; }
+.mijia-reading-label input { width:100%; }
+.mijia-reading-example { margin:4px 0 8px; color:var(--mi-green); font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+.mijia-save-labels { width:100%; }
 .mijia-dialog select,.mijia-dialog input { box-sizing:border-box; border:1px solid var(--mi-border); border-radius:10px; padding:10px 9px; color:var(--mi-text); background:var(--mi-card-solid); max-width:100%; font:inherit; font-size:12px; min-width:0; }
 .mijia-property > select,.mijia-property > input { width:100%; margin-top:3px; }
 .mijia-dialog .primary,.mijia-dialog .secondary { border-radius:10px; padding:10px 13px; font-size:12px; }

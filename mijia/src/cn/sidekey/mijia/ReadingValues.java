@@ -9,7 +9,7 @@ import org.json.*;
 
 /** 按 MIOT 属性语义显示读数，不用可写设定值代替传感器测量值。 */
 final class ReadingValues {
-    static final int MAX_PROPERTIES = 4, MAX_BYTES = 384;
+    static final int MAX_PROPERTIES = 4, MAX_BYTES = 384, MAX_LABEL_BYTES = 60;
     private ReadingValues() { }
     static String type(JSONObject property) {
         String value = property.optString("type");
@@ -57,6 +57,21 @@ final class ReadingValues {
     static String key(String did, JSONObject property) {
         return did + ":" + property.optInt("siid") + ":" + property.optInt("piid");
     }
+    static String defaultLabel(JSONObject property) {
+        String name = property.optString("displayName", property.optString("name"));
+        String service = property.optString("service");
+        return service.isEmpty() ? clean(name, MAX_LABEL_BYTES) : clean(service, 25) + " · " + clean(name, 30);
+    }
+    static String label(JSONObject item) throws Exception {
+        Object value = item.opt("label");
+        if (!(value instanceof String)) throw new Failure("VALUE", "读数文案必须是文本");
+        String text = ((String) value).trim();
+        if (text.getBytes(StandardCharsets.UTF_8).length > MAX_LABEL_BYTES)
+            throw new Failure("VALUE", "读数文案过长，最多 20 个汉字或 60 个英文字母");
+        if (text.matches("(?s).*[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}].*"))
+            throw new Failure("VALUE", "读数文案不能包含换行或控制字符");
+        return text;
+    }
     static String value(JSONObject property, JSONObject state) {
         if (state == null || state.optInt("code", -1) != 0 || state.isNull("value")) return "暂无数据";
         Object raw = state.opt("value"); String format = property.optString("format");
@@ -83,10 +98,9 @@ final class ReadingValues {
         StringBuilder text = new StringBuilder();
         for (JSONObject property : properties) {
             if (text.length() > 0) text.append('\n');
-            String name = property.optString("displayName", property.optString("name"));
-            String service = property.optString("service");
-            text.append(service.isEmpty() ? clean(name, 60) : clean(service, 25) + " · " + clean(name, 30)).append("：")
-                    .append(value(property, states.get(key(did, property))));
+            String label = property.has("label") ? property.optString("label") : defaultLabel(property);
+            if (!label.isEmpty()) text.append(label).append("：");
+            text.append(value(property, states.get(key(did, property))));
         }
         return text.toString();
     }
