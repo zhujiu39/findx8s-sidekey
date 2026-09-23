@@ -1,6 +1,6 @@
 id=oppo_sidekey
 name=侧键自定义 · Find X8s
-version=v1.1.1-test.2
-versionCode=112
+version=v1.1.1
+versionCode=113
 author=zhujiu39
 description=自定义侧键短按、双击和长按，支持米家读数显示、设备与场景控制、侧边快捷菜单、ColorOS 小窗、系统手电筒与触发震动。

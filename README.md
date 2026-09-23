@@ -7,7 +7,7 @@
 为 **OPPO Find X8s** 开发的 KernelSU 侧键自定义模块。<br>
 配置短按、双击和长按，打开常用应用、切换手电筒，或从侧边快捷菜单控制米家设备。
 
-[![Version](https://img.shields.io/badge/version-v1.1.0-2d6a4f)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v1.1.0)
+[![Version](https://img.shields.io/badge/version-v1.1.1-2d6a4f)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v1.1.1)
 [![Device](https://img.shields.io/badge/device-OPPO%20Find%20X8s-2d6a4f)](#compatibility)
 [![Android](https://img.shields.io/badge/Android-15-3DDC84?logo=android&logoColor=white)](#compatibility)
 [![KernelSU](https://img.shields.io/badge/Root-KernelSU-1565C0)](https://kernelsu.org/)
@@ -19,13 +19,11 @@
 
 </div>
 
-> 下载 **[release_oppo_sidekey_v1.1.0.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v1.1.0/release_oppo_sidekey_v1.1.0.zip)**，在 KernelSU 中安装并重启。GitHub 自动生成的 **Source code** 压缩包不能直接安装。
+> 下载 **[release_oppo_sidekey_v1.1.1.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v1.1.1/release_oppo_sidekey_v1.1.1.zip)**，在 KernelSU 中安装并重启。GitHub 自动生成的 **Source code** 压缩包不能直接安装。
 
 ## ✨ 功能
 
-**v1.1.0 正式版已完成米家适配**：扫码登录后，可将设备开关、属性、动作和手动场景加入侧边快捷菜单；支持在线／离线显示、离线禁用与操作后状态刷新。同时带来两套 WebUI 样式和完整日志导出。
-
-本地测试包 **v1.1.1-test.2** 支持温湿度及冰箱实际温度读数卡片，并可自定义每项数值前的文案；尚未发布到 Release。
+**v1.1.1 正式版新增米家读数卡片与自定义文案**：在快捷栏显示温湿度、冰箱不同温区的实际温度，并为每项数值设置简短文案。保留米家设备与手动场景控制、在线／离线状态、两套 WebUI 样式和完整日志导出。详见 [发布说明](docs/RELEASE-v1.1.1.md)。
 
 | 功能 | 说明 |
 | --- | --- |
@@ -40,6 +38,7 @@
 | 两套界面样式 | 墨白极简 / 石墨工具箱，随时切换并记住选择，深浅色跟随系统 |
 | 米家设备与场景 | 扫码登录、家庭与设备、MIOT 属性/动作、手动场景，并绑定到侧键或快捷栏；需要联网 |
 | 米家状态显示 | 在线／离线、开关状态、离线禁用；操作后只刷新当前设备 |
+| 米家读数卡片 | 勾选温湿度等只读属性，区分实际与设定温度；每项文案可自定义，留空只显示数值和单位 |
 | 完整日志导出 | 一键复制日志，或通过系统另存为选择文件位置 |
 
 <a id="compatibility"></a>
@@ -108,11 +107,11 @@
 
 控制超时后仍会核对目标状态，并在最近执行结果中保留错误原因。控制指令不自动重发。
 
-**只读数据卡片（v1.1.1-test.1）**：打开米家设备，在 **设备读数** 中勾选 1～4 项，点击 **添加读数卡片**，再保存设置。可以添加多张卡片；属性名、温区名称和单位从设备 MIOT 规格读取，不需要输入属性编号。
+**只读数据卡片**：打开米家设备，在 **设备读数** 中勾选 1～4 项，点击 **添加读数卡片**，再保存设置。可以添加多张卡片；属性名、温区名称和单位从设备 MIOT 规格读取，不需要输入属性编号。
 
 温度卡片显示设备上报的实际测量值，支持零度、负温度和小数。冰箱不同温区会分别标注；目标温度、设定温度归入 **控制与设定**，不能用作当前温度。设备没有开放对应测量属性时，不用其他温度替代。
 
-**自定义读数文案（v1.1.1-test.2）**：新增卡片时，可在每项读数下填写 **数值前文案**；已有卡片在 **快捷栏 → 对应读数卡片 → 编辑读数文案** 修改，也可从 **米家 → 已配置动作 → 管理 → 编辑读数文案** 进入。比如将温区文案改为“冷藏”“冷冻”，温湿度改为“温度”“湿度”。非空文案后自动加冒号，留空只显示数值和单位。点击 **保存文案** 后，下次展开快捷栏生效，已有卡片无需重新添加或重新绑定。
+**自定义读数文案**：新增卡片时，可在每项读数下填写 **数值前文案**；已有卡片在 **快捷栏 → 对应读数卡片 → 编辑读数文案** 修改，也可从 **米家 → 已配置动作 → 管理 → 编辑读数文案** 进入。比如将温区文案改为“冷藏”“冷冻”，温湿度改为“温度”“湿度”。非空文案后自动加冒号，留空只显示数值和单位。点击 **保存文案** 后，下次展开快捷栏生效，已有卡片无需重新添加或重新绑定。
 
 文案仅影响本地显示，数值与单位仍从米家属性及规格获取。每项文案最多 60 个 UTF-8 字节（20 个汉字或 60 个英文字母），修改时原属性名称仍可见，方便核对数据来源。旧版卡片未修改文案时保留原显示。
 
@@ -218,6 +217,7 @@ Shell 以 Root 身份执行，单次最长 **10 秒**，命令最多 **512 个 U
 | [Sammy Svensson（Squachen）／micloud](https://github.com/Squachen/micloud) | 上游请求签名与 RC4 加密实现，保留 MIT 版权声明 |
 | 酷安 **@道小理**／“米家云端控制” v1.0 | 米家配置页的房间分组、设备卡片与信息组织参考；设备操作沿用本项目快捷菜单 |
 | [Xiaomi Home 项目贡献者](https://github.com/XiaoMi/ha_xiaomi_home) | 设备在线状态字段与错误码含义的核对资料 |
+| [MIOT-SPEC](https://miot-spec.org/) 与 [Xiaomi Miot Spec](https://home.miot-spec.com/) | 设备属性、单位及规格信息，用于通用读数适配 |
 | [HBYShyw／AntiThermal](https://github.com/HBYShyw/AntiThermal) | ColorOS 小窗接口与状态字段的核对资料 |
 
 也感谢 [KernelSU](https://kernelsu.org/)、[Android](https://developer.android.com/)、[Zig](https://ziglang.org/)、[musl](https://musl.libc.org/) 和 [Eclipse Temurin](https://adoptium.net/) 提供运行与构建基础。

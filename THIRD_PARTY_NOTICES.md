@@ -10,6 +10,8 @@
 
 [Xiaomi Home 项目](https://github.com/XiaoMi/ha_xiaomi_home)用于核对设备查询接口中的 `isOnline` 字段和设备操作超时错误码；本项目未分发该项目的实现代码。
 
+设备属性及其单位来自 [Xiaomi Miot Spec](https://home.miot-spec.com/) 与 [MIOT-SPEC](https://miot-spec.org/) 的公开规格。规格按手机所选设备获取并缓存在本机，不将用户设备清单或缓存打包发布。
+
 ## 构建与运行组件
 
 主机测试使用 Apache-2.0 的 Android JSON 实现 `com.vaadin.external.google:android-json:0.0.20131108.vaadin1`，只在忽略提交的 `tools/` 中使用，不随 Android 产物分发。固定下载来源及 SHA256 见 `build_mijia.py`。
