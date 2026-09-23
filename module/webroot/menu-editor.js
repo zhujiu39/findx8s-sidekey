@@ -135,7 +135,7 @@ function preview() {
   for(const item of switches) {
     const row=element('button','sidebar-switch');row.type='button';
     row.append(element('span','',item.name),element('span','menu-switch-glyph',item.type==='torch'?'—':'›'));
-    row.addEventListener('click',dismiss);$('menu-preview-switches').append(row);
+    $('menu-preview-switches').append(row);
   }
   const apps=entries.filter(isApp);
   apps.forEach(item=>{

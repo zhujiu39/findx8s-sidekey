@@ -266,8 +266,11 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
                 }
                 else if (command == MENU_CLOSE) { session[0] = 0; expires = 0; accepted = true; if (!launch_state.ui_ready) launch_state.error = 1; }
                 else if (command == MENU_SELECT) {
-                    session[0] = 0; expires = 0;
-                    accepted = selected && selected(&snapshot[index].action);
+                    const Action *action = &snapshot[index].action;
+                    bool app = action->kind == ACTION_APP || action->kind == ACTION_APP_FREEFORM;
+                    accepted = selected && selected(action);
+                    /* 应用离开菜单后结束会话；快捷开关允许同一面板继续选择。 */
+                    if (app) { session[0] = 0; expires = 0; }
                 }
             }
         } else if (n > 0 && !newline && clients[i].size < REQUEST_CAP - 1 && now < clients[i].until) continue;

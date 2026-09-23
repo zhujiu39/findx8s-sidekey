@@ -47,7 +47,7 @@ public final class MenuActivity extends Activity {
     private LinearLayout panel;
     private ListView scroll;
     private Session session;
-    private boolean closing, dispatched, entered;
+    private boolean closing, dispatched, entered, selecting;
     private int selection = -1, position, widthDp, appGapDp;
     private boolean right;
     private int foreground, muted, surface, tileTop, stroke, powerOff, powerInk;
@@ -88,7 +88,7 @@ public final class MenuActivity extends Activity {
     }
 
     private void open(Intent intent) {
-        closing = false; dispatched = false; entered = false; selection = -1;
+        closing = false; dispatched = false; entered = false; selecting = false; selection = -1;
         try {
             String token = intent.getStringExtra("token");
             int port = intent.getIntExtra("port", 0);
@@ -224,7 +224,42 @@ public final class MenuActivity extends Activity {
 
     private void bindSelection(View view, JSONObject item) {
         final int index = item.optInt("index", -1);
-        view.setOnClickListener(clicked -> { if (!closing && entered && index >= 0) { selection = index; dismiss(); } });
+        final String type = item.optString("type");
+        view.setOnClickListener(clicked -> {
+            if (closing || !entered || selecting || index < 0) return;
+            if ("app".equals(type) || "app_freeform".equals(type)) {
+                selection = index; dismiss();
+            } else selectSwitch(index, type);
+        });
+    }
+
+    private void selectSwitch(int index, String type) {
+        final Session current = session;
+        if (current == null) return;
+        selecting = true;
+        network.execute(() -> {
+            boolean accepted = request(current, "SELECT " + index);
+            handler.post(() -> {
+                if (session != current || closing) return;
+                selecting = false;
+                if (!accepted) {
+                    Toast.makeText(getApplicationContext(), "快捷开关未执行，请重试或重新打开菜单", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if ("torch".equals(type)) current.torchState = -1;
+                if ("mijia".equals(type)) {
+                    synchronized (current) {
+                        current.pendingMijia = false;
+                        if (current.mijiaStates != null) {
+                            char[] states = current.mijiaStates.toCharArray();
+                            for (int i = 0; i < states.length; i++) if (states[i] != 'n') states[i] = '?';
+                            current.mijiaStates = new String(states);
+                        }
+                    }
+                }
+                updateSwitches();
+            });
+        });
     }
 
     private final class AppRow extends ViewGroup {
@@ -499,10 +534,15 @@ public final class MenuActivity extends Activity {
 
     private static void readMijiaStates(Session current) {
         if (!current.pendingMijia) return;
+        String states = null;
         try {
-            current.mijiaStates = MijiaSwitchState.decode(exchange(current, "STATES", 4096), current.itemCount);
-            current.pendingMijia = current.mijiaStates != null && current.mijiaStates.indexOf('~') >= 0;
-        } catch (Exception ignored) { current.mijiaStates = null; current.pendingMijia = false; }
+            states = MijiaSwitchState.decode(exchange(current, "STATES", 4096), current.itemCount);
+        } catch (Exception ignored) { }
+        synchronized (current) {
+            if (!current.pendingMijia) return;
+            current.mijiaStates = states;
+            current.pendingMijia = states != null && states.indexOf('~') >= 0;
+        }
     }
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
