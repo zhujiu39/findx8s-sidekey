@@ -39,6 +39,22 @@ static size_t item_page(char *buffer, size_t capacity, uint32_t first)
     return good && size > 0 && (size_t)size < capacity ? (size_t)size : 0;
 }
 
+static size_t reading_page(char *buffer, size_t capacity, uint32_t first)
+{
+    if (first > snapshot_count || first % 16) return 0;
+    FILE *out = fmemopen(buffer, capacity, "w");
+    if (!out) return 0;
+    fputs("READINGS ", out);
+    uint32_t end = first + 16; if (end > snapshot_count) end = snapshot_count;
+    for (uint32_t i = first; i < end; i++) {
+        if (i != first) fputc('|', out);
+        fputs(mijia_menu_reading(i), out);
+    }
+    fputc('\n', out); long size = ftell(out); bool good = !ferror(out);
+    if (fclose(out) != 0) good = false;
+    return good && size > 0 && (size_t)size < capacity ? (size_t)size : 0;
+}
+
 static void finish_show(bool success)
 {
     if (show_client >= 0) {
@@ -250,9 +266,11 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
                     if (!launch_state.ui_ready) mijia_menu_reset(snapshot, snapshot_count, session, data_directory, now);
                     accepted = true; ping = true; launch_state.ui_ready = true;
                 }
-                else if (command == MENU_ITEMS || command == MENU_STATES) {
+                else if (command == MENU_ITEMS || command == MENU_STATES || command == MENU_READINGS) {
                     if (command == MENU_ITEMS)
                         clients[i].response_size = item_page(clients[i].response, sizeof(clients[i].response), index);
+                    else if (command == MENU_READINGS)
+                        clients[i].response_size = reading_page(clients[i].response, sizeof(clients[i].response), index);
                     else {
                         memcpy(clients[i].response, "STATES ", 7);
                         for (uint32_t item = 0; item < snapshot_count; item++) clients[i].response[7 + item] = mijia_menu_state(item);

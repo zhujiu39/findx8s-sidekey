@@ -6,16 +6,18 @@ public final class MijiaSwitchState {
     public static String decode(String response, int count) {
         if (response == null || count < 0 || count > 2060 || !response.startsWith("STATES ") || response.length() != count + 7) return null;
         String states = response.substring(7);
-        for (int i = 0; i < states.length(); i++) if ("01?noau~".indexOf(states.charAt(i)) < 0) return null;
+        for (int i = 0; i < states.length(); i++) if ("01?noau~rsq".indexOf(states.charAt(i)) < 0) return null;
         return states;
     }
     public static char at(String states, int index, boolean pending) {
         return states != null && index >= 0 && index < states.length() ? states.charAt(index) : pending ? '~' : '?';
     }
-    public static boolean online(char state) { return "01ua".indexOf(state) >= 0; }
-    public static boolean enabled(char state) { return online(state) || state == 'n'; }
-    public static boolean power(char state) { return state != 'n' && state != 'a'; }
+    public static boolean displayOnly(char state) { return "rsq".indexOf(state) >= 0; }
+    public static boolean online(char state) { return "01uar".indexOf(state) >= 0; }
+    public static boolean enabled(char state) { return !displayOnly(state) && (online(state) || state == 'n'); }
+    public static boolean power(char state) { return !displayOnly(state) && state != 'n' && state != 'a'; }
     public static String status(char state) {
+        if (displayOnly(state)) return (state == 'r' ? "在线" : state == 's' ? "离线" : "状态未知") + " · 上报值";
         if (online(state)) return "在线";
         if (state == 'o') return "离线";
         if (state == '~') return "读取中";
@@ -35,6 +37,9 @@ public final class MijiaSwitchState {
             case 'a': return "在线，执行动作";
             case '~': return "读取中";
             case 'n': return "执行动作";
+            case 'r': return "在线，只读数据";
+            case 's': return "离线，最近上报数据";
+            case 'q': return "在线状态未知，只读数据";
             default: return "状态未知";
         }
     }

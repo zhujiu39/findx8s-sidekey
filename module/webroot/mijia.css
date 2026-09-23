@@ -92,6 +92,15 @@
 .mijia-property h3 { font-size:14px; margin:3px 0 5px; }
 .mijia-property small { color:var(--mi-muted); font-size:10px; }
 .mijia-value { color:var(--mi-green); font-size:11px; margin:4px 0 10px; }
+.mijia-section-title { font-size:14px; margin:22px 0 8px; }
+.mijia-readings > .hint { font-size:11px; line-height:1.7; color:var(--mi-muted); }
+.mijia-reading-choice { display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--mi-border); cursor:pointer; }
+.mijia-dialog .mijia-reading-choice input { width:18px; height:18px; flex-shrink:0; padding:0; accent-color:var(--mi-green); }
+.mijia-reading-choice > span:first-of-type { flex:1; min-width:0; }
+.mijia-reading-choice strong,.mijia-reading-choice small { display:block; overflow-wrap:anywhere; }
+.mijia-reading-choice strong { font-size:12px; font-weight:500; }
+.mijia-reading-choice small { margin-top:4px; }
+.mijia-reading-value { max-width:42%; color:var(--mi-green); font-size:12px; text-align:right; overflow-wrap:anywhere; }
 .mijia-dialog select,.mijia-dialog input { box-sizing:border-box; border:1px solid var(--mi-border); border-radius:10px; padding:10px 9px; color:var(--mi-text); background:var(--mi-card-solid); max-width:100%; font:inherit; font-size:12px; min-width:0; }
 .mijia-property > select,.mijia-property > input { width:100%; margin-top:3px; }
 .mijia-dialog .primary,.mijia-dialog .secondary { border-radius:10px; padding:10px 13px; font-size:12px; }

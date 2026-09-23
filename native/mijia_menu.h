@@ -9,4 +9,5 @@ void mijia_menu_disconnect(void);
 void mijia_menu_tick(const char *directory, uint64_t now);
 int mijia_menu_wait_ms(void);
 char mijia_menu_state(uint32_t index);
+const char *mijia_menu_reading(uint32_t index);
 #endif

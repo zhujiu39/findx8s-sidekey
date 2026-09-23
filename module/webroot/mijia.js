@@ -1,5 +1,5 @@
 import {mijiaRequest} from './mijia-api.js';
-import {bindingName, makePropertyAction, propertyValue, stateLabel} from './mijia-model.js';
+import {bindingName, makePropertyAction, makeReadingAction, propertyValue, stateLabel} from './mijia-model.js';
 import {available} from './bridge.js';
 
 const $ = id => document.getElementById(id);
@@ -12,6 +12,7 @@ let bindings = [], home = '', lastStatus = {}, busy = false, initialized = false
 let attach = () => {}, loginTimer, resultTimer, loginPanel, lastFocus;
 let loginRenderKey = '', loginPollId = 0;
 export const mijiaBindingLabel = id => bindings.find(item => item.id === id)?.name || '米家动作（请到米家页检查）';
+export const mijiaBindingIsReading = id => bindings.find(item => item.id === id)?.kind === 'read';
 function message(text, error = false) {
   $('mijia-message').textContent = text; $('mijia-message').hidden = !text;
   $('mijia-message').classList.toggle('error', error);
@@ -133,8 +134,8 @@ async function dialogTask(work) {
   catch (error) { $('mijia-dialog-message').textContent = error.message; }
   finally { delete dialog.dataset.busy; controls.forEach(item => { if (item.isConnected) item.disabled = false; }); }
 }
-function bindingTools(body, makeAction, name) {
-  body.append(button('加入快捷菜单', () => dialogTask(async () => {
+function bindingTools(body, makeAction, name, title = '加入快捷菜单') {
+  body.append(button(title, () => dialogTask(async () => {
     const entry = await mijiaRequest('binding-save', {name:typeof name==='function' ? name() : name, action:makeAction()});
     attach(entry); await status();
     $('mijia-dialog-message').textContent = '已加入快捷菜单，请保存设置';
@@ -164,14 +165,45 @@ function valueInput(property, state) {
 async function showDevice(device) {
   const data = await mijiaRequest('device', {home:device.home,did:device.did});
   message('设备信息已读取'); const body = openDialog(device.name);
-  body.append(node('p', 'hint', '选择要加入快捷菜单的动作。'));
+  body.append(node('p', 'hint', '选择要显示的读数，或添加控制动作。'));
   body.append(button('刷新设备状态', () => dialogTask(async () => { await showDevice(device); })));
-  if (!data.spec.properties.some(property => property.write) && !data.spec.actions.length)
-    body.append(textBlock('暂无可配置动作', '可以在米家 App 建立手动场景，再把场景加入快捷菜单。'));
+  if (data.stateError) body.append(node('p', 'hint', data.stateError));
+  const readings = data.spec.properties.filter(property => property.reading);
+  const measurements = node('section', 'mijia-property mijia-readings');
+  measurements.append(node('h3','','设备读数'),node('p','hint','勾选 1～4 项合并为一张卡片，可添加多张。温度读取实际测量值；设定温度在下方单独列出。'));
+  if (readings.length) {
+    const selected = new Set(readings.filter(property => /^(?:temperature|relative-humidity)$/.test(property.type)).slice(0,4));
+    const count = node('p','mijia-value');
+    const update = () => { count.textContent = `已选择 ${selected.size} / 4 项`; };
+    readings.forEach(property => {
+      const row = node('label','mijia-reading-choice'), check = node('input'); check.type='checkbox'; check.checked=selected.has(property);
+      const copy = node('span'), state = data.states.find(item => item.siid === property.siid && item.piid === property.piid);
+      copy.append(node('strong','',property.displayName || property.name),node('small','',property.service));
+      row.append(check,copy,node('span','mijia-reading-value',stateLabel(property,state)));
+      check.addEventListener('change',()=>{
+        if (check.checked && selected.size >= 4) {
+          check.checked=false; $('mijia-dialog-message').textContent='每张卡片最多 4 项，可另建卡片显示其他温区或读数'; return;
+        }
+        if (check.checked) selected.add(property); else selected.delete(property);
+        update();
+      });
+      measurements.append(row);
+    });
+    measurements.append(count); update();
+    const chosen = () => readings.filter(property => selected.has(property));
+    bindingTools(measurements,()=>makeReadingAction(device.home,device,chosen()),
+      ()=>bindingName(device.name,chosen().map(property => property.displayName || property.name).join(' / ')), '添加读数卡片');
+    measurements.append(node('p','hint','展开快捷栏时获取云端最近上报值。离线时仍会标明离线；没有上报数据的项目显示“暂无数据”。'));
+  } else measurements.append(node('p','hint','该设备的 MIOT 规格没有可显示的只读数据；不会用目标温度冒充当前温度。'));
+  body.append(measurements);
+  if (data.spec.properties.some(property => property.write || property.setpoint) || data.spec.actions.length)
+    body.append(node('h3','mijia-section-title','控制与设定'));
   data.spec.properties.forEach(property => {
-    if (!property.write) return;
+    if (!property.write && !property.setpoint) return;
     const card = node('section', 'mijia-property'), state = data.states.find(item => item.siid === property.siid && item.piid === property.piid);
-    card.append(node('small','hint',property.service), node('h3','',property.name), node('p','mijia-value',property.read ? stateLabel(property,state) : '只写属性'));
+    card.append(node('small','hint',property.service), node('h3','',property.displayName || property.name), node('p','mijia-value',property.read || property.notify ? stateLabel(property,state) : '只写属性'));
+    if (property.setpoint) card.append(node('p','hint','这是设定值，不是设备当前测量温度。'));
+    if (!property.write) { body.append(card); return; }
     if (property.format === 'bool' && !property.values?.length) {
       const choice = node('select'); choice.setAttribute('aria-label', property.name + '快捷菜单动作');
       choice.add(new Option('开启','true')); choice.add(new Option('关闭','false'));
@@ -219,11 +251,12 @@ function renderBindings() {
     })); host.append(row);
   });
 }
-export async function chooseMijia(onSelect) {
+export async function chooseMijia(onSelect, allowReadings = false) {
   try {
     await status(); const body = openDialog('选择米家动作');
-    if (!bindings.length) body.append(textBlock('还没有米家动作','到米家页选择设备或场景，点击“加入快捷菜单”。'));
-    bindings.forEach(entry => body.append(button(entry.name,()=>{onSelect(entry);closeDialog();},'mijia-choice')));
+    const choices = bindings.filter(entry => allowReadings || entry.kind !== 'read');
+    if (!choices.length) body.append(textBlock('还没有可选项目','到米家页添加设备或场景。读数卡片仅用于快捷栏显示，不能绑定手势控制。'));
+    choices.forEach(entry => body.append(button(entry.name + (entry.kind === 'read' ? ' · 只读' : ''),()=>{onSelect(entry);closeDialog();},'mijia-choice')));
   } catch (error) { message(error.message,true); $('tab-mijia').click(); }
 }
 function loginView(data) {

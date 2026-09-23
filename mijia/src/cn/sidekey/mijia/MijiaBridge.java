@@ -192,17 +192,23 @@ final class MijiaBridge implements AutoCloseable {
         if (op.equals("device")) {
             JSONObject device = device(http, auth, request), spec = specs.get(http, device.getString("model"));
             JSONArray states = new JSONArray(), properties = spec.getJSONArray("properties"), batch = new JSONArray();
+            String stateError = "";
             for (int i = 0; i < properties.length(); i++) {
                 JSONObject property = properties.getJSONObject(i);
-                if (property.optBoolean("read")) batch.put(Json.obj("did", device.getString("did"), "siid", property.getInt("siid"), "piid", property.getInt("piid")));
+                if (property.optBoolean("read") || property.optBoolean("notify")) batch.put(Json.obj("did", device.getString("did"), "siid", property.getInt("siid"), "piid", property.getInt("piid")));
                 if (batch.length() == 20 || (i == properties.length() - 1 && batch.length() > 0)) {
-                    JSONArray part = (JSONArray) cloud.call(http, auth, "/miotspec/prop/get", Json.obj("params", batch, "datasource", 1));
-                    for (int j = 0; j < part.length(); j++) { JSONObject value = part.getJSONObject(j);
-                        states.put(Json.obj("siid", value.get("siid"), "piid", value.get("piid"), "code", value.optInt("code", -1), "value", value.opt("value"))); }
+                    try {
+                        JSONArray part = (JSONArray) cloud.call(http, auth, "/miotspec/prop/get", Json.obj("params", batch, "datasource", 1));
+                        for (int j = 0; j < batch.length(); j++) {
+                            try { JSONObject value = matching(part, batch.getJSONObject(j));
+                                states.put(Json.obj("siid", value.get("siid"), "piid", value.get("piid"), "code", value.optInt("code", -1), "value", value.opt("value"))); }
+                            catch (Exception error) { stateError = "部分属性暂无上报数据，可先配置读数卡片"; }
+                        }
+                    } catch (Exception error) { stateError = "本次读数获取失败，可先配置卡片，展开快捷栏时会重新读取"; }
                     batch = new JSONArray();
                 }
             }
-            return Json.obj("ok", true, "device", device, "spec", spec, "states", states);
+            return Json.obj("ok", true, "device", device, "spec", spec, "states", states, "stateError", stateError);
         }
         if (op.equals("binding-save")) {
             JSONObject descriptor = normalize(http, auth, request.getJSONObject("action"));
@@ -210,7 +216,7 @@ final class MijiaBridge implements AutoCloseable {
             JSONObject all = store.read("bindings.json");
             if (all.length() >= 256) throw new Failure("LIMIT", "米家动作最多保存 256 项，请先移除不再使用的动作");
             all.put(id, Json.obj("name", name, "action", descriptor, "account", auth.get("userId"))); store.write("bindings.json", all);
-            return Json.obj("ok", true, "id", id, "name", name);
+            return Json.obj("ok", true, "id", id, "name", name, "kind", descriptor.getString("kind"));
         }
         if (op.equals("binding-delete")) {
             JSONObject all = store.read("bindings.json"); all.remove(Json.id(request, "id")); store.write("bindings.json", all); menuStates.clear(); return Json.obj("ok", true);
@@ -264,7 +270,7 @@ final class MijiaBridge implements AutoCloseable {
             JSONObject action = binding.getJSONObject("action");
             if ("scene".equals(action.optString("kind"))) { states.append('n'); continue; }
             boolean affected = refreshAll || (target != null && action.optString("did").equals(target.optString("did")));
-            states.append(affected ? '?' : '-');
+            states.append(affected ? ("read".equals(action.optString("kind")) ? 'q' : '?') : '-');
             if (affected) devices.put(id, Json.copy(action));
         }
         return new MenuRead(ids, devices, menuStates.create(key, account, ids.toString(), states.toString()));
@@ -274,20 +280,24 @@ final class MijiaBridge implements AutoCloseable {
         return action.optString("did") + ":" + action.optInt("siid") + ":" + action.optInt("piid");
     }
     private void readMenuProperties(MiHttp http, JSONObject auth, List<String> keys, Map<String, JSONObject> params,
-                                    Map<String, List<String>> groups, Map<String, Character> values) throws Exception {
+                                    Map<String, List<String>> groups, Map<String, Character> values,
+                                    Map<String, JSONObject> readings) throws Exception {
         for (int first = 0; first < keys.size(); first += 20) {
             http.check();
             int end = Math.min(first + 20, keys.size()); JSONArray batch = new JSONArray();
             for (int i = first; i < end; i++) batch.put(params.get(keys.get(i)));
-            JSONArray response = (JSONArray) cloud.call(http, auth, "/miotspec/prop/get", Json.obj("params", batch, "datasource", 1));
+            JSONArray response;
+            try { response = (JSONArray) cloud.call(http, auth, "/miotspec/prop/get", Json.obj("params", batch, "datasource", 1)); }
+            catch (Exception error) { store.debug("属性批次读取失败，数量=" + batch.length() + "，代码=" + Failure.json(error).optString("code")); continue; }
             http.check();
             for (int i = first; i < end; i++) {
                 String key = keys.get(i); char state = '?';
                 try {
-                    JSONObject actual = matching(response, params.get(key)); state = MenuStates.value(actual);
-                    if (state == '?') store.debug("属性读取未确认，返回码=" + actual.optInt("code", -1));
+                    JSONObject actual = matching(response, params.get(key)); readings.put(key, actual); state = MenuStates.value(actual);
+                    if (actual.optInt("code", -1) != 0) store.debug("属性读取失败 siid=" + params.get(key).optInt("siid") +
+                            "，piid=" + params.get(key).optInt("piid") + "，返回码=" + actual.optInt("code", -1));
                 } catch (Exception error) { store.debug("属性响应无效，代码=" + Failure.json(error).optString("code")); }
-                for (String id : groups.get(key)) values.put(id, state == '?' ? 'u' : state);
+                if (groups.containsKey(key)) for (String id : groups.get(key)) values.put(id, state == '?' ? 'u' : state);
             }
         }
     }
@@ -300,7 +310,9 @@ final class MijiaBridge implements AutoCloseable {
         char desired = Boolean.TRUE.equals(expected) ? '1' : '0';
         String trace = control == null ? "展开读取" : "任务 " + control.id.substring(0, 8) + " 操作后读取";
         Map<String, Character> values = new LinkedHashMap<>();
-        for (String id : devices.keySet()) values.put(id, '?');
+        Map<String, JSONObject> readings = new LinkedHashMap<>();
+        Map<String, List<JSONObject>> readingProperties = new LinkedHashMap<>();
+        for (String id : devices.keySet()) values.put(id, "read".equals(devices.get(id).optString("kind")) ? 'q' : '?');
         try (MiHttp http = new MiHttp(15000)) {
             requests.add(http);
             try {
@@ -310,14 +322,36 @@ final class MijiaBridge implements AutoCloseable {
                 if (!snapshot.account.equals(auth.getString("userId"))) throw new Failure("AUTH", "米家账号已更换");
                 Set<String> dids = new LinkedHashSet<>();
                 for (JSONObject action : devices.values()) dids.add(action.getString("did"));
-                Map<String, Boolean> online = cloud.online(http, auth, dids);
+                Map<String, Boolean> online = new LinkedHashMap<>();
+                try { online = cloud.online(http, auth, dids); }
+                catch (Exception error) { store.debug(trace + " 在线状态未确认，代码=" + Failure.json(error).optString("code")); }
                 int onlineCount = 0, offlineCount = 0;
                 for (Boolean state : online.values()) { if (state) onlineCount++; else offlineCount++; }
                 store.debug(trace + " 在线核对：设备=" + dids.size() + "，在线=" + onlineCount + "，离线=" + offlineCount);
                 Map<String, JSONObject> params = new LinkedHashMap<>(); Map<String, List<String>> groups = new LinkedHashMap<>();
+                Map<String, JSONObject> deviceSpecs = new LinkedHashMap<>();
                 for (Map.Entry<String, JSONObject> entry : devices.entrySet()) {
                     JSONObject action = entry.getValue();
                     Boolean connected = online.get(action.getString("did"));
+                    if ("read".equals(action.optString("kind"))) {
+                        // 低功耗设备可能离线但有云端上报值；读数与在线状态分开呈现，绝不据此开放控制。
+                        values.put(entry.getKey(), connected == null ? 'q' : connected ? 'r' : 's');
+                        try {
+                            String did = action.getString("did"); JSONObject spec = deviceSpecs.get(did);
+                            if (spec == null) { spec = specs.get(http, device(http, auth, action).getString("model")); deviceSpecs.put(did, spec); }
+                            List<JSONObject> list = new ArrayList<>(); JSONArray selected = action.getJSONArray("properties");
+                            if (selected.length() < 1 || selected.length() > ReadingValues.MAX_PROPERTIES) throw new Failure("VALUE", "读数数量无效");
+                            for (int p = 0; p < selected.length(); p++) {
+                                JSONObject item = selected.getJSONObject(p);
+                                JSONObject property = MiSpec.find(spec, Json.iid(item, "siid"), Json.iid(item, "piid"), false);
+                                if (!ReadingValues.eligible(property)) throw new Failure("READ_ONLY", "属性已不属于可显示的设备读数");
+                                list.add(property);
+                                params.put(ReadingValues.key(did, property), Json.obj("did", did, "siid", property.getInt("siid"), "piid", property.getInt("piid")));
+                            }
+                            readingProperties.put(entry.getKey(), list);
+                        } catch (Exception error) { store.debug("读数准备失败，代码=" + Failure.json(error).optString("code")); }
+                        continue;
+                    }
                     if (!Boolean.TRUE.equals(connected)) { values.put(entry.getKey(), Boolean.FALSE.equals(connected) ? 'o' : '?'); continue; }
                     boolean toggle = MenuStates.switchAction(action);
                     values.put(entry.getKey(), toggle ? 'u' : 'a');
@@ -331,7 +365,8 @@ final class MijiaBridge implements AutoCloseable {
                         groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(entry.getKey());
                     } catch (Exception error) { store.debug("属性准备失败，代码=" + Failure.json(error).optString("code")); }
                 }
-                readMenuProperties(http, auth, new ArrayList<>(params.keySet()), params, groups, values);
+                store.debug(trace + " 属性数量=" + params.size() + "，读数卡片=" + readingProperties.size());
+                readMenuProperties(http, auth, new ArrayList<>(params.keySet()), params, groups, values, readings);
                 if (targetKey != null && params.containsKey(targetKey)) {
                     for (int attempt = 0; ; attempt++) {
                         char actual = values.get(control.binding);
@@ -340,7 +375,7 @@ final class MijiaBridge implements AutoCloseable {
                         if (actual == desired || attempt == STATE_RECHECK_DELAYS_MS.length) break;
                         // 云端可能尚未收到设备的新状态；只复查目标属性，不重发控制，也不重复读取其他设备。
                         http.pause(STATE_RECHECK_DELAYS_MS[attempt]);
-                        readMenuProperties(http, auth, Collections.singletonList(targetKey), params, groups, values);
+                        readMenuProperties(http, auth, Collections.singletonList(targetKey), params, groups, values, readings);
                     }
                 }
             } finally { requests.remove(http); }
@@ -358,11 +393,14 @@ final class MijiaBridge implements AutoCloseable {
         try {
             boolean sameAccount = snapshot.account.equals(store.read("auth.json").optString("userId"));
             char[] result = snapshot.states.toCharArray();
+            String[] texts = new String[ids.length()];
             for (int i = 0; i < ids.length(); i++) {
-                Character value = values.get(ids.getString(i));
+                String id = ids.getString(i); Character value = values.get(id);
                 if (!sameAccount) result[i] = '?'; else if (value != null) result[i] = value;
+                if (sameAccount && readingProperties.containsKey(id))
+                    texts[i] = ReadingValues.card(devices.get(id).getString("did"), readingProperties.get(id), readings);
             }
-            menuStates.complete(snapshot, new String(result));
+            menuStates.complete(snapshot, new String(result), texts);
         } catch (Exception ignored) { menuStates.complete(snapshot, snapshot.states); }
         store.debug(trace + " 完成，耗时 " + ((System.nanoTime() - started) / 1000000) +
                 " ms，状态=" + snapshot.states);
@@ -386,8 +424,21 @@ final class MijiaBridge implements AutoCloseable {
             for (int i = 0; i < scenes.length(); i++) if (scenes.getJSONObject(i).getString("id").equals(id)) return Json.obj("kind", kind, "home", home, "scene", id);
             throw new Failure("SCENE", "找不到该手动场景，请刷新后重新选择");
         }
-        if (!Arrays.asList("set", "toggle", "action").contains(kind)) throw new Failure("INVALID", "设备操作无效");
+        if (!Arrays.asList("read", "set", "toggle", "action").contains(kind)) throw new Failure("INVALID", "设备操作无效");
         JSONObject device = device(http, auth, source), spec = specs.get(http, device.getString("model"));
+        if (kind.equals("read")) {
+            JSONArray selected = source.optJSONArray("properties"), normalized = new JSONArray(); Set<String> seen = new HashSet<>();
+            if (selected == null || selected.length() < 1 || selected.length() > ReadingValues.MAX_PROPERTIES)
+                throw new Failure("VALUE", "每张读数卡片请选择 1～4 项属性");
+            for (int i = 0; i < selected.length(); i++) {
+                JSONObject item = selected.getJSONObject(i); int siid = Json.iid(item, "siid"), piid = Json.iid(item, "piid");
+                JSONObject property = MiSpec.find(spec, siid, piid, false);
+                if (!ReadingValues.eligible(property)) throw new Failure("READ_ONLY", "请选择实际读数，设定值不能当作测量值");
+                if (!seen.add(siid + ":" + piid)) throw new Failure("VALUE", "不能重复选择同一读数");
+                normalized.put(Json.obj("siid", siid, "piid", piid));
+            }
+            return Json.obj("kind", "read", "home", home, "did", device.getString("did"), "properties", normalized);
+        }
         int siid = Json.iid(source, "siid"), iid = Json.iid(source, kind.equals("action") ? "aiid" : "piid");
         JSONObject property = MiSpec.find(spec, siid, iid, kind.equals("action"));
         JSONObject result = Json.obj("kind", kind, "home", home, "did", device.getString("did"), "siid", siid, kind.equals("action") ? "aiid" : "piid", iid);
@@ -417,6 +468,7 @@ final class MijiaBridge implements AutoCloseable {
     }
     private JSONObject run(MiHttp http, JSONObject auth, JSONObject descriptor, boolean menuControl) throws Exception {
         String kind = descriptor.getString("kind");
+        if (kind.equals("read")) throw new Failure("READ_ONLY", "读数卡片只用于显示数据，不执行控制");
         if (kind.equals("scene")) {
             JSONObject home = cloud.home(http, auth, descriptor.getString("home")); Object result;
             try { result = cloud.call(http, auth, "/appgateway/miot/appsceneservice/AppSceneService/NewRunScene", Json.obj("scene_id", descriptor.getString("scene"),
@@ -497,7 +549,8 @@ final class MijiaBridge implements AutoCloseable {
     private synchronized JSONArray bindings(JSONObject auth) throws Exception {
         JSONArray result = new JSONArray(); JSONObject saved = store.read("bindings.json"); Iterator<String> keys = saved.keys();
         while (keys.hasNext()) { String id = keys.next(); JSONObject item = saved.getJSONObject(id);
-            if (item.optString("account").equals(auth.optString("userId"))) result.put(Json.obj("id", id, "name", item.getString("name"))); }
+            if (item.optString("account").equals(auth.optString("userId"))) result.put(Json.obj("id", id, "name", item.getString("name"),
+                    "kind", item.getJSONObject("action").optString("kind"))); }
         return result;
     }
     private synchronized JSONObject publicLogin() throws Exception { return Json.copy(login); }

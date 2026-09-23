@@ -46,7 +46,7 @@ final class MiHttp implements AutoCloseable {
                 || host.equals("mijia.tech") || host.endsWith(".mijia.tech");
         if (!url.getProtocol().equals("https") || url.getUserInfo() != null
                 || (url.getPort() != -1 && url.getPort() != 443)
-                || !(xiaomi || host.equals("home.miot-spec.com")))
+                || !(xiaomi || host.equals("home.miot-spec.com") || host.equals("miot-spec.org")))
             throw new Failure("PROTOCOL", "服务返回了无法识别的地址");
         return url;
     }

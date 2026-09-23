@@ -25,11 +25,17 @@ export function propertyValue(property, raw) {
   return value;
 }
 export function stateLabel(property, state) {
-  if (!state || state.code !== 0 || state.value === undefined) return state ? `读取失败（${state.code}）` : '尚未读取';
+  if (!state || state.code !== 0 || state.value === undefined || state.value === null) return state && state.code !== 0 ? `暂无数据（${state.code}）` : '暂无数据';
   const choice = property.values?.find(item => item.value === state.value);
   if (choice) return choice.name;
   if (typeof state.value === 'boolean') return state.value ? '已开启' : '已关闭';
-  return String(state.value);
+  const value = typeof state.value === 'number' ? Number(state.value.toFixed(4)) : state.value;
+  return `${value}${property.displayUnit ? ' ' + property.displayUnit : ''}`;
+}
+export function makeReadingAction(home, device, properties) {
+  if (!properties.length || properties.length > 4) throw new Error('每张卡片请选择 1～4 项读数，可添加多张卡片');
+  if (properties.some(property => !property.reading)) throw new Error('请选择设备读数，不能使用设定值替代');
+  return {kind:'read', home, did:device.did, properties:properties.map(({siid,piid}) => ({siid,piid}))};
 }
 export function bindingName(device, action) {
   const text = `${device} · ${action}`;

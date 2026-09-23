@@ -16,9 +16,10 @@ static bool connecting, done = true, control, acknowledged;
 static uint64_t deadline, io_deadline, next_read, started;
 static char current_session[65], control_id[33], log_directory[700];
 static char ids[MIJIA_BINDING_CAP][33], states[MIJIA_BINDING_CAP];
+static char readings[MIJIA_BINDING_CAP][MIJIA_READING_HEX_CAP];
 static int16_t slots[MENU_CAP];
 static uint32_t total, item_count;
-static unsigned char request[9200], response[512];
+static unsigned char request[9200], response[MIJIA_REPLY_CAP];
 static size_t request_size, sent, received, expected;
 
 static void trace(const char *stage, uint64_t now)
@@ -70,6 +71,7 @@ void mijia_menu_reset(const MenuItem *items, uint32_t count, const char *session
 {
     failed(); total = item_count = 0; control = false; acknowledged = false; control_id[0] = 0; current_session[0] = 0; started = now;
     memset(states, '?', sizeof(states));
+    memset(readings, 0, sizeof(readings));
     if (!items || count > MENU_CAP || !session || strlen(session) != 64 || !directory || strlen(directory) >= sizeof(log_directory)) return;
     strcpy(current_session, session); strcpy(log_directory, directory);
     item_count = count;
@@ -153,7 +155,7 @@ void mijia_menu_tick(const char *directory, uint64_t now)
             expected = 4 + length; continue;
         }
         response[received] = 0;
-        int result = memchr(response + 4, 0, received - 4) ? -1 : mijia_state_reply((char *)response + 4, total, states);
+        int result = memchr(response + 4, 0, received - 4) ? -1 : mijia_status_reply((char *)response + 4, total, states, readings);
         if (result >= 0) acknowledged = true;
         mijia_menu_disconnect();
         if (result < 0) { trace("服务拒绝或响应无效，请查看米家服务日志", now); failed(); }
@@ -176,4 +178,9 @@ char mijia_menu_state(uint32_t index)
 {
     if (index >= item_count || slots[index] == -2) return '?';
     return slots[index] < 0 ? 'n' : states[slots[index]];
+}
+
+const char *mijia_menu_reading(uint32_t index)
+{
+    return index < item_count && slots[index] >= 0 ? readings[slots[index]] : "";
 }

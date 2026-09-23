@@ -58,6 +58,7 @@ public final class MenuActivity extends Activity {
         final String token;
         volatile int torchState = -1;
         volatile String mijiaStates;
+        volatile String[] mijiaReadings;
         volatile boolean pendingMijia;
         volatile int mijiaRevision;
         boolean mijiaOperating;
@@ -341,6 +342,7 @@ public final class MenuActivity extends Activity {
         final LinearLayout card;
         final TextView name;
         final TextView status;
+        final TextView readings;
         final SwitchGlyph control;
         boolean mijia;
         int index;
@@ -353,10 +355,13 @@ public final class MenuActivity extends Activity {
             labels.addView(name, new LinearLayout.LayoutParams(-1, -2));
             status = text("", 9, muted); status.setMaxLines(1); status.setEllipsize(TextUtils.TruncateAt.END);
             labels.addView(status, new LinearLayout.LayoutParams(-1, -2));
+            readings = text("", 12, foreground); readings.setLineSpacing(dp(3), 1f); readings.setVisibility(View.GONE);
+            LinearLayout.LayoutParams readingSize = new LinearLayout.LayoutParams(-1, -2); readingSize.topMargin = dp(6);
+            labels.addView(readings, readingSize);
             card.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
             control = new SwitchGlyph();
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(dp(32), dp(20)); size.leftMargin = dp(5);
-            card.addView(control, size); addView(card, new LinearLayout.LayoutParams(-1, dp(56)));
+            card.addView(control, size); card.setMinimumHeight(dp(56)); addView(card, new LinearLayout.LayoutParams(-1, -2));
         }
         void bind(JSONObject item) {
             name.setText(item.optString("name")); control.stateful = "torch".equals(item.optString("type"));
@@ -366,6 +371,14 @@ public final class MenuActivity extends Activity {
         }
         void updateState() {
             char value = session == null ? '?' : MijiaSwitchState.at(session.mijiaStates, index, session.pendingMijia);
+            boolean displayOnly = mijia && MijiaSwitchState.displayOnly(value);
+            control.setVisibility(displayOnly ? View.GONE : View.VISIBLE);
+            readings.setVisibility(displayOnly ? View.VISIBLE : View.GONE);
+            name.setMaxLines(displayOnly || !mijia ? 2 : 1);
+            String[] texts = session == null ? null : session.mijiaReadings;
+            String reading = texts != null && index >= 0 && index < texts.length ? texts[index] : null;
+            readings.setText(displayOnly ? (reading == null || reading.isEmpty() ? "暂无数据" : reading) : "");
+            readings.setTextColor(value == 's' || value == 'q' ? muted : foreground);
             control.power = mijia && MijiaSwitchState.power(value); control.powerState = value;
             control.state = session == null ? -1 : session.torchState;
             ViewGroup.LayoutParams size = control.getLayoutParams();
@@ -375,12 +388,12 @@ public final class MenuActivity extends Activity {
             if (mijia) {
                 String description = session != null && session.mijiaOperating && value == '~' ? "执行并刷新中" : MijiaSwitchState.description(value);
                 status.setText(value == '~' && session != null && session.mijiaOperating ? "操作中" : MijiaSwitchState.status(value));
-                card.setContentDescription(name.getText() + "，" + status.getText() + "，" + description);
+                card.setContentDescription(name.getText() + "，" + status.getText() + "，" + description + (displayOnly ? "，" + readings.getText() : ""));
                 card.setStateDescription(description);
             } else card.setStateDescription(null);
             boolean waiting = mijia && session != null && session.mijiaOperating;
             card.setEnabled(!waiting && (!mijia || MijiaSwitchState.enabled(value)));
-            card.setAlpha(mijia && !MijiaSwitchState.enabled(value) ? 0.60f : 1f);
+            card.setAlpha(mijia && !displayOnly && !MijiaSwitchState.enabled(value) ? 0.60f : 1f);
             control.invalidate();
         }
     }
@@ -559,14 +572,46 @@ public final class MenuActivity extends Activity {
     private static void readMijiaStates(Session current, int revision) {
         if (!current.pendingMijia || current.mijiaRevision != revision) return;
         String states = null;
+        String[] readings = null;
         try {
             states = MijiaSwitchState.decode(exchange(current, "STATES", 4096), current.itemCount);
+            if (states != null && states.indexOf('~') < 0) {
+                readings = new String[current.itemCount];
+                long deadline = android.os.SystemClock.elapsedRealtime() + 5000;
+                for (int offset = 0; offset < current.itemCount; offset += 16) {
+                    if (current.mijiaRevision != revision) return;
+                    int end = Math.min(offset + 16, current.itemCount); boolean needed = false;
+                    for (int i = offset; i < end; i++) if (MijiaSwitchState.displayOnly(states.charAt(i))) needed = true;
+                    if (!needed) continue;
+                    try {
+                        if (android.os.SystemClock.elapsedRealtime() >= deadline) throw new IllegalStateException("读数分页超时");
+                        String response = exchange(current, "READINGS " + offset, 16384);
+                        if (!response.startsWith("READINGS ")) throw new IllegalStateException("读数分页无效");
+                        String[] fields = response.substring(9).split("\\|", -1);
+                        if (fields.length != end - offset) throw new IllegalStateException("读数分页数量无效");
+                        for (int i = offset; i < end; i++) readings[i] = decodeReading(fields[i - offset]);
+                    } catch (Exception error) {
+                        for (int i = offset; i < end; i++) readings[i] = "本次读数获取失败";
+                    }
+                }
+            }
         } catch (Exception ignored) { }
         synchronized (current) {
             if (!current.pendingMijia || current.mijiaRevision != revision) return;
             current.mijiaStates = states == null ? MijiaSwitchState.failed(current.mijiaStates) : states;
+            if (readings != null) current.mijiaReadings = readings;
             current.pendingMijia = states != null && states.indexOf('~') >= 0;
         }
+    }
+
+    private static String decodeReading(String hex) throws Exception {
+        if (hex.length() > 768 || hex.length() % 2 != 0 || !hex.matches("[0-9a-f]*")) throw new IllegalStateException("读数长度或编码无效");
+        byte[] bytes = new byte[hex.length() / 2];
+        for (int i = 0; i < bytes.length; i++) bytes[i] = (byte)Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+        String value = StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+        for (int i = 0; i < value.length(); i++) if (Character.isISOControl(value.charAt(i)) && value.charAt(i) != '\n')
+            throw new IllegalStateException("读数包含无效控制符");
+        return value;
     }
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }

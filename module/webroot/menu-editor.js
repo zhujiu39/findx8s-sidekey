@@ -3,7 +3,7 @@ import {appCatalog, chooseApps} from './app-picker.js';
 import {menuAppName} from './app-catalog.js';
 import {isApp, applyAppSelection} from './app-selection.js';
 import {appIcon, releaseAppIcons} from './app-icons.js';
-import {chooseMijia, mijiaBindingLabel} from './mijia.js';
+import {chooseMijia, mijiaBindingLabel, mijiaBindingIsReading} from './mijia.js';
 const $ = id => document.getElementById(id);
 let entries = [], onChange = () => {}, isBusy = false;
 const element = (tag, className, text) => {
@@ -33,17 +33,20 @@ function render() {
   const configured=switches.filter(item=>item.type!=='none');
   renderSummary(apps,configured);
   $('menu-empty').hidden=apps.length + configured.length !== 0;
-  $('menu-count').textContent=apps.length + ' 个应用 · ' + configured.length + ' 个开关';
+  $('menu-count').textContent=apps.length + ' 个应用 · ' + configured.length + ' 个快捷项';
   switches.forEach((item,index)=>{
     const card=element('article','menu-item');
-    const heading=element('div','menu-item-heading'); heading.append(element('strong','','快捷开关 '+(index+1)),controls(item,switches)); card.append(heading);
-    const name=element('input',''); name.value=item.name; name.addEventListener('input',()=>{item.name=name.value;onChange();}); card.append(field('开关名称',name));
+    const reading=item.type==='mijia' && mijiaBindingIsReading(item.argument);
+    const heading=element('div','menu-item-heading'); heading.append(element('strong','',(reading ? '读数卡片 ' : '快捷开关 ')+(index+1)),controls(item,switches)); card.append(heading);
+    const name=element('input',''); name.value=item.name; name.addEventListener('input',()=>{item.name=name.value;onChange();}); card.append(field('显示名称',name));
     const action=element('select',''); actions.filter(([id])=>!['menu','app','app_freeform'].includes(id)).forEach(([id,label])=>action.add(new Option(label,id)));
-    action.value=item.type; card.append(field('开关动作',action));
+    action.value=item.type; card.append(field('项目类型',action));
     if (item.type==='mijia') {
       const choice=element('button','secondary',mijiaBindingLabel(item.argument));choice.type='button';
       choice.dataset.mijiaBinding=item.argument;
-      choice.addEventListener('click',()=>chooseMijia(entry=>{item.argument=entry.id;item.name=entry.name;changed();}));card.append(choice);
+      choice.addEventListener('click',()=>chooseMijia(entry=>{item.argument=entry.id;item.name=entry.name;changed();},true));card.append(choice);
+      const hint=element('p','hint','只读卡片：展开快捷栏时更新数值，不执行开关操作。');
+      hint.dataset.readingHint='';hint.hidden=!reading;card.append(hint);
     }
     const parameter=element('textarea',''); parameter.value=item.argument; parameter.rows=2;
     const parameterField=field('动作参数',parameter); parameterField.hidden=!['shell','keycode'].includes(item.type); card.append(parameterField);
@@ -67,13 +70,19 @@ function renderSummary(apps, switches) {
     const icon=appIcon(item.argument,label); icon.title=label; host.append(icon);
   });
   if (apps.length>6) host.append(element('span','shortcut-more','+'+(apps.length-6)));
-  $('shortcut-count').textContent=apps.length+' 个应用 · '+switches.length+' 个开关';
+  $('shortcut-count').textContent=apps.length+' 个应用 · '+switches.length+' 个快捷项';
   $('shortcut-empty').hidden=apps.length+switches.length!==0;
 }
 export function initMenuEditor(change) {
   onChange=change;
   document.addEventListener('sidekey-mijia-bindings',()=>{
-    $('menu-items').querySelectorAll('[data-mijia-binding]').forEach(item=>{item.textContent=mijiaBindingLabel(item.dataset.mijiaBinding);});
+    $('menu-items').querySelectorAll('[data-mijia-binding]').forEach(item=>{
+      item.textContent=mijiaBindingLabel(item.dataset.mijiaBinding);
+      const card=item.closest('.menu-item'), reading=mijiaBindingIsReading(item.dataset.mijiaBinding);
+      const heading=card.querySelector('.menu-item-heading > strong');
+      heading.textContent=heading.textContent.replace(/^(?:读数卡片|快捷开关)/,reading?'读数卡片':'快捷开关');
+      card.querySelector('[data-reading-hint]').hidden=!reading;
+    });
   });
   $('choose-menu-apps').addEventListener('click',()=>{
     if (isBusy) return;
@@ -134,7 +143,8 @@ function preview() {
   const switches=entries.filter(item=>!isApp(item)&&item.type!=='none');
   for(const item of switches) {
     const row=element('button','sidebar-switch');row.type='button';
-    row.append(element('span','',item.name),element('span','menu-switch-glyph',item.type==='torch'?'—':'›'));
+    const reading=item.type==='mijia' && mijiaBindingIsReading(item.argument);
+    row.append(element('span','',item.name),element('span','menu-switch-glyph',reading?'读数':item.type==='torch'?'—':'›'));
     $('menu-preview-switches').append(row);
   }
   const apps=entries.filter(isApp);
