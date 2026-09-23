@@ -116,6 +116,34 @@ class MiCloud {
         if (code != 0 || !result.has("result")) throw new Failure("CLOUD_" + code, "米家服务返回错误 " + code);
         return result.get("result");
     }
+    Map<String, Boolean> online(MiHttp http, JSONObject auth, Collection<String> dids) throws Exception {
+        List<String> unique = new ArrayList<>(new LinkedHashSet<>(dids));
+        Map<String, Boolean> states = new LinkedHashMap<>();
+        for (int first = 0; first < unique.size(); first += 150) {
+            List<String> batch = unique.subList(first, Math.min(first + 150, unique.size()));
+            String cursor = ""; boolean more = true;
+            for (int page = 0; more && page < 20; page++) {
+                http.check();
+                JSONObject params = Json.obj("dids", new JSONArray(batch), "limit", 200,
+                        "get_split_device", true, "get_third_device", true);
+                if (!cursor.isEmpty()) params.put("start_did", cursor);
+                JSONObject result = (JSONObject) call(http, auth, "/v2/home/device_list_page", params);
+                JSONArray list = result.getJSONArray("list");
+                for (int i = 0; i < list.length(); i++) {
+                    JSONObject device = list.getJSONObject(i); String did = device.optString("did");
+                    // 只采纳明确的在线标志；缺失或非法字段不能被当成离线或在线。
+                    if (batch.contains(did) && device.opt("isOnline") instanceof Boolean)
+                        states.put(did, (Boolean) device.get("isOnline"));
+                }
+                more = result.optBoolean("has_more", false);
+                String next = result.optString("next_start_did");
+                if (more && (next.isEmpty() || next.equals(cursor))) throw new Failure("PROTOCOL", "在线状态分页未推进");
+                cursor = next;
+            }
+            if (more) throw new Failure("LIMIT", "在线状态超出读取范围");
+        }
+        return states;
+    }
     JSONArray homes(MiHttp http, JSONObject auth) throws Exception {
         JSONObject result = (JSONObject) call(http, auth, "/v2/homeroom/gethome_merged",
                 Json.obj("fg", true, "fetch_share", true, "fetch_share_dev", true, "fetch_cariot", true, "limit", 300, "app_ver", 7, "plat_form", 0));

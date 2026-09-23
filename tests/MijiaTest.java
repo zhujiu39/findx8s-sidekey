@@ -29,15 +29,28 @@ public final class MijiaTest {
         int blockAtRead;
         List<Object> afterWriteReads = Collections.emptyList();
         final Queue<Object> delayedReads = new ArrayDeque<>();
+        final List<String> availabilityQueries = new ArrayList<>(), propertyQueries = new ArrayList<>();
+        final Map<String, Boolean> availability = new HashMap<>();
+        boolean availabilityFailure, omitAvailability; Object otherActual = true;
         FakeCloud(PrivateStore store) { super(store); }
         @Override JSONObject authenticated(MiHttp h) throws Exception { return Json.obj("userId", account); }
         @Override JSONArray homes(MiHttp h, JSONObject a) throws Exception { return new JSONArray().put(home(h, a, "1")); }
         @Override JSONObject home(MiHttp h, JSONObject a, String id) throws Exception { return Json.obj("id", "1", "uid", 10001, "name", "fixture"); }
         @Override JSONObject catalog(MiHttp h, JSONObject a, String id) throws Exception {
-            return Json.obj("devices", new JSONArray().put(Json.obj("did", "2", "home", "1", "model", "test.light.fixture", "online", true)),
+            return Json.obj("devices", new JSONArray().put(Json.obj("did", "2", "home", "1", "model", "test.light.fixture", "online", true))
+                    .put(Json.obj("did", "4", "home", "1", "model", "test.light.fixture", "online", true)),
                     "scenes", new JSONArray().put(Json.obj("id", "3", "name", "fixture", "home", "1")), "owner", 10001, "sceneError", "");
         }
         @Override Object call(MiHttp h, JSONObject a, String uri, JSONObject data) throws Exception {
+            if (uri.equals("/v2/home/device_list_page")) {
+                JSONArray dids = data.getJSONArray("dids"), list = new JSONArray();
+                for (int i = 0; i < dids.length(); i++) {
+                    String did = dids.getString(i); availabilityQueries.add(did);
+                    if (!omitAvailability) list.put(Json.obj("did", did, "isOnline", availability.getOrDefault(did, !offline)));
+                }
+                if (availabilityFailure) throw new java.io.IOException("synthetic credential=DO_NOT_PRINT");
+                return Json.obj("list", list);
+            }
             if (uri.endsWith("NewRunScene")) { scenes++; if (sceneTurnsOn) actual = true; return true; }
             if (uri.equals("/miotspec/action")) { actions++; return Json.obj("code", actionCode); }
             JSONArray params = data.getJSONArray("params"), result = new JSONArray();
@@ -52,8 +65,9 @@ public final class MijiaTest {
                     if (offlineAfterWrite) offline = true;
                 } else {
                     reads++;
+                    propertyQueries.add(param.getString("did"));
                     if (reads == blockAtRead) { readEntered.countDown(); if (!releaseRead.await(2, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("blocked read timeout"); }
-                    Object reported = delayedReads.isEmpty() ? actual : delayedReads.remove();
+                    Object reported = param.getString("did").equals("4") ? otherActual : delayedReads.isEmpty() ? actual : delayedReads.remove();
                     item.put("code", offline || !(reported instanceof Boolean) ? -704042011 : 0).put("value", reported);
                 }
                 result.put(item);
@@ -132,11 +146,11 @@ public final class MijiaTest {
         check(bridge.handle(Json.obj("op", "status")).getJSONObject("last").optString("code").equals("UNKNOWN"), "ambiguous write remains explicit in result log");
         cloud.applyThenDisconnect = false; cloud.offlineAfterWrite = true;
         JSONObject offline = Json.copy(control).put("requestId", MiCloud.randomId()); bridge.handle(offline);
-        check(menuResult(bridge, offline).equals("D??n"), "only real read failure produces unknown state");
+        check(menuResult(bridge, offline).equals("Doon"), "device disconnecting after control displays offline");
         cloud.offlineAfterWrite = cloud.offline = false;
         cloud.actual = false; cloud.writeCode = 1;
         JSONObject accepted = Json.copy(control).put("requestId", MiCloud.randomId()); bridge.handle(accepted);
-        check(menuResult(bridge, accepted).equals("D??n"), "persistent contrary readback never displays stale off as final state");
+        check(menuResult(bridge, accepted).equals("Duun"), "persistent contrary readback is online with unknown power state");
         check(bridge.handle(Json.obj("op", "status")).getJSONObject("last").optString("state").equals("accepted"), "unchanged readback is not confirmation");
         cloud.writeCode = 0;
         rejects(() -> bridge.handle(Json.copy(control).put("id", visible.getString(2))), "SESSION");
@@ -182,7 +196,7 @@ public final class MijiaTest {
         check(menuResult(bridge, recovered).equals("D11n"), "temporarily unavailable state can recover during confirmation");
         cloud.writeCode = 1; reads = cloud.reads; writes = cloud.writes;
         JSONObject unconfirmed = Json.copy(off).put("requestId", MiCloud.randomId()); bridge.handle(unconfirmed);
-        check(menuResult(bridge, unconfirmed).equals("D??n"), "unconfirmed stale state is masked for distinct aliases of the same property");
+        check(menuResult(bridge, unconfirmed).equals("Duun"), "unconfirmed stale state is masked for distinct aliases of the same property");
         check(cloud.reads == reads + 6 && cloud.writes == writes + 1, "confirmation has exactly one initial read and at most four rechecks");
         check(bridge.handle(Json.obj("op", "status")).getJSONObject("last").optString("code").equals("STATE_UNCONFIRMED"), "failure to converge is explicit in diagnostics");
         cloud.writeCode = 0;
@@ -234,12 +248,12 @@ public final class MijiaTest {
         cloud.writeCode = -704083036; cloud.applyDespiteCode = false;
         writes = cloud.writes; reads = cloud.reads;
         JSONObject unresolved = Json.copy(base).put("requestId", MiCloud.randomId()); bridge.handle(unresolved);
-        check(menuResult(bridge, unresolved).equals("D??n"), "device timeout with unchanged readback remains uncertain for every alias");
+        check(menuResult(bridge, unresolved).equals("Duun"), "device timeout with unchanged readback remains uncertain for every alias");
         check(cloud.writes == writes + 1 && cloud.reads == reads + 6, "timeout has at most five post-reads and one write");
         last = bridge.handle(Json.obj("op", "status")).getJSONObject("last");
         check(last.optString("state").equals("unknown") && last.optString("code").equals("DEVICE_-704083036"), "unresolved timeout is unknown and never overwritten by generic convergence error");
         check(!last.optString("message").contains("已接收") && !last.optString("message").contains("拒绝"), "timeout never claims acceptance or definite rejection");
-        check(menuResult(bridge, unresolved).equals("D??n") && cloud.writes == writes + 1 && cloud.reads == reads + 6, "local result queries do not retry timed-out control or cloud reads");
+        check(menuResult(bridge, unresolved).equals("Duun") && cloud.writes == writes + 1 && cloud.reads == reads + 6, "local result queries do not retry timed-out control or cloud reads");
 
         cloud.writeCode = 0; cloud.applyThenDisconnect = true; cloud.afterWriteReads = Arrays.<Object>asList(false, false);
         writes = cloud.writes;
@@ -265,6 +279,87 @@ public final class MijiaTest {
         String log = new String(Files.readAllBytes(store.root.resolve("debug.log")), java.nio.charset.StandardCharsets.UTF_8);
         check(log.contains("当前=0") && log.contains("siid=2，piid=1，操作=toggle，目标=1") && log.contains("结果=设备操作超时"), "diagnostics identify pre-state, intended switch value and timeout phase");
         check(!log.contains("DO_NOT_PRINT") && !log.contains("SYNTHETIC_TEST_ONLY") && !log.contains(alias.getString("id")), "timeout diagnostics remain redacted");
+    }
+    static void deviceAvailability(MijiaBridge bridge, FakeCloud cloud, JSONArray visible) throws Exception {
+        JSONObject other = await(bridge, Json.obj("op", "binding-save", "name", "fixture other device", "action",
+                Json.obj("kind", "toggle", "home", "1", "did", "4", "siid", 2, "piid", 1)));
+        JSONObject deviceAction = Json.obj("kind", "action", "home", "1", "did", "2", "siid", 2, "aiid", 1, "values", new JSONArray());
+        JSONObject action = await(bridge, Json.obj("op", "binding-save", "name", "fixture device action", "action", deviceAction));
+        JSONArray ids = new JSONArray().put(visible.getString(0)).put(visible.getString(0)).put(other.getString("id"))
+                .put(action.getString("id")).put(visible.getString(2));
+        String token = MiCloud.randomId() + MiCloud.randomId();
+        cloud.actual = cloud.otherActual = true; cloud.availabilityQueries.clear(); cloud.propertyQueries.clear();
+        check(menu(bridge, token, ids).equals("D111an"), "menu distinguishes online switches, device actions and scenes");
+        check(cloud.availabilityQueries.equals(Arrays.asList("2", "4")), "opening batches unique visible devices once");
+        check(cloud.propertyQueries.equals(Arrays.asList("2", "4")), "opening reads each unique online property once");
+
+        cloud.availability.put("2", false); cloud.availabilityQueries.clear(); cloud.propertyQueries.clear();
+        check(menu(bridge, MiCloud.randomId() + MiCloud.randomId(), ids).equals("Doo1on"), "offline dominates a retained true property and a stale online catalog");
+        check(cloud.propertyQueries.equals(Collections.singletonList("4")), "offline device properties are never read as current state");
+        int writes = cloud.writes, actions = cloud.actions, reads = cloud.reads;
+        for (JSONObject descriptor : Arrays.asList(
+                Json.obj("kind", "toggle", "home", "1", "did", "2", "siid", 2, "piid", 1),
+                Json.obj("kind", "set", "value", false, "home", "1", "did", "2", "siid", 2, "piid", 1), deviceAction)) {
+            JSONObject result = await(bridge, Json.obj("op", "run", "action", descriptor));
+            check(!result.optBoolean("ok") && result.optString("code").equals("OFFLINE"), "backend rejects offline control even outside menu");
+        }
+        check(cloud.writes == writes && cloud.actions == actions && cloud.reads == reads, "offline sends no property control, action or toggle pre-read");
+        JSONObject base = Json.obj("op", "menu-control", "session", token, "ids", ids, "id", visible.getString(0));
+        JSONObject offline = Json.copy(base).put("requestId", MiCloud.randomId());
+        cloud.availabilityQueries.clear(); cloud.propertyQueries.clear(); bridge.handle(offline);
+        check(menuResult(bridge, offline).equals("Doo-on"), "disconnect since menu opening refreshes only selected device and its aliases");
+        check(cloud.writes == writes && cloud.propertyQueries.isEmpty() && !cloud.availabilityQueries.contains("4"), "backend guard prevents sending after device goes offline");
+
+        cloud.availability.put("2", true); cloud.otherActual = false;
+        cloud.availabilityQueries.clear(); cloud.propertyQueries.clear();
+        JSONObject off = Json.copy(base).put("requestId", MiCloud.randomId()); bridge.handle(off);
+        check(menuResult(bridge, off).equals("D00-an"), "device control returns a delta and retains unrelated device state");
+        check(cloud.availabilityQueries.equals(Arrays.asList("2", "2")), "only target availability checked before and after operation");
+        check(cloud.propertyQueries.equals(Arrays.asList("2", "2")), "only target property is read before and after toggle");
+        int availabilityReads = cloud.availabilityQueries.size(); reads = cloud.reads;
+        for (int i = 0; i < 3; i++) menuResult(bridge, off);
+        check(cloud.availabilityQueries.size() == availabilityReads && cloud.reads == reads, "idle polling never rereads availability or properties");
+        check(menu(bridge, MiCloud.randomId() + MiCloud.randomId(), ids).equals("D000an"), "reopening recovers online controls and refreshes all visible devices");
+
+        writes = cloud.writes;
+        cloud.availabilityFailure = true; cloud.propertyQueries.clear();
+        JSONObject failed = Json.copy(base).put("requestId", MiCloud.randomId()); bridge.handle(failed);
+        check(menuResult(bridge, failed).equals("D??-?n") && cloud.writes == writes && cloud.propertyQueries.isEmpty(), "network failure stays unknown, preserves unrelated devices and never sends control");
+        cloud.availabilityFailure = false; cloud.omitAvailability = true;
+        JSONObject missing = Json.copy(base).put("requestId", MiCloud.randomId()); bridge.handle(missing);
+        check(menuResult(bridge, missing).equals("D??-?n") && cloud.writes == writes, "missing device info cannot fabricate online or offline state");
+        cloud.omitAvailability = false; cloud.availability.clear();
+    }
+    static void onlineProtocol(PrivateStore store) throws Exception {
+        final List<Integer> batchSizes = new ArrayList<>();
+        MiCloud cloud = new MiCloud(store) {
+            @Override Object call(MiHttp http, JSONObject auth, String uri, JSONObject data) throws Exception {
+                check(uri.equals("/v2/home/device_list_page"), "availability uses device info endpoint");
+                JSONArray dids = data.getJSONArray("dids"), list = new JSONArray(); batchSizes.add(dids.length());
+                for (int i = 0; i < dids.length(); i++) {
+                    String did = dids.getString(i);
+                    JSONObject item = Json.obj("did", did);
+                    if (did.equals("1")) item.put("isOnline", "false");
+                    else if (!did.equals("2")) item.put("isOnline", !did.equals("0"));
+                    list.put(item);
+                }
+                list.put(Json.obj("did", "unrequested", "isOnline", true));
+                return Json.obj("list", list);
+            }
+        };
+        List<String> dids = new ArrayList<>(); for (int i = 0; i < 151; i++) dids.add(String.valueOf(i)); dids.add("0");
+        try (MiHttp http = new MiHttp(1000)) {
+            Map<String, Boolean> states = cloud.online(http, new JSONObject(), dids);
+            check(batchSizes.equals(Arrays.asList(150, 1)), "availability deduplicates and bounds batches");
+            check(Boolean.FALSE.equals(states.get("0")) && Boolean.TRUE.equals(states.get("150")), "explicit online/offline values preserved");
+            check(!states.containsKey("1") && !states.containsKey("2") && !states.containsKey("unrequested"), "invalid, missing and unsolicited flags excluded");
+        }
+        MiCloud stuck = new MiCloud(store) {
+            @Override Object call(MiHttp http, JSONObject auth, String uri, JSONObject data) throws Exception {
+                return Json.obj("list", new JSONArray(), "has_more", true, "next_start_did", "3");
+            }
+        };
+        try (MiHttp http = new MiHttp(1000)) { rejects(() -> stuck.online(http, new JSONObject(), Collections.singleton("2")), "PROTOCOL"); }
     }
     public static void main(String[] args) throws Exception {
         JSONObject roomHome=Json.obj("roomlist",new JSONArray()
@@ -309,6 +404,7 @@ public final class MijiaTest {
         Path folder=Files.createTempDirectory("sidekey-mijia-test-");
         try {
             PrivateStore store=new PrivateStore(folder);
+            onlineProtocol(store);
             JSONObject spec=Json.obj("schema",1,"time",System.currentTimeMillis(),"properties",new JSONArray().put(property).put(level),
                     "actions",new JSONArray().put(Json.obj("siid",2,"aiid",1,"in",new JSONArray())));
             store.write("spec-test.light.fixture.json",spec);
@@ -334,7 +430,7 @@ public final class MijiaTest {
                 check(menu(bridge,tokenA,visible).equals("D11n") && cloud.reads==readsBefore+1,"same menu session never rereads cloud");
                 check(menu(bridge,tokenB,visible).equals("D00n") && cloud.reads==readsBefore+2,"new menu session fetches current off state once");
                 cloud.offline=true;
-                check(menu(bridge,tokenC,visible).equals("D??n"),"offline switch is unknown, never off");cloud.offline=false;
+                check(menu(bridge,tokenC,visible).equals("Doon"),"offline switch is distinct from power off or unknown");cloud.offline=false;
                 rejects(()->bridge.handle(Json.obj("op","menu-states","session",tokenA,"ids",new JSONArray().put(sceneBinding.getString("id")))),"SESSION");
                 result=await(bridge,Json.obj("op","trigger","id",binding.getString("id")));check(result.optBoolean("ok"),"binding executes");
                 cloud.account="other";result=await(bridge,Json.obj("op","trigger","id",binding.getString("id")));check(result.optString("code").equals("BINDING"),"account binding isolation");cloud.account="10001";
@@ -344,6 +440,7 @@ public final class MijiaTest {
                 menuControls(bridge, cloud, store, tokenA, visible);
                 delayedMenuState(bridge, cloud, store, tokenA, visible);
                 uncertainMenuState(bridge, cloud, store, tokenA, visible);
+                deviceAvailability(bridge, cloud, visible);
                 result=await(bridge,Json.obj("op","logout"));check(result.optBoolean("ok") && !Files.exists(folder.resolve("auth.json")) && !Files.exists(folder.resolve("bindings.json")),"logout erases private auth");
             }
             JSONObject redacted=Failure.json(new java.io.IOException("token=SECRET"));check(!redacted.toString().contains("SECRET"),"exception redaction");

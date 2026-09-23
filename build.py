@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.1.0-test.8'
-VERSION_CODE = 108
+VERSION = '1.1.0-test.9'
+VERSION_CODE = 109
 
 
 def run(arguments):
@@ -69,7 +69,7 @@ def validate_elf(path):
     LOG.append(f'通过：ARM64 静态 ELF、无动态解释器、16 KB 段对齐；{len(data)} 字节。')
 
 
-def build_torch():
+def build_torch(tests=False):
     sdk = ROOT / 'tools/android'
     def find(pattern):
         matches = sorted(sdk.glob(pattern))
@@ -86,14 +86,15 @@ def build_torch():
     import tempfile
     with tempfile.TemporaryDirectory(prefix='classes-', dir=classes) as temporary:
         sources = sorted((ROOT / 'android').rglob('*.java'))
+        if tests:
+            sources += [ROOT / 'tests' / name for name in ['TorchControllerTest.java', 'AppCatalogModelTest.java', 'ZoomControllerTest.java', 'LogTransferTest.java']]
         run([javac, '-J-Dfile.encoding=UTF-8', '-J-Dstdout.encoding=UTF-8', '-J-Dstderr.encoding=UTF-8',
              '--release', '8', '-Xlint:-options', '-encoding', 'UTF-8', '-classpath', android_jar,
-             '-d', temporary, *sources, ROOT / 'tests/TorchControllerTest.java', ROOT / 'tests/AppCatalogModelTest.java', ROOT / 'tests/ZoomControllerTest.java', ROOT / 'tests/LogTransferTest.java'])
+             '-d', temporary, *sources])
         java_options = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8']
-        run([java, *java_options, '-cp', temporary, 'TorchControllerTest'])
-        run([java, *java_options, '-cp', temporary, 'AppCatalogModelTest'])
-        run([java, *java_options, '-cp', temporary, 'ZoomControllerTest'])
-        run([java, *java_options, '-cp', temporary, 'LogTransferTest'])
+        if tests:
+            for name in ['TorchControllerTest', 'AppCatalogModelTest', 'ZoomControllerTest', 'LogTransferTest']:
+                run([java, *java_options, '-cp', temporary, name])
         output = MODULE / 'lib/torch.jar'
         output.parent.mkdir(exist_ok=True)
         run([java, *java_options, '-cp', d8, 'com.android.tools.r8.D8', '--release', '--min-api', '33',
@@ -103,10 +104,10 @@ def build_torch():
         data = jar.read('classes.dex')
         if not data.startswith(b'dex\n') or jar.testzip() is not None:
             raise RuntimeError('手电筒 DEX 校验失败')
-        LOG.append(f'通过：Android API 35 编译、纯 Java 状态测试、D8 DEX 校验；DEX {len(data)} 字节。')
+        LOG.append(f'通过：Android API 35 编译、D8 DEX 校验；DEX {len(data)} 字节。')
 
 
-def build_menu():
+def build_menu(tests=False):
     import secrets
     import tempfile
     sdk = ROOT / 'tools/android'
@@ -137,11 +138,14 @@ def build_menu():
              '--min-sdk-version', '35', '--target-sdk-version', '35', '-o', unsigned, resources])
         classes, dex = temporary / 'classes', temporary / 'dex'
         classes.mkdir(); dex.mkdir()
+        sources = [*sorted((ROOT / 'companion/src').rglob('*.java')), ROOT / 'android/cn/sidekey/LogTransfer.java']
+        if tests:
+            sources += [ROOT / 'tests' / name for name in ['MenuGeometryTest.java', 'AppGridGeometryTest.java', 'MenuSwitchStateTest.java']]
         run([javac, '-J-Dfile.encoding=UTF-8', '-J-Dstdout.encoding=UTF-8', '-J-Dstderr.encoding=UTF-8', '--release', '8', '-Xlint:deprecation,-options', '-Werror', '-encoding', 'UTF-8', '-classpath', android_jar,
-             '-d', classes, *sorted((ROOT / 'companion/src').rglob('*.java')), ROOT / 'android/cn/sidekey/LogTransfer.java', ROOT / 'tests/MenuGeometryTest.java', ROOT / 'tests/AppGridGeometryTest.java', ROOT / 'tests/MenuSwitchStateTest.java'])
-        run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'MenuGeometryTest'])
-        run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'AppGridGeometryTest'])
-        run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'MenuSwitchStateTest'])
+             '-d', classes, *sources])
+        if tests:
+            for name in ['MenuGeometryTest', 'AppGridGeometryTest', 'MenuSwitchStateTest']:
+                run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, name])
         run([java, '-cp', d8, 'com.android.tools.r8.D8', '--release', '--min-api', '34',
              '--lib', android_jar, '--output', dex, *sorted((classes / 'cn').rglob('*.class'))])
         with zipfile.ZipFile(unsigned, 'a', zipfile.ZIP_DEFLATED) as apk:
@@ -166,6 +170,7 @@ def build_menu():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--bootstrap', action='store_true')
+    parser.add_argument('--test', action='store_true', help='显式运行自动测试；默认只编译打包')
     args = parser.parse_args()
     BUILD.mkdir(exist_ok=True)
     (MODULE / 'bin').mkdir(exist_ok=True)
@@ -177,46 +182,49 @@ def main():
     run([zig, 'cc', '-target', 'aarch64-linux-musl', '-static', '-O2', *common,
          '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', 'native/torch.c', 'native/haptic.c', 'native/menu.c', 'native/menu_protocol.c', 'native/menu_launch.c', 'native/mijia_menu.c', 'native/mijia_state_protocol.c', *sources, '-o', MODULE / 'bin/sidekey'])
     validate_elf(MODULE / 'bin/sidekey')
-    build_torch()
-    build_menu()
+    build_torch(args.test)
+    build_menu(args.test)
     from build_mijia import build as build_mijia
-    build_mijia(run)
-    test_binary = BUILD / ('native_tests.exe' if os.name == 'nt' else 'native_tests')
-    run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', 'native/menu_protocol.c', 'native/menu_launch.c', 'native/mijia_state_protocol.c', *sources, '-o', test_binary])
-    run([test_binary])
-    run([sys.executable, 'tests/config_scale_test.py', test_binary])
-    run([sys.executable, 'tests/menu_layout_test.py', test_binary])
-    node = shutil.which('node')
-    if not node:
-        raise RuntimeError('未找到 Node.js，无法执行 WebUI 测试')
-    run([node, '--test', *sorted((ROOT / 'tests').glob('*.test.js'))])
-    fixture = run([node, '--input-type=module', '-e',
-        "import {defaultConfig,serialize} from './module/webroot/model.js';"
-        "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu_width=280;c.menu_gap=24;c.menu=[{slot:3,name:'设置',icon:'⚙️',type:'app_freeform',argument:'com.android.settings'},{slot:10,name:'灯光',icon:'',type:'torch',argument:''},{slot:11,name:'米家台灯',icon:'',type:'mijia',argument:'0123456789abcdef0123456789abcdef'}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
-        "process.stdout.write(serialize(c));"])
-    fixture_path = BUILD / 'config-fixture.conf'
-    fixture_path.write_bytes(fixture.encode('utf-8'))
-    with tempfile.TemporaryDirectory(prefix='config-', dir=BUILD) as config_directory:
-        decoded = json.loads(run([test_binary, fixture_path, config_directory]))
-    if decoded['actions'][2]['argument'] != "printf '%s' '你好'\necho test":
-        raise RuntimeError('前后端配置往返验证失败')
-    if decoded['actions'][0]['type'] != 'torch':
-        raise RuntimeError('手电筒动作配置往返验证失败')
-    if decoded['haptic'] is not False:
-        raise RuntimeError('震动开关配置往返验证失败')
-    if decoded['menu'][0]['slot'] != 3 or decoded['menu'][1]['slot'] != 10 or decoded['menu'][0]['type'] != 'app_freeform' or decoded['menu'][0]['name'] != '设置' or decoded['menu'][0]['icon'] != '⚙️' or decoded['actions'][1]['type'] != 'menu':
-        raise RuntimeError('菜单 UTF-8 配置往返验证失败')
-    if decoded['menu'][2]['type'] != 'mijia' or decoded['menu'][2]['argument'] != '0123456789abcdef0123456789abcdef':
-        raise RuntimeError('米家动作编号跨语言配置往返失败')
-    if decoded['menu_width'] != 280 or decoded['menu_gap'] != 24:
-        raise RuntimeError('快捷栏宽度与间距配置往返验证失败')
-    LOG.append('通过：WebUI → C 配置解析 → JSON，尺寸、中文、引号、换行保持一致。')
-    bash = (r'C:\Program Files\Git\bin\bash.exe' if os.name == 'nt' and Path(r'C:\Program Files\Git\bin\bash.exe').exists() else shutil.which('bash'))
-    if not bash or not Path(bash).exists():
-        raise RuntimeError('未找到 Bash，无法执行 Shell 语法检查')
-    run([sys.executable, 'tests/menu_install_test.py', bash])
-    run([sys.executable, 'tests/app_launch_test.py', bash])
-    run([sys.executable, 'tests/log_export_test.py', bash])
+    build_mijia(run, tests=args.test)
+    if args.test:
+        test_binary = BUILD / ('native_tests.exe' if os.name == 'nt' else 'native_tests')
+        run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', 'native/menu_protocol.c', 'native/menu_launch.c', 'native/mijia_state_protocol.c', *sources, '-o', test_binary])
+        run([test_binary])
+        run([sys.executable, 'tests/config_scale_test.py', test_binary])
+        run([sys.executable, 'tests/menu_layout_test.py', test_binary])
+        node = shutil.which('node')
+        if not node:
+            raise RuntimeError('未找到 Node.js，无法执行 WebUI 测试')
+        run([node, '--test', *sorted((ROOT / 'tests').glob('*.test.js'))])
+        fixture = run([node, '--input-type=module', '-e',
+            "import {defaultConfig,serialize} from './module/webroot/model.js';"
+            "const c=defaultConfig();c.enabled=true;c.haptic=false;c.menu_side='left';c.menu_width=280;c.menu_gap=24;c.menu=[{slot:3,name:'设置',icon:'⚙️',type:'app_freeform',argument:'com.android.settings'},{slot:10,name:'灯光',icon:'',type:'torch',argument:''},{slot:11,name:'米家台灯',icon:'',type:'mijia',argument:'0123456789abcdef0123456789abcdef'}];c.actions[1]={type:'menu',argument:''};c.actions[0]={type:'torch',argument:''};c.actions[2]={type:'shell',argument:\"printf '%s' '你好'\\necho test\"};"
+            "process.stdout.write(serialize(c));"])
+        fixture_path = BUILD / 'config-fixture.conf'
+        fixture_path.write_bytes(fixture.encode('utf-8'))
+        with tempfile.TemporaryDirectory(prefix='config-', dir=BUILD) as config_directory:
+            decoded = json.loads(run([test_binary, fixture_path, config_directory]))
+        if decoded['actions'][2]['argument'] != "printf '%s' '你好'\necho test":
+            raise RuntimeError('前后端配置往返验证失败')
+        if decoded['actions'][0]['type'] != 'torch':
+            raise RuntimeError('手电筒动作配置往返验证失败')
+        if decoded['haptic'] is not False:
+            raise RuntimeError('震动开关配置往返验证失败')
+        if decoded['menu'][0]['slot'] != 3 or decoded['menu'][1]['slot'] != 10 or decoded['menu'][0]['type'] != 'app_freeform' or decoded['menu'][0]['name'] != '设置' or decoded['menu'][0]['icon'] != '⚙️' or decoded['actions'][1]['type'] != 'menu':
+            raise RuntimeError('菜单 UTF-8 配置往返验证失败')
+        if decoded['menu'][2]['type'] != 'mijia' or decoded['menu'][2]['argument'] != '0123456789abcdef0123456789abcdef':
+            raise RuntimeError('米家动作编号跨语言配置往返失败')
+        if decoded['menu_width'] != 280 or decoded['menu_gap'] != 24:
+            raise RuntimeError('快捷栏宽度与间距配置往返验证失败')
+        LOG.append('通过：WebUI → C 配置解析 → JSON，尺寸、中文、引号、换行保持一致。')
+        bash = (r'C:\Program Files\Git\bin\bash.exe' if os.name == 'nt' and Path(r'C:\Program Files\Git\bin\bash.exe').exists() else shutil.which('bash'))
+        if not bash or not Path(bash).exists():
+            raise RuntimeError('未找到 Bash，无法执行 Shell 语法检查')
+        run([sys.executable, 'tests/menu_install_test.py', bash])
+        run([sys.executable, 'tests/app_launch_test.py', bash])
+        run([sys.executable, 'tests/log_export_test.py', bash])
+    else:
+        LOG.append("未运行自动测试或界面测试；本次仅编译、签名和打包，交由用户实机验证。")
     files = sorted(path for path in MODULE.rglob('*') if path.is_file())
     required = {'module.prop', 'skip_mount', 'customize.sh', 'service.sh', 'action.sh',
                 'uninstall.sh', 'scripts/control.sh', 'scripts/app-launch.sh', 'bin/sidekey', 'lib/torch.jar', 'lib/sidekey-menu.apk', 'scripts/menu-install.sh', 'webroot/index.html',
@@ -230,13 +238,13 @@ def main():
             data.decode('utf-8')
             if b'\r' in data or data.startswith(b'\xef\xbb\xbf'):
                 raise RuntimeError(f'{path.name} 必须为 UTF-8 无 BOM、LF 换行')
-        if path.suffix == '.sh':
+        if args.test and path.suffix == '.sh':
             run([bash, '-n', path])
-        if path.suffix == '.js':
+        if args.test and path.suffix == '.js':
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_开发遗留清理')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_米家离线禁用与单设备刷新')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -256,7 +264,7 @@ def main():
                 raise RuntimeError('模块 ZIP 与源码不一致')
     LOG.append('通过：ZIP 根目录、完整性、权限标志及文件内容校验。')
     with zipfile.ZipFile(delivery / '源码与测试.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-        paths = [ROOT / name for name in ['README.md', 'CHANGELOG.md', 'LICENSE', 'build.py', 'build_mijia.py', 'bootstrap_android.py', 'package.json', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md']]
+        paths = [ROOT / name for name in ['AGENTS.md', 'README.md', 'CHANGELOG.md', 'LICENSE', 'build.py', 'build_mijia.py', 'bootstrap_android.py', 'package.json', '.gitignore', '.gitattributes', 'THIRD_PARTY_NOTICES.md']]
         paths += [path for directory in ['native', 'android', 'companion', 'mijia', 'tests', 'module', 'diagnostics', 'docs'] for path in (ROOT / directory).rglob('*') if path.is_file()]
         for path in sorted(paths):
             archive.write(path, path.relative_to(ROOT).as_posix())
@@ -266,12 +274,13 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 本地测试包\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '本次清理失效样式、旧应用数量限制及未使用的米家分发分支，精简说明文档与交付文案。'
-        '保留快捷菜单布局、两套 WebUI、米家状态核对及完整日志功能。\n\n'
+        '米家设备标题第二行显示在线/离线，离线禁用控制；不再把缓存中的开启值显示为在线状态。'
+        '操作后只更新当前设备及其在快捷栏内的绑定，其他设备保持原显示。\n\n'
         f'安装文件：test_oppo_sidekey_v{VERSION}.zip。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
-        '构建入口：python build.py。C、Java、JavaScript、脚本、APK 签名与 ZIP 校验结果见“构建日志.txt”；'
-        '测试范围及真机验收步骤见“验证记录.md”。本包未进行手机实测，米家云端和设备响应仍需实际环境验证。\n\n'
+        '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'
+        + ('本次运行自动测试。' if args.test else '按项目要求，本次未运行自动测试或界面测试，由用户实机验证。') +
+        '米家在线状态以云端返回为准，状态上报延迟仍取决于设备与云服务。\n\n'
         '“源码与测试.zip”提供完整项目；模块内 lib/mijia-source.zip 提供 GPL 米家服务对应源码，无需单独安装。'
         '使用方法见“使用说明.md”，文件校验值见 SHA256SUMS.txt。\n\n'
         '本包仅供本地测试，未发布。\n',

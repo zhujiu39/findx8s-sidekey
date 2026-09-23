@@ -241,15 +241,12 @@ public final class MenuActivity extends Activity {
         final Session current = session;
         if (current == null) return;
         final boolean mijia = "mijia".equals(type);
-        if (mijia && current.mijiaOperating) return;
+        if (mijia && (current.mijiaOperating || !MijiaSwitchState.enabled(
+                MijiaSwitchState.at(current.mijiaStates, index, current.pendingMijia)))) return;
         if (mijia) {
             synchronized (current) {
                 current.mijiaRevision++; current.pendingMijia = true; current.mijiaOperating = true;
-                if (current.mijiaStates != null) {
-                    char[] states = current.mijiaStates.toCharArray();
-                    for (int i = 0; i < states.length; i++) if (states[i] != 'n' || i == index) states[i] = '~';
-                    current.mijiaStates = new String(states);
-                }
+                current.mijiaStates = MijiaSwitchState.pending(current.mijiaStates, index);
             }
             updateSwitches();
         }
@@ -364,23 +361,26 @@ public final class MenuActivity extends Activity {
         void bind(JSONObject item) {
             name.setText(item.optString("name")); control.stateful = "torch".equals(item.optString("type"));
             mijia = "mijia".equals(item.optString("type")); index = item.optInt("index", -1);
+            name.setMaxLines(mijia ? 1 : 2);
             card.setContentDescription(name.getText()); bindSelection(card, item); updateState();
         }
         void updateState() {
             char value = session == null ? '?' : MijiaSwitchState.at(session.mijiaStates, index, session.pendingMijia);
-            control.power = mijia && value != 'n'; control.powerState = value;
+            control.power = mijia && MijiaSwitchState.power(value); control.powerState = value;
             control.state = session == null ? -1 : session.torchState;
             ViewGroup.LayoutParams size = control.getLayoutParams();
             int height = dp(control.power ? 32 : 20);
             if (size.height != height) { size.height = height; control.setLayoutParams(size); }
-            status.setVisibility(control.power && value != '0' && value != '1' ? View.VISIBLE : View.GONE);
+            status.setVisibility(mijia ? View.VISIBLE : View.GONE);
             if (mijia) {
                 String description = session != null && session.mijiaOperating && value == '~' ? "执行并刷新中" : MijiaSwitchState.description(value);
-                status.setText(description); card.setContentDescription(name.getText() + "，" + description);
+                status.setText(value == '~' && session != null && session.mijiaOperating ? "操作中" : MijiaSwitchState.status(value));
+                card.setContentDescription(name.getText() + "，" + status.getText() + "，" + description);
                 card.setStateDescription(description);
             } else card.setStateDescription(null);
             boolean waiting = mijia && session != null && session.mijiaOperating;
-            card.setEnabled(!waiting); card.setAlpha(waiting ? 0.72f : 1f);
+            card.setEnabled(!waiting && (!mijia || MijiaSwitchState.enabled(value)));
+            card.setAlpha(mijia && !MijiaSwitchState.enabled(value) ? 0.60f : 1f);
             control.invalidate();
         }
     }
@@ -408,7 +408,7 @@ public final class MenuActivity extends Activity {
                     paint.setStyle(Paint.Style.FILL);
                 } else {
                     paint.setTextAlign(Paint.Align.CENTER); paint.setTextSize(dp(powerState == '~' ? 14 : 17));
-                    canvas.drawText(powerState == '~' ? "···" : "?", cx, cy - (paint.ascent() + paint.descent()) / 2, paint);
+                    canvas.drawText(powerState == '~' ? "···" : powerState == 'o' ? "—" : "?", cx, cy - (paint.ascent() + paint.descent()) / 2, paint);
                 }
                 return;
             }
@@ -564,7 +564,7 @@ public final class MenuActivity extends Activity {
         } catch (Exception ignored) { }
         synchronized (current) {
             if (!current.pendingMijia || current.mijiaRevision != revision) return;
-            current.mijiaStates = states;
+            current.mijiaStates = states == null ? MijiaSwitchState.failed(current.mijiaStates) : states;
             current.pendingMijia = states != null && states.indexOf('~') >= 0;
         }
     }

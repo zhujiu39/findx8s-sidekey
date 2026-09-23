@@ -30,10 +30,10 @@ final class MijiaBridge implements AutoCloseable {
     }
     private static final class MenuRead {
         final JSONArray ids;
-        final Map<String, JSONObject> switches;
+        final Map<String, JSONObject> devices;
         final MenuStates.Snapshot snapshot;
-        MenuRead(JSONArray ids, Map<String, JSONObject> switches, MenuStates.Snapshot snapshot) {
-            this.ids = ids; this.switches = switches; this.snapshot = snapshot;
+        MenuRead(JSONArray ids, Map<String, JSONObject> devices, MenuStates.Snapshot snapshot) {
+            this.ids = ids; this.devices = devices; this.snapshot = snapshot;
         }
     }
     MijiaBridge(PrivateStore store) throws Exception {
@@ -102,7 +102,7 @@ final class MijiaBridge implements AutoCloseable {
             JSONArray ids = menuIds(request); boolean visible = false;
             for (int i = 0; i < ids.length(); i++) if (ids.getString(i).equals(job.binding)) visible = true;
             if (!visible) throw new Failure("BINDING", "该动作不在本次快捷栏中");
-            job.menu = prepareMenuRead(job.menuSession + "-" + id, ids);
+            job.menu = prepareMenuRead(job.menuSession + "-" + id, ids, job.binding);
             copy.put("op", "trigger");
         }
         if (op.equals("login-start")) login = Json.obj("state", "preparing", "message", "正在生成二维码");
@@ -244,25 +244,30 @@ final class MijiaBridge implements AutoCloseable {
         String account = auth.has("serviceToken") ? auth.optString("userId") : "";
         MenuStates.Snapshot previous = menuStates.find(session, account, ids.toString());
         if (previous != null) return Json.obj("states", menuStates.wire(previous));
-        MenuRead read = prepareMenuRead(session, ids);
-        if (read.switches.isEmpty()) menuStates.complete(read.snapshot, read.snapshot.states);
+        MenuRead read = prepareMenuRead(session, ids, null);
+        if (read.devices.isEmpty()) menuStates.complete(read.snapshot, read.snapshot.states);
         else try { worker.execute(() -> refreshMenuStates(read, null)); }
         catch (RejectedExecutionException error) { menuStates.complete(read.snapshot, read.snapshot.states); store.debug("展开读取：任务队列已满"); }
         return Json.obj("states", menuStates.wire(read.snapshot));
     }
-    private MenuRead prepareMenuRead(String key, JSONArray ids) throws Exception {
+    private MenuRead prepareMenuRead(String key, JSONArray ids, String selected) throws Exception {
         JSONObject auth = store.read("auth.json"), all = store.read("bindings.json");
         String account = auth.has("serviceToken") ? auth.optString("userId") : "";
-        StringBuilder states = new StringBuilder(); Map<String, JSONObject> switches = new LinkedHashMap<>();
+        JSONObject chosen = selected == null ? null : all.optJSONObject(selected);
+        JSONObject target = chosen == null || !account.equals(chosen.optString("account")) ? null : chosen.optJSONObject("action");
+        boolean refreshAll = selected == null || (target != null && "scene".equals(target.optString("kind")));
+        StringBuilder states = new StringBuilder(); Map<String, JSONObject> devices = new LinkedHashMap<>();
         for (int i = 0; i < ids.length(); i++) {
             String id = ids.getString(i);
             JSONObject binding = all.optJSONObject(id);
             if (account.isEmpty() || binding == null || !account.equals(binding.optString("account"))) { states.append('?'); continue; }
             JSONObject action = binding.getJSONObject("action");
-            states.append(MenuStates.switchAction(action) ? '?' : 'n');
-            if (MenuStates.switchAction(action)) switches.put(id, Json.copy(action));
+            if ("scene".equals(action.optString("kind"))) { states.append('n'); continue; }
+            boolean affected = refreshAll || (target != null && action.optString("did").equals(target.optString("did")));
+            states.append(affected ? '?' : '-');
+            if (affected) devices.put(id, Json.copy(action));
         }
-        return new MenuRead(ids, switches, menuStates.create(key, account, ids.toString(), states.toString()));
+        return new MenuRead(ids, devices, menuStates.create(key, account, ids.toString(), states.toString()));
     }
 
     private static String propertyKey(JSONObject action) {
@@ -282,20 +287,20 @@ final class MijiaBridge implements AutoCloseable {
                     JSONObject actual = matching(response, params.get(key)); state = MenuStates.value(actual);
                     if (state == '?') store.debug("属性读取未确认，返回码=" + actual.optInt("code", -1));
                 } catch (Exception error) { store.debug("属性响应无效，代码=" + Failure.json(error).optString("code")); }
-                for (String id : groups.get(key)) values.put(id, state);
+                for (String id : groups.get(key)) values.put(id, state == '?' ? 'u' : state);
             }
         }
     }
     private void refreshMenuStates(MenuRead read, Job control) {
-        MenuStates.Snapshot snapshot = read.snapshot; JSONArray ids = read.ids; Map<String, JSONObject> switches = read.switches;
+        MenuStates.Snapshot snapshot = read.snapshot; JSONArray ids = read.ids; Map<String, JSONObject> devices = read.devices;
         long started = System.nanoTime();
         Object expected = control == null ? null : control.result.opt("expected");
-        JSONObject target = expected instanceof Boolean ? switches.get(control.binding) : null;
+        JSONObject target = expected instanceof Boolean ? devices.get(control.binding) : null;
         String targetKey = target == null ? null : propertyKey(target);
         char desired = Boolean.TRUE.equals(expected) ? '1' : '0';
         String trace = control == null ? "展开读取" : "任务 " + control.id.substring(0, 8) + " 操作后读取";
         Map<String, Character> values = new LinkedHashMap<>();
-        for (String id : switches.keySet()) values.put(id, '?');
+        for (String id : devices.keySet()) values.put(id, '?');
         try (MiHttp http = new MiHttp(15000)) {
             requests.add(http);
             try {
@@ -303,13 +308,24 @@ final class MijiaBridge implements AutoCloseable {
                 if (control == null && System.nanoTime() - snapshot.created > 10000000000L) throw new Failure("EXPIRED", "快捷栏状态读取排队超时");
                 JSONObject auth = cloud.authenticated(http);
                 if (!snapshot.account.equals(auth.getString("userId"))) throw new Failure("AUTH", "米家账号已更换");
+                Set<String> dids = new LinkedHashSet<>();
+                for (JSONObject action : devices.values()) dids.add(action.getString("did"));
+                Map<String, Boolean> online = cloud.online(http, auth, dids);
+                int onlineCount = 0, offlineCount = 0;
+                for (Boolean state : online.values()) { if (state) onlineCount++; else offlineCount++; }
+                store.debug(trace + " 在线核对：设备=" + dids.size() + "，在线=" + onlineCount + "，离线=" + offlineCount);
                 Map<String, JSONObject> params = new LinkedHashMap<>(); Map<String, List<String>> groups = new LinkedHashMap<>();
-                for (Map.Entry<String, JSONObject> entry : switches.entrySet()) {
+                for (Map.Entry<String, JSONObject> entry : devices.entrySet()) {
                     JSONObject action = entry.getValue();
+                    Boolean connected = online.get(action.getString("did"));
+                    if (!Boolean.TRUE.equals(connected)) { values.put(entry.getKey(), Boolean.FALSE.equals(connected) ? 'o' : '?'); continue; }
+                    boolean toggle = MenuStates.switchAction(action);
+                    values.put(entry.getKey(), toggle ? 'u' : 'a');
+                    if (!toggle) continue;
                     try {
                         JSONObject device = device(http, auth, action);
                         JSONObject property = MiSpec.find(specs.get(http, device.getString("model")), action.getInt("siid"), action.getInt("piid"), false);
-                        if (!property.optBoolean("read") || !property.optString("format").equals("bool")) { values.put(entry.getKey(), 'n'); continue; }
+                        if (!property.optBoolean("read") || !property.optString("format").equals("bool")) { values.put(entry.getKey(), 'a'); continue; }
                         String key = propertyKey(action);
                         params.put(key, Json.obj("did", action.getString("did"), "siid", action.getInt("siid"), "piid", action.getInt("piid")));
                         groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(entry.getKey());
@@ -334,9 +350,9 @@ final class MijiaBridge implements AutoCloseable {
         }
         if (targetKey != null && !Character.valueOf(desired).equals(values.get(control.binding))) {
             // 未确认时不能把可能滞后的相反值当成确定状态；同一属性的不同绑定也必须保持一致。
-            for (Map.Entry<String, JSONObject> entry : switches.entrySet())
-                if (targetKey.equals(propertyKey(entry.getValue())) && !Character.valueOf('n').equals(values.get(entry.getKey())))
-                    values.put(entry.getKey(), '?');
+            for (Map.Entry<String, JSONObject> entry : devices.entrySet())
+                if (targetKey.equals(propertyKey(entry.getValue())) && "01u".indexOf(values.get(entry.getKey())) >= 0)
+                    values.put(entry.getKey(), 'u');
             store.debug(trace + " 未达到目标状态，保留未确认标记");
         }
         try {
@@ -409,6 +425,12 @@ final class MijiaBridge implements AutoCloseable {
             if (Boolean.FALSE.equals(result) || (result instanceof JSONObject && ((JSONObject) result).optInt("code", 0) != 0)) throw new Failure("SCENE", "米家拒绝执行该场景");
             return Json.obj("ok", true, "state", "accepted", "message", "米家已受理场景，请以设备实际状态为准");
         }
+        long checkedAt = System.nanoTime();
+        Boolean online = cloud.online(http, auth, Collections.singleton(descriptor.getString("did"))).get(descriptor.getString("did"));
+        store.debug("控制前在线核对 " + ((System.nanoTime() - checkedAt) / 1000000) + " ms，状态=" +
+                (online == null ? "未知" : online ? "在线" : "离线"));
+        if (Boolean.FALSE.equals(online)) throw new Failure("OFFLINE", "设备离线，未发送控制指令");
+        if (online == null) throw new Failure("AVAILABILITY_UNKNOWN", "无法确认设备在线，未发送控制指令，请重新打开快捷栏");
         JSONObject param = Json.obj("did", descriptor.getString("did"), "siid", descriptor.getInt("siid"));
         if (kind.equals("action")) {
             param.put("aiid", descriptor.getInt("aiid")); param.put("in", descriptor.getJSONArray("values"));

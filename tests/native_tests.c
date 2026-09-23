@@ -233,7 +233,14 @@ int main(int argc, char **argv)
     assert(mijia_state_reply("{\"states\":\"P\"}", 2, state_reply) == 0);
     assert(mijia_state_reply("{\"states\":\"D01\"}", 2, state_reply) == 1);
     assert(state_reply[0] == '0' && state_reply[1] == '1');
+    assert(mijia_state_reply("{\"states\":\"Do-\"}", 2, state_reply) == 1);
+    assert(state_reply[0] == 'o' && state_reply[1] == '1');
+    assert(mijia_state_reply("{\"states\":\"D-u\"}", 2, state_reply) == 1);
+    assert(state_reply[0] == 'o' && state_reply[1] == 'u');
+    assert(mijia_state_reply("{\"states\":\"Dan\"}", 2, state_reply) == 1);
+    assert(state_reply[0] == 'a' && state_reply[1] == 'n');
     assert(mijia_state_reply("{\"states\":\"D0x\"}", 2, state_reply) == -1);
+    assert(state_reply[0] == 'a' && state_reply[1] == 'n');
     assert(mijia_state_reply("{\"states\":\"D0\"}", 2, state_reply) == -1);
     const char ids[2][33] = {"0123456789abcdef0123456789abcdef", "abcdef0123456789abcdef0123456789"};
     FILE *state_output = tmpfile(); assert(state_output);

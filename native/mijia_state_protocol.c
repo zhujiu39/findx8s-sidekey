@@ -46,6 +46,7 @@ int mijia_state_reply(const char *json, uint32_t count, char *states)
     const char *prefix = "{\"states\":\"D";
     size_t start = strlen(prefix);
     if (strlen(json) != start + count + 2 || strncmp(json, prefix, start) ||
-        strcmp(json + start + count, "\"}") || strspn(json + start, "01?n") != count) return -1;
-    memcpy(states, json + start, count); return 1;
+        strcmp(json + start + count, "\"}") || strspn(json + start, "01?noau-") != count) return -1;
+    for (uint32_t i = 0; i < count; i++) if (json[start + i] != '-') states[i] = json[start + i];
+    return 1;
 }

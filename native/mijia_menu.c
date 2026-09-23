@@ -56,7 +56,7 @@ void mijia_menu_disconnect(void)
 static void failed(void)
 {
     mijia_menu_disconnect(); done = true;
-    memset(states, '?', sizeof(states));
+    for (uint32_t i = 0; i < total; i++) if (states[i] == '~') states[i] = '?';
 }
 
 /**
@@ -69,6 +69,7 @@ static void failed(void)
 void mijia_menu_reset(const MenuItem *items, uint32_t count, const char *session, const char *directory, uint64_t now)
 {
     failed(); total = item_count = 0; control = false; acknowledged = false; control_id[0] = 0; current_session[0] = 0; started = now;
+    memset(states, '?', sizeof(states));
     if (!items || count > MENU_CAP || !session || strlen(session) != 64 || !directory || strlen(directory) >= sizeof(log_directory)) return;
     strcpy(current_session, session); strcpy(log_directory, directory);
     item_count = count;
@@ -96,13 +97,13 @@ void mijia_menu_reset(const MenuItem *items, uint32_t count, const char *session
 
 bool mijia_menu_select(uint32_t index, const char *request_id, uint64_t now)
 {
-    if ((!done && control) || index >= item_count || slots[index] < 0 || !request_id || strlen(request_id) != 32) return false;
+    if (!done || index >= item_count || slots[index] < 0 || !request_id || strlen(request_id) != 32) return false;
+    if (!strchr("01uan", states[slots[index]])) return false;
     FILE *out = fmemopen(request + 4, sizeof(request) - 4, "w");
     if (!out) return false;
     if (!finish_request(out, mijia_control_request(out, current_session, ids, total, ids[slots[index]], request_id))) return false;
     mijia_menu_disconnect(); strcpy(control_id, request_id); control = true; acknowledged = false; done = false; started = now;
-    for (uint32_t i = 0; i < total; i++) if (states[i] != 'n') states[i] = '~';
-    /* 纯场景也必须让 UI 等待执行结果，否则连续点击会重复触发场景。 */
+    /* 只让所选项等待；其他设备维持颜色，服务返回后按设备合并更新。 */
     states[slots[index]] = '~';
     deadline = now + 55000; next_read = now; trace("直接提交到常驻服务", now); return true;
 }
