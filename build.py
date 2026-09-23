@@ -20,8 +20,10 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.1.0-test.9'
-VERSION_CODE = 109
+VERSION = '1.1.0'
+VERSION_CODE = 110
+PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
+EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
 
 def run(arguments):
@@ -244,9 +246,9 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_米家离线禁用与单设备刷新')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_米家适配')
     delivery.mkdir(parents=True, exist_ok=False)
-    package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
+    package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
         for path in files:
             name = path.relative_to(MODULE).as_posix()
@@ -272,18 +274,18 @@ def main():
     shutil.copyfile(ROOT / 'diagnostics/模块本地验证.md', delivery / '验证记录.md')
     (delivery / '构建日志.txt').write_text('\n'.join(LOG), encoding='utf-8')
     (delivery / '交付说明.md').write_text(
-        f'# 侧键自定义 v{VERSION} 本地测试包\n\n'
+        f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '米家设备标题第二行显示在线/离线，离线禁用控制；不再把缓存中的开启值显示为在线状态。'
-        '操作后只更新当前设备及其在快捷栏内的绑定，其他设备保持原显示。\n\n'
-        f'安装文件：test_oppo_sidekey_v{VERSION}.zip。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
+        '完成米家扫码登录、设备与手动场景适配，支持快捷菜单控制、在线/离线显示与离线禁用。'
+        '操作后只刷新当前设备，另提供两套 WebUI 样式、日志复制和完整文件导出。参考作者与项目见使用说明的致谢。\n\n'
+        f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'
         + ('本次运行自动测试。' if args.test else '按项目要求，本次未运行自动测试或界面测试，由用户实机验证。') +
         '米家在线状态以云端返回为准，状态上报延迟仍取决于设备与云服务。\n\n'
         '“源码与测试.zip”提供完整项目；模块内 lib/mijia-source.zip 提供 GPL 米家服务对应源码，无需单独安装。'
         '使用方法见“使用说明.md”，文件校验值见 SHA256SUMS.txt。\n\n'
-        '本包仅供本地测试，未发布。\n',
+        f'交付类型：{EDITION}。构建脚本不自动发布，正式下载以 GitHub Release 为准。\n',
         encoding='utf-8')
     sums = '\n'.join(f'{sha256(p.read_bytes()).hexdigest()}  {p.name}' for p in sorted(delivery.iterdir()) if p.is_file())
     (delivery / 'SHA256SUMS.txt').write_text(sums + '\n', encoding='utf-8')

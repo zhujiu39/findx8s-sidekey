@@ -2,7 +2,7 @@
 
 此目录是独立运行的 GPL-3.0-or-later 组件，通过仅 Root 可访问的本地 Unix socket 与侧键模块通信。WebUI 和监听器不加载本目录的类。`module/lib/mijia.jar` 与 `module/lib/mijia-source.zip` 一起分发；后者提供本组件完整对应源码、构建脚本及测试。其余项目文件继续遵循根目录 MIT 许可，各组件权利以文件标记和第三方声明为准。
 
-接口、扫码登录流程及规格解析移植自 [Do1e/mijia-api](https://github.com/Do1e/mijia-api)，版本 4.2.1，固定参考提交 `353363f79ea6f368461dc77c6de22d6f85623990`，原项目作者 Do1e 及其贡献者。修改日期：2026-09-22。移植范围：`apis.py` 的扫码、登录刷新、家庭/设备/场景和 MIOT 请求，`devices.py` 的规格提取，`miutils.py` 的请求签名与 RC4-drop1024。使用 Java/Android 内置网络与 JSON API，不打包 Python 解释器。原始 `miutils.py` 标记的 micloud/Sammy Svensson MIT 版权声明另行保留。
+接口、扫码登录流程及规格解析移植自 [Do1e/mijia-api](https://github.com/Do1e/mijia-api)，版本 4.2.1，固定参考提交 `353363f79ea6f368461dc77c6de22d6f85623990`，原项目作者 Do1e 及其贡献者。修改日期：2026-09-23。移植范围：`apis.py` 的扫码、登录刷新、家庭/设备/场景和 MIOT 请求，`devices.py` 的规格提取，`miutils.py` 的请求签名与 RC4-drop1024。使用 Java/Android 内置网络与 JSON API，不打包 Python 解释器。原始 `miutils.py` 标记的 micloud/Sammy Svensson MIT 版权声明另行保留。
 
 修改包括：独立 Android 进程、私有凭据存储、本地 IPC、请求队列、明确超时、响应大小限制、日志脱敏、属性类型/步长验证、写后读回、账号隔离和自动生成绑定编号。没有移植上游 MCP、CLI、账号密码登录或整个 Python 运行时。
 
@@ -39,4 +39,4 @@
 
 完整许可见 `module/LICENSES/mijia-GPL-3.0.txt` 与 `module/LICENSES/micloud-MIT.txt`。
 
-回退到尚不支持米家的旧版模块前，应先在本测试版移除所有米家手势和快捷栏绑定并保存，避免旧版无法识别新动作类型。
+回退到尚不支持米家的旧版模块前，应先移除所有米家手势和快捷栏绑定并保存，避免旧版无法识别新动作类型。

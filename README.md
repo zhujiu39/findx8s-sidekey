@@ -5,13 +5,13 @@
 ### 一颗侧键，三种手势，按你的习惯工作。
 
 为 **OPPO Find X8s** 开发的 KernelSU 侧键自定义模块。<br>
-配置短按、双击和长按，打开常用应用、切换手电筒，或唤出自己的侧边快捷菜单。
+配置短按、双击和长按，打开常用应用、切换手电筒，或从侧边快捷菜单控制米家设备。
 
-[![Version](https://img.shields.io/badge/version-v1.0.0-2d6a4f)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-v1.1.0-2d6a4f)](https://github.com/zhujiu39/findx8s-sidekey/releases/tag/v1.1.0)
 [![Device](https://img.shields.io/badge/device-OPPO%20Find%20X8s-2d6a4f)](#compatibility)
 [![Android](https://img.shields.io/badge/Android-15-3DDC84?logo=android&logoColor=white)](#compatibility)
 [![KernelSU](https://img.shields.io/badge/Root-KernelSU-1565C0)](https://kernelsu.org/)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT%20%2B%20GPL--3.0-blue)](THIRD_PARTY_NOTICES.md)
 
 [下载模块](https://github.com/zhujiu39/findx8s-sidekey/releases/latest) ·
 [快速开始](#quick-start) · [支持的动作](#actions) · [常见问题](#faq) ·
@@ -19,11 +19,11 @@
 
 </div>
 
-> 下载 **[release_oppo_sidekey_v1.0.0.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v1.0.0/release_oppo_sidekey_v1.0.0.zip)**，在 KernelSU 中安装并重启。GitHub 自动生成的 **Source code** 压缩包不能直接安装。
+> 下载 **[release_oppo_sidekey_v1.1.0.zip](https://github.com/zhujiu39/findx8s-sidekey/releases/download/v1.1.0/release_oppo_sidekey_v1.1.0.zip)**，在 KernelSU 中安装并重启。GitHub 自动生成的 **Source code** 压缩包不能直接安装。
 
 ## ✨ 功能
 
-**v1.1.0 测试版**包含下述米家功能与两套 WebUI；公开下载仍为 v1.0.0。
+**v1.1.0 正式版已完成米家适配**：扫码登录后，可将设备开关、属性、动作和手动场景加入侧边快捷菜单；支持在线／离线显示、离线禁用与操作后状态刷新。同时带来两套 WebUI 样式和完整日志导出。
 
 | 功能 | 说明 |
 | --- | --- |
@@ -36,7 +36,9 @@
 | 触发震动 | 动作触发时轻震一次，可关闭 |
 | 离线 WebUI | 设置保存在本机，无需联网，可查看运行状态与日志 |
 | 两套界面样式 | 墨白极简 / 石墨工具箱，随时切换并记住选择，深浅色跟随系统 |
-| 米家（测试） | 扫码登录、家庭与设备、MIOT 属性/动作、手动场景，并绑定到侧键或快捷栏；需要联网 |
+| 米家设备与场景 | 扫码登录、家庭与设备、MIOT 属性/动作、手动场景，并绑定到侧键或快捷栏；需要联网 |
+| 米家状态显示 | 在线／离线、开关状态、离线禁用；操作后只刷新当前设备 |
+| 完整日志导出 | 一键复制日志，或通过系统另存为选择文件位置 |
 
 <a id="compatibility"></a>
 
@@ -91,7 +93,7 @@
 
 样式仅影响 WebUI 设置页面，侧键唤出的快捷菜单保持原有外观。切换样式不会清空未保存的配置；手势、应用和布局修改仍需点击 **保存设置**。
 
-### 连接米家（v1.1.0 测试版）
+### 连接米家
 
 1. 打开 **米家 → 登录米家 → 生成登录二维码**，使用米家 App 扫一扫授权。本机可截图，再从扫一扫的相册中识别。
 2. 选择家庭，在房间分组中点击设备，选择系统规格支持的开关、亮度、模式等动作；也可以选择米家手动场景。
@@ -194,8 +196,18 @@ Shell 以 Root 身份执行，单次最长 **10 秒**，命令最多 **512 个 U
 
 ## 📄 许可证与致谢
 
-原创代码使用 [MIT License](LICENSE)。第三方组件版权与许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+监听器、菜单与 WebUI 等原创代码使用 [MIT License](LICENSE)；独立米家服务使用 **GPL-3.0-or-later**，对应源码随模块一同提供。组件来源、修改范围和完整许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 与 [米家服务说明](mijia/README.md)。
 
-感谢 [KernelSU](https://kernelsu.org/)、[Android](https://developer.android.com/)、[Zig](https://ziglang.org/) 与 [musl](https://musl.libc.org/)。
+感谢以下作者、项目和贡献者提供的实现与资料：
+
+| 作者／项目 | 本项目使用或参考的内容 |
+| --- | --- |
+| [Do1e 及 mijia-api 贡献者](https://github.com/Do1e/mijia-api) | 米家扫码登录、云端请求、设备规格与控制接口；独立米家服务适配自 4.2.1 |
+| [Sammy Svensson（Squachen）／micloud](https://github.com/Squachen/micloud) | 上游请求签名与 RC4 加密实现，保留 MIT 版权声明 |
+| 酷安 **@道小理**／“米家云端控制” v1.0 | 米家配置页的房间分组、设备卡片与信息组织参考；设备操作沿用本项目快捷菜单 |
+| [Xiaomi Home 项目贡献者](https://github.com/XiaoMi/ha_xiaomi_home) | 设备在线状态字段与错误码含义的核对资料 |
+| [HBYShyw／AntiThermal](https://github.com/HBYShyw/AntiThermal) | ColorOS 小窗接口与状态字段的核对资料 |
+
+也感谢 [KernelSU](https://kernelsu.org/)、[Android](https://developer.android.com/)、[Zig](https://ziglang.org/)、[musl](https://musl.libc.org/) 和 [Eclipse Temurin](https://adoptium.net/) 提供运行与构建基础。
 
 由 [@zhujiu39](https://github.com/zhujiu39) 创建并维护。

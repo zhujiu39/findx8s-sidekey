@@ -20,9 +20,9 @@ python build.py
 
 工具保存在忽略提交的 `tools/` 中。已有 Zig 时可用 `ZIG` 环境变量指定路径。Linux / macOS 构建流程尚未适配。
 
-默认构建只编译 ARM64 监听程序、Java 服务及菜单 APK，并校验 ELF、DEX、APK 签名和 ZIP，不运行自动测试，由用户实机验证。每次新建独立的 `交付文件/时间_test_版本_改动内容/`，内含安装包、源码与测试、使用说明、验证说明、构建日志及 SHA256。
+默认构建只编译 ARM64 监听程序、Java 服务及菜单 APK，并校验 ELF、DEX、APK 签名和 ZIP，不运行自动测试，由用户实机验证。每次新建独立的 `交付文件/时间_类型_版本_改动内容/`，正式版本使用 `release_`，带预发布后缀的版本使用 `test_`，内含安装包、源码与测试、使用说明、验证说明、构建日志及 SHA256。
 
-将交付目录中的 `test_oppo_sidekey_v<版本>.zip` 安装到 KernelSU。`源码与测试.zip` 用于审查与复现；模块内的 `lib/mijia-source.zip` 提供米家服务对应源码，无需单独安装。
+将交付目录中的 `release_oppo_sidekey_v<版本>.zip` 或 `test_oppo_sidekey_v<版本>.zip` 安装到 KernelSU。`源码与测试.zip` 用于审查与复现；模块内的 `lib/mijia-source.zip` 提供米家服务对应源码，无需单独安装。
 
 ## 签名
 
