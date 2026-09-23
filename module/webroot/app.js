@@ -1,6 +1,7 @@
 import {initMenuEditor, fillMenu, readMenu, menuBusy, addMijiaEntry} from './menu-editor.js';
 import {actions, gestureIds, defaultConfig, validate, serialize, hex} from './model.js';
 import {api, available, saveConfiguration} from './bridge.js';
+import {copyText} from './clipboard.js';
 import {appCatalog, createAppChoice} from './app-picker.js';
 import {initNavigation} from './navigation.js';
 import {initMijia, chooseMijia, mijiaBindingLabel} from './mijia.js';
@@ -183,6 +184,19 @@ document.addEventListener('sidekey-mijia-bindings', () => {
 });
 ['enabled', 'haptic', 'long-ms', 'double-ms'].forEach(id => $(id).addEventListener('input', updateDirty));
 $('save').addEventListener('click', save);
+$('copy-logs').addEventListener('click', async () => {
+  const button = $('copy-logs'); button.disabled = true; button.textContent = '正在收集日志…';
+  try {
+    const text = available() ? await api('logs') : $('logs').textContent;
+    try { await copyText(text); toast('全部日志已复制'); }
+    catch {
+      $('log-copy-text').value = text; $('log-copy-fallback').showModal();
+      $('log-copy-text').focus(); $('log-copy-text').select();
+    }
+  } catch (error) { toast(`日志读取失败：${error.message}`); }
+  finally { button.disabled = false; button.textContent = '复制全部日志'; }
+});
+$('log-copy-fallback').addEventListener('close', () => { $('log-copy-text').value = ''; });
 $('prepare-menu').addEventListener('click', async () => {
   if (!available()) { toast('请从 KernelSU 中修复快捷菜单'); return; }
   try { await api('prepare-menu'); toast('正在修复，可在下方日志查看结果'); }

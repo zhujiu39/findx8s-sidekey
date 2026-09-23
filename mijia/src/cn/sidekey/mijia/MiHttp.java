@@ -24,7 +24,19 @@ final class MiHttp implements AutoCloseable {
         if (cancelled || System.nanoTime() >= deadline || Thread.currentThread().isInterrupted())
             throw new Failure("TIMEOUT", "米家请求超时，请稍后重试");
     }
-    void cancel() { cancelled = true; HttpURLConnection connection = active; if (connection != null) connection.disconnect(); }
+    synchronized void pause(long milliseconds) throws Failure, InterruptedException {
+        long until = Math.min(deadline, System.nanoTime() + milliseconds * 1000000);
+        for (;;) {
+            check();
+            long remaining = until - System.nanoTime();
+            if (remaining <= 0) return;
+            TimeUnit.NANOSECONDS.timedWait(this, remaining);
+        }
+    }
+    void cancel() {
+        synchronized (this) { cancelled = true; notifyAll(); }
+        HttpURLConnection connection = active; if (connection != null) connection.disconnect();
+    }
     public void close() { alarm.cancel(false); cancel(); }
     static URL allowed(String text) throws Exception {
         URL url = new URL(text); String host = url.getHost().toLowerCase(Locale.ROOT);

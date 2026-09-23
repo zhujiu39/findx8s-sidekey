@@ -22,6 +22,7 @@ export function exec(command, milliseconds = 15000) {
 export async function api(operation, argument) {
   const command = `sh ${quote(control)} ${quote(operation)}` + (argument === undefined ? '' : ` ${quote(argument)}`);
   const result = await exec(command);
+  if (operation === 'logs') return result;
   if (operation === 'start' || operation === 'stop' || operation === 'prepare-menu') return null;
   try { return JSON.parse(result); } catch { throw new Error('模块返回的数据格式异常'); }
 }

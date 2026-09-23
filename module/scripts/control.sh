@@ -18,6 +18,10 @@ start_service() {
 }
 
 case "$1" in
+    logs)
+        [ "$#" -eq 1 ] || exit 2
+        exec sh "$MODDIR/scripts/logs.sh"
+        ;;
     mijia)
         [ "$#" -eq 2 ] || exit 2
         exec sh "$MODDIR/scripts/mijia.sh" request "$2"

@@ -262,3 +262,4 @@ main.webui { max-width: 560px; padding: 27px var(--page-space) 8px; }
 @media (prefers-reduced-motion: reduce) {
   .webui *, .app-picker *, .save-bar * { transition: none !important; }
 }
+.clipboard-buffer{position:fixed;inset:0 auto auto 0;opacity:0;font-size:16px;pointer-events:none}.log-copy-dialog{box-sizing:border-box;width:min(540px,calc(100% - 24px));max-height:85dvh;padding:20px;border:1px solid var(--line);border-radius:18px;background:var(--surface);color:var(--text,inherit)}.log-copy-dialog::backdrop{background:#0007}.log-copy-dialog h2{margin:0;font-size:18px}.log-copy-dialog p{font-size:12px;line-height:1.7;color:var(--muted)}.log-copy-dialog textarea{box-sizing:border-box;width:100%;height:40dvh;resize:none;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--soft);color:inherit;font:12px/1.7 ui-monospace,monospace}.log-copy-dialog form{margin:14px 0 0;text-align:right}

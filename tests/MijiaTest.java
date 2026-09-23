@@ -24,6 +24,10 @@ public final class MijiaTest {
     static class FakeCloud extends MiCloud {
         Object actual = false; int writes, actions, scenes, reads; int writeCode; boolean disconnect, offline, applyThenDisconnect, offlineAfterWrite, sceneTurnsOn; String account = "10001";
         java.util.concurrent.CountDownLatch writeEntered, releaseWrite;
+        java.util.concurrent.CountDownLatch readEntered, releaseRead;
+        int blockAtRead;
+        List<Object> afterWriteReads = Collections.emptyList();
+        final Queue<Object> delayedReads = new ArrayDeque<>();
         FakeCloud(PrivateStore store) { super(store); }
         @Override JSONObject authenticated(MiHttp h) throws Exception { return Json.obj("userId", account); }
         @Override JSONArray homes(MiHttp h, JSONObject a) throws Exception { return new JSONArray().put(home(h, a, "1")); }
@@ -42,9 +46,15 @@ public final class MijiaTest {
                     if (writeEntered != null) { writeEntered.countDown(); if (!releaseWrite.await(3, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("blocked write timeout"); }
                     writes++; if (disconnect) throw new java.net.SocketTimeoutException("synthetic credential=DO_NOT_PRINT");
                     if (writeCode == 0) actual = param.get("value"); item.put("code", writeCode);
+                    delayedReads.clear(); delayedReads.addAll(afterWriteReads); afterWriteReads = Collections.emptyList();
                     if (applyThenDisconnect) throw new java.net.SocketTimeoutException("synthetic credential=DO_NOT_PRINT");
                     if (offlineAfterWrite) offline = true;
-                } else { reads++; item.put("code", offline ? -704042011 : 0).put("value", actual); }
+                } else {
+                    reads++;
+                    if (reads == blockAtRead) { readEntered.countDown(); if (!releaseRead.await(2, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("blocked read timeout"); }
+                    Object reported = delayedReads.isEmpty() ? actual : delayedReads.remove();
+                    item.put("code", offline || !(reported instanceof Boolean) ? -704042011 : 0).put("value", reported);
+                }
                 result.put(item);
             }
             return result;
@@ -125,7 +135,7 @@ public final class MijiaTest {
         cloud.offlineAfterWrite = cloud.offline = false;
         cloud.actual = false; cloud.writeCode = 1;
         JSONObject accepted = Json.copy(control).put("requestId", MiCloud.randomId()); bridge.handle(accepted);
-        check(menuResult(bridge, accepted).equals("D00n"), "gateway acceptance never fakes desired on state");
+        check(menuResult(bridge, accepted).equals("D??n"), "persistent contrary readback never displays stale off as final state");
         check(bridge.handle(Json.obj("op", "status")).getJSONObject("last").optString("state").equals("accepted"), "unchanged readback is not confirmation");
         cloud.writeCode = 0;
         rejects(() -> bridge.handle(Json.copy(control).put("id", visible.getString(2))), "SESSION");
@@ -136,6 +146,65 @@ public final class MijiaTest {
         String log = new String(Files.readAllBytes(store.root.resolve("debug.log")), java.nio.charset.StandardCharsets.UTF_8);
         check(log.contains("操作后读取") && log.contains("发送设置") && log.contains("ms"), "diagnostics contain stage timings");
         check(!log.contains("DO_NOT_PRINT") && !log.contains("SYNTHETIC_TEST_ONLY") && !log.contains(visible.getString(0)), "diagnostics exclude credentials, exception contents and binding IDs");
+    }
+    static void delayedMenuState(MijiaBridge bridge, FakeCloud cloud, PrivateStore store, String token, JSONArray visible) throws Exception {
+        JSONObject alias = await(bridge, Json.obj("op", "binding-save", "name", "fixture off alias", "action",
+                Json.obj("kind", "set", "value", false, "home", "1", "did", "2", "siid", 2, "piid", 1)));
+        JSONArray ids = new JSONArray().put(visible.getString(0)).put(alias.getString("id")).put(visible.getString(2));
+        JSONObject off = Json.obj("op", "menu-control", "session", token, "ids", ids, "id", visible.getString(0), "requestId", MiCloud.randomId());
+        cloud.actual = true; cloud.afterWriteReads = Arrays.<Object>asList(true, true);
+        int writes = cloud.writes, reads = cloud.reads;
+        cloud.readEntered = new java.util.concurrent.CountDownLatch(1); cloud.releaseRead = new java.util.concurrent.CountDownLatch(1);
+        cloud.blockAtRead = reads + 3;
+        bridge.handle(off);
+        try {
+            check(cloud.readEntered.await(2, java.util.concurrent.TimeUnit.SECONDS), "stale first read starts a bounded read-only recheck");
+            check(Boolean.FALSE.equals(cloud.actual), "light is physically off while cloud still reports on");
+            check(bridge.handle(Json.obj("op", "menu-result", "session", token, "requestId", off.getString("requestId"))).getString("states").equals("P"),
+                    "stale on state is never published while confirming off");
+        } finally { cloud.releaseRead.countDown(); }
+        check(menuResult(bridge, off).equals("D00n"), "delayed off readback updates all bindings of the same property");
+        check(cloud.writes == writes + 1 && cloud.reads == reads + 4, "stale read retries only reads and stops immediately when matching");
+        cloud.blockAtRead = 0;
+        JSONObject on = Json.copy(off).put("requestId", MiCloud.randomId());
+        cloud.afterWriteReads = Arrays.<Object>asList(false); reads = cloud.reads; writes = cloud.writes;
+        bridge.handle(on);
+        check(menuResult(bridge, on).equals("D11n"), "delayed on readback is also confirmed");
+        check(cloud.reads == reads + 3 && cloud.writes == writes + 1, "one stale read adds only one recheck");
+        JSONObject setOff = Json.copy(off).put("id", alias.getString("id")).put("requestId", MiCloud.randomId());
+        cloud.afterWriteReads = Arrays.<Object>asList(true); reads = cloud.reads; writes = cloud.writes;
+        bridge.handle(setOff);
+        check(menuResult(bridge, setOff).equals("D00n"), "explicit turn-off also waits for delayed state confirmation");
+        check(cloud.reads == reads + 2 && cloud.writes == writes + 1, "explicit turn-off avoids unnecessary pre-read and never repeats write");
+        JSONObject recovered = Json.copy(off).put("requestId", MiCloud.randomId());
+        cloud.afterWriteReads = Arrays.<Object>asList("unavailable"); bridge.handle(recovered);
+        check(menuResult(bridge, recovered).equals("D11n"), "temporarily unavailable state can recover during confirmation");
+        cloud.writeCode = 1; reads = cloud.reads; writes = cloud.writes;
+        JSONObject unconfirmed = Json.copy(off).put("requestId", MiCloud.randomId()); bridge.handle(unconfirmed);
+        check(menuResult(bridge, unconfirmed).equals("D??n"), "unconfirmed stale state is masked for distinct aliases of the same property");
+        check(cloud.reads == reads + 6 && cloud.writes == writes + 1, "confirmation has exactly one initial read and at most four rechecks");
+        check(bridge.handle(Json.obj("op", "status")).getJSONObject("last").optString("code").equals("STATE_UNCONFIRMED"), "failure to converge is explicit in diagnostics");
+        cloud.writeCode = 0;
+        String log = new String(Files.readAllBytes(store.root.resolve("debug.log")), java.nio.charset.StandardCharsets.UTF_8);
+        check(log.contains("目标=0，读回=1") && log.contains("第 3 次，目标=0，读回=0"), "debug logs show stale read values and eventual confirmation");
+        check(!log.contains(alias.getString("id")), "readback logs still exclude full binding IDs");
+    }
+    static void cancellableReadWait() throws Exception {
+        try (MiHttp http = new MiHttp(30)) {
+            rejects(() -> http.pause(2000), "TIMEOUT");
+        }
+        try (MiHttp http = new MiHttp(5000)) {
+            java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.atomic.AtomicBoolean cancelled = new java.util.concurrent.atomic.AtomicBoolean();
+            Thread waiting = new Thread(() -> {
+                entered.countDown();
+                try { http.pause(4000); }
+                catch (Failure error) { cancelled.set(error.code.equals("TIMEOUT")); }
+                catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+            });
+            waiting.start(); entered.await(); http.cancel(); waiting.join(1000);
+            check(!waiting.isAlive() && cancelled.get(), "cancellation wakes readback wait without waiting for full delay");
+        }
     }
     public static void main(String[] args) throws Exception {
         JSONObject roomHome=Json.obj("roomlist",new JSONArray()
@@ -168,6 +237,7 @@ public final class MijiaTest {
         rejects(()->MiHttp.allowed("https://account.xiaomi.com.attacker.invalid/"),"PROTOCOL");
         rejects(()->MiHttp.allowed("http://account.xiaomi.com/"),"PROTOCOL");
         rejects(()->MiHttp.allowed("https://account.xiaomi.com:8080/"),"PROTOCOL");
+        cancellableReadWait();
         check(MiHttp.query("https://account.xiaomi.com/a?x=a%2Bb&z=1").get("x").equals("a+b"),"query encoding");
         JSONObject property=Json.obj("siid",2,"piid",1,"format","bool","read",true,"write",true,"values",new JSONArray());
         MiSpec.value(property,false); rejects(()->MiSpec.value(property,0),"VALUE");
@@ -212,6 +282,7 @@ public final class MijiaTest {
                 String first=bridge.handle(request).getString("job");check(first.equals(bridge.handle(request).getString("job")),"dedupe request id");
                 result=await(bridge,Json.obj("op","run","action",Json.obj("kind","scene","home","1","scene","3")));check(result.optString("state").equals("accepted") && cloud.scenes==1,"scene accepted");
                 menuControls(bridge, cloud, store, tokenA, visible);
+                delayedMenuState(bridge, cloud, store, tokenA, visible);
                 result=await(bridge,Json.obj("op","logout"));check(result.optBoolean("ok") && !Files.exists(folder.resolve("auth.json")) && !Files.exists(folder.resolve("bindings.json")),"logout erases private auth");
             }
             JSONObject redacted=Failure.json(new java.io.IOException("token=SECRET"));check(!redacted.toString().contains("SECRET"),"exception redaction");

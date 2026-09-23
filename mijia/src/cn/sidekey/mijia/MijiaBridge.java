@@ -6,6 +6,7 @@ import java.util.concurrent.*;
 import org.json.*;
 
 final class MijiaBridge implements AutoCloseable {
+    private static final long[] STATE_RECHECK_DELAYS_MS = {250, 500, 1000, 1500};
     private final PrivateStore store;
     private final MiCloud cloud;
     private final MiSpec specs;
@@ -131,13 +132,18 @@ final class MijiaBridge implements AutoCloseable {
             } finally { requests.remove(http); }
         } catch (Exception error) { job.result = Failure.json(error); }
         if (job.menu != null) {
-            refreshMenuStates(job.menu, true);
+            refreshMenuStates(job.menu, job);
             try {
                 Object expected = job.result.opt("expected");
+                boolean confirmed = false;
                 for (int i = 0; expected instanceof Boolean && i < job.menu.ids.length(); i++) {
                     if (job.binding.equals(job.menu.ids.getString(i)) &&
                             job.menu.snapshot.states.charAt(i) == ((Boolean) expected ? '1' : '0'))
-                        job.result.put("state", "confirmed").put("message", "已读回并确认设备状态");
+                        confirmed = true;
+                }
+                if (expected instanceof Boolean) {
+                    if (confirmed) job.result.put("state", "confirmed").put("message", "已读回并确认设备状态");
+                    else job.result.put("code", "STATE_UNCONFIRMED").put("message", "指令已接收，但尚未读回目标状态；请检查设备或重新打开快捷栏");
                 }
                 job.result.remove("expected");
             } catch (Exception error) { store.debug("操作结果与菜单状态核对失败"); }
@@ -234,7 +240,7 @@ final class MijiaBridge implements AutoCloseable {
         if (previous != null) return Json.obj("states", menuStates.wire(previous));
         MenuRead read = prepareMenuRead(session, ids);
         if (read.switches.isEmpty()) menuStates.complete(read.snapshot, read.snapshot.states);
-        else try { worker.execute(() -> refreshMenuStates(read, false)); }
+        else try { worker.execute(() -> refreshMenuStates(read, null)); }
         catch (RejectedExecutionException error) { menuStates.complete(read.snapshot, read.snapshot.states); store.debug("展开读取：任务队列已满"); }
         return Json.obj("states", menuStates.wire(read.snapshot));
     }
@@ -253,15 +259,42 @@ final class MijiaBridge implements AutoCloseable {
         return new MenuRead(ids, switches, menuStates.create(key, account, ids.toString(), states.toString()));
     }
 
-    private void refreshMenuStates(MenuRead read, boolean afterControl) {
+    private static String propertyKey(JSONObject action) {
+        return action.optString("did") + ":" + action.optInt("siid") + ":" + action.optInt("piid");
+    }
+    private void readMenuProperties(MiHttp http, JSONObject auth, List<String> keys, Map<String, JSONObject> params,
+                                    Map<String, List<String>> groups, Map<String, Character> values) throws Exception {
+        for (int first = 0; first < keys.size(); first += 20) {
+            http.check();
+            int end = Math.min(first + 20, keys.size()); JSONArray batch = new JSONArray();
+            for (int i = first; i < end; i++) batch.put(params.get(keys.get(i)));
+            JSONArray response = (JSONArray) cloud.call(http, auth, "/miotspec/prop/get", Json.obj("params", batch, "datasource", 1));
+            http.check();
+            for (int i = first; i < end; i++) {
+                String key = keys.get(i); char state = '?';
+                try {
+                    JSONObject actual = matching(response, params.get(key)); state = MenuStates.value(actual);
+                    if (state == '?') store.debug("属性读取未确认，返回码=" + actual.optInt("code", -1));
+                } catch (Exception error) { store.debug("属性响应无效，代码=" + Failure.json(error).optString("code")); }
+                for (String id : groups.get(key)) values.put(id, state);
+            }
+        }
+    }
+    private void refreshMenuStates(MenuRead read, Job control) {
         MenuStates.Snapshot snapshot = read.snapshot; JSONArray ids = read.ids; Map<String, JSONObject> switches = read.switches;
         long started = System.nanoTime();
+        Object expected = control == null ? null : control.result.opt("expected");
+        JSONObject target = expected instanceof Boolean ? switches.get(control.binding) : null;
+        String targetKey = target == null ? null : propertyKey(target);
+        char desired = Boolean.TRUE.equals(expected) ? '1' : '0';
+        String trace = control == null ? "展开读取" : "任务 " + control.id.substring(0, 8) + " 操作后读取";
         Map<String, Character> values = new LinkedHashMap<>();
         for (String id : switches.keySet()) values.put(id, '?');
         try (MiHttp http = new MiHttp(15000)) {
             requests.add(http);
             try {
-                if (!afterControl && System.nanoTime() - snapshot.created > 10000000000L) throw new Failure("EXPIRED", "快捷栏状态读取排队超时");
+                http.check();
+                if (control == null && System.nanoTime() - snapshot.created > 10000000000L) throw new Failure("EXPIRED", "快捷栏状态读取排队超时");
                 JSONObject auth = cloud.authenticated(http);
                 if (!snapshot.account.equals(auth.getString("userId"))) throw new Failure("AUTH", "米家账号已更换");
                 Map<String, JSONObject> params = new LinkedHashMap<>(); Map<String, List<String>> groups = new LinkedHashMap<>();
@@ -271,27 +304,35 @@ final class MijiaBridge implements AutoCloseable {
                         JSONObject device = device(http, auth, action);
                         JSONObject property = MiSpec.find(specs.get(http, device.getString("model")), action.getInt("siid"), action.getInt("piid"), false);
                         if (!property.optBoolean("read") || !property.optString("format").equals("bool")) { values.put(entry.getKey(), 'n'); continue; }
-                        String key = action.getString("did") + ":" + action.getInt("siid") + ":" + action.getInt("piid");
+                        String key = propertyKey(action);
                         params.put(key, Json.obj("did", action.getString("did"), "siid", action.getInt("siid"), "piid", action.getInt("piid")));
                         groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(entry.getKey());
                     } catch (Exception error) { store.debug("属性准备失败，代码=" + Failure.json(error).optString("code")); }
                 }
-                List<String> keys = new ArrayList<>(params.keySet());
-                for (int first = 0; first < keys.size(); first += 20) {
-                    int end = Math.min(first + 20, keys.size()); JSONArray batch = new JSONArray();
-                    for (int i = first; i < end; i++) batch.put(params.get(keys.get(i)));
-                    JSONArray response = (JSONArray) cloud.call(http, auth, "/miotspec/prop/get", Json.obj("params", batch, "datasource", 1));
-                    for (int i = first; i < end; i++) {
-                        String key = keys.get(i); char state = '?';
-                        try {
-                            JSONObject actual = matching(response, params.get(key)); state = MenuStates.value(actual);
-                            if (state == '?') store.debug("属性读取未确认，返回码=" + actual.optInt("code", -1));
-                        } catch (Exception error) { store.debug("属性响应无效，代码=" + Failure.json(error).optString("code")); }
-                        for (String id : groups.get(key)) values.put(id, state);
+                readMenuProperties(http, auth, new ArrayList<>(params.keySet()), params, groups, values);
+                if (targetKey != null && params.containsKey(targetKey)) {
+                    for (int attempt = 0; ; attempt++) {
+                        char actual = values.get(control.binding);
+                        store.debug(trace + " 第 " + (attempt + 1) + " 次，目标=" + desired + "，读回=" + actual +
+                                "，累计 " + ((System.nanoTime() - started) / 1000000) + " ms");
+                        if (actual == desired || attempt == STATE_RECHECK_DELAYS_MS.length) break;
+                        // 云端可能尚未收到设备的新状态；只复查目标属性，不重发控制，也不重复读取其他设备。
+                        http.pause(STATE_RECHECK_DELAYS_MS[attempt]);
+                        readMenuProperties(http, auth, Collections.singletonList(targetKey), params, groups, values);
                     }
                 }
             } finally { requests.remove(http); }
-        } catch (Exception error) { store.debug("状态读取失败，代码=" + Failure.json(error).optString("code")); }
+        } catch (Exception error) {
+            if (error instanceof InterruptedException) Thread.currentThread().interrupt();
+            store.debug(trace + " 失败，代码=" + Failure.json(error).optString("code"));
+        }
+        if (targetKey != null && !Character.valueOf(desired).equals(values.get(control.binding))) {
+            // 未确认时不能把可能滞后的相反值当成确定状态；同一属性的不同绑定也必须保持一致。
+            for (Map.Entry<String, JSONObject> entry : switches.entrySet())
+                if (targetKey.equals(propertyKey(entry.getValue())) && !Character.valueOf('n').equals(values.get(entry.getKey())))
+                    values.put(entry.getKey(), '?');
+            store.debug(trace + " 未达到目标状态，保留未确认标记");
+        }
         try {
             boolean sameAccount = snapshot.account.equals(store.read("auth.json").optString("userId"));
             char[] result = snapshot.states.toCharArray();
@@ -301,7 +342,7 @@ final class MijiaBridge implements AutoCloseable {
             }
             menuStates.complete(snapshot, new String(result));
         } catch (Exception ignored) { menuStates.complete(snapshot, snapshot.states); }
-        store.debug((afterControl ? "操作后读取" : "展开读取") + " 完成，耗时 " + ((System.nanoTime() - started) / 1000000) +
+        store.debug(trace + " 完成，耗时 " + ((System.nanoTime() - started) / 1000000) +
                 " ms，状态=" + snapshot.states);
     }
     private JSONObject catalog(MiHttp http, JSONObject auth, String home) throws Exception {

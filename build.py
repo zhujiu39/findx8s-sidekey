@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.1.0-test.4'
-VERSION_CODE = 104
+VERSION = '1.1.0-test.5'
+VERSION_CODE = 105
 
 
 def run(arguments):
@@ -215,11 +215,12 @@ def main():
         raise RuntimeError('未找到 Bash，无法执行 Shell 语法检查')
     run([sys.executable, 'tests/menu_install_test.py', bash])
     run([sys.executable, 'tests/app_launch_test.py', bash])
+    run([sys.executable, 'tests/log_export_test.py', bash])
     files = sorted(path for path in MODULE.rglob('*') if path.is_file())
     required = {'module.prop', 'skip_mount', 'customize.sh', 'service.sh', 'action.sh',
                 'uninstall.sh', 'scripts/control.sh', 'scripts/app-launch.sh', 'bin/sidekey', 'lib/torch.jar', 'lib/sidekey-menu.apk', 'scripts/menu-install.sh', 'webroot/index.html',
                 'LICENSES/sidekey-LICENSE.txt', 'lib/mijia.jar', 'lib/mijia-source.zip', 'scripts/mijia.sh',
-                'webroot/mijia.js', 'LICENSES/mijia-GPL-3.0.txt', 'LICENSES/micloud-MIT.txt'}
+                'webroot/mijia.js', 'webroot/clipboard.js', 'scripts/logs.sh', 'LICENSES/mijia-GPL-3.0.txt', 'LICENSES/micloud-MIT.txt'}
     if not required.issubset({path.relative_to(MODULE).as_posix() for path in files}):
         raise RuntimeError('模块文件不完整')
     for path in files:
@@ -234,7 +235,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_米家状态刷新与响应优化')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_米家状态确认与日志复制')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -266,6 +267,7 @@ def main():
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
         '快捷开关点击后立即提交动作并保留快捷栏，允许连续操作；点击应用后仍自动收起，并按原有路径打开 ColorOS 小窗。'
         '米家开关在展开及每次操作完成后读取实际状态；执行期间显示进度，完成后更新开关图标，空闲时不请求云端。'
+        '布尔操作后的首次读回若仍是旧值，会有限次复查目标属性，匹配即结束；不会显示旧的相反状态或重发控制。'
         '快捷栏直接连接常驻米家服务，省去每次点击启动命令进程；属性读回合并为批量请求。'
         '内置墨白极简与石墨工具箱两套 WebUI；手机快捷菜单外观保持不变。\n\n'
         f'安装文件：test_oppo_sidekey_v{VERSION}.zip。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
@@ -274,8 +276,9 @@ def main():
         '执行手动场景后核对相关开关状态；最后点击应用确认面板收起且打开小窗。'
         '米家测试可进入米家页生成登录二维码并用米家 App 扫一扫授权；选择家庭，测试设备开关或手动场景，加入快捷菜单并保存设置后再用侧键验证。'
         '该接入当前面向中国大陆账号；没有 MIOT 规格的设备可通过米家手动场景使用。\n\n'
-        '最近执行结果位于米家页；设置 → 运行状态与日志末尾有米家快捷栏通信、执行阶段和状态读回耗时，可手动复制反馈。'
-        '每次展开及每次操作完成后读取状态，读取失败才显示未知；本地结果查询不会重复发送控制或持续查询云端。'
+        '最近执行结果位于米家页；设置 → 运行状态与日志 → 复制全部日志可导出版本、时间、各类诊断及保留的上一段日志。'
+        '米家日志记录目标值、每次读回值和耗时；单文件上限 64 KiB，超限会注明截取。自动复制受限时可在弹出的文本框手动复制。'
+        '每次展开及每次操作完成后读取状态，读取失败或有限次复查仍未确认时显示未知；本地结果查询不会重复发送控制或持续查询云端。'
         '场景和无可读开关状态的动作仍是执行按钮。已受理不等于设备状态已确认；请求中断时不会自动重发。'
         '登录凭据保存在手机私有目录，WebUI 不显示令牌，退出账号删除本机凭据和米家动作。\n\n'
         '本地 C/Java/JavaScript/配置往返/脚本测试、ARM64 ELF、DEX、APK 签名、ZIP 和权限检查的命令输出见构建日志。'
