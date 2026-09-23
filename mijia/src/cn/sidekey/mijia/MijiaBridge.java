@@ -142,14 +142,20 @@ final class MijiaBridge implements AutoCloseable {
                         confirmed = true;
                 }
                 if (expected instanceof Boolean) {
-                    if (confirmed) job.result.put("state", "confirmed").put("message", "已读回并确认设备状态");
+                    if (job.result.optBoolean("uncertain")) {
+                        // 超时不代表拒绝；确认的是读回状态，原始控制错误码仍保留用于排障。
+                        String reason = job.result.optString("message");
+                        job.result.put("ok", confirmed).put("state", confirmed ? "confirmed" : "unknown")
+                                .put("message", reason + (confirmed ? "；已读回目标状态" : "；尚未读回目标状态，请检查设备或重新打开快捷栏"));
+                    } else if (confirmed) job.result.put("state", "confirmed").put("message", "已读回并确认设备状态");
                     else job.result.put("code", "STATE_UNCONFIRMED").put("message", "指令已接收，但尚未读回目标状态；请检查设备或重新打开快捷栏");
                 }
                 job.result.remove("expected");
+                job.result.remove("uncertain");
             } catch (Exception error) { store.debug("操作结果与菜单状态核对失败"); }
         }
         if (control) try {
-            record(Json.obj("state", job.result.optBoolean("ok") ? job.result.optString("state", "accepted") : "error",
+            record(Json.obj("state", job.result.optString("state", job.result.optBoolean("ok") ? "accepted" : "error"),
                     "message", job.result.optString("message", "指令处理完成"), "code", job.result.optString("code"), "time", System.currentTimeMillis()));
         } catch (Exception error) { job.result = Failure.json(new Failure("STORAGE", "指令已处理，但执行记录保存失败，请检查设备状态")); }
         if (control) store.debug("任务 " + job.id.substring(0, 8) + " 完成，耗时 " + (System.currentTimeMillis() - job.created) +
@@ -410,24 +416,34 @@ final class MijiaBridge implements AutoCloseable {
             try { result = (JSONObject) cloud.call(http, auth, "/miotspec/action", Json.obj("params", param)); }
             catch (Exception error) { throw controlError(error); }
             int code = result.optInt("code", -1);
-            if (code != 0 && code != 1) throw new Failure("DEVICE_" + code, "设备拒绝动作，返回码 " + code);
+            if (deviceTimeout(code)) return uncertainResult(deviceFailure(code, "动作"), null, false);
+            if (code != 0 && code != 1) throw deviceFailure(code, "动作");
             return Json.obj("ok", true, "state", "accepted", "message", code == 1 ? "网关已接收，尚未确认设备执行" : "设备已回应动作请求，请以实际状态为准");
         }
         param.put("piid", descriptor.getInt("piid")); Object value = descriptor.opt("value");
         if (kind.equals("toggle")) {
             long started = System.nanoTime();
             Object current = readProperty(http, auth, param).get("value");
-            store.debug("切换前读取 " + ((System.nanoTime() - started) / 1000000) + " ms");
             if (!(current instanceof Boolean)) throw new Failure("VALUE", "设备未返回布尔开关状态，未发送切换指令");
+            store.debug("切换前读取 " + ((System.nanoTime() - started) / 1000000) + " ms，当前=" + (Boolean.TRUE.equals(current) ? '1' : '0'));
             value = !((Boolean) current);
         }
         JSONObject write = Json.copy(param); write.put("value", value); JSONArray response;
+        store.debug("设置属性 siid=" + param.getInt("siid") + "，piid=" + param.getInt("piid") + "，操作=" + kind +
+                "，目标=" + (value instanceof Boolean ? (Boolean.TRUE.equals(value) ? "1" : "0") : "非布尔"));
         long started = System.nanoTime();
         try { response = (JSONArray) cloud.call(http, auth, "/miotspec/prop/set", Json.obj("params", new JSONArray().put(write))); }
-        catch (Exception error) { throw controlError(error); }
+        catch (Exception error) {
+            Failure failure = controlError(error);
+            store.debug("发送设置 " + ((System.nanoTime() - started) / 1000000) + " ms，响应未确认，代码=" + failure.code);
+            if (failure.code.equals("UNKNOWN")) return uncertainResult(failure, value, menuControl);
+            throw failure;
+        }
         JSONObject result = matching(response, param); int code = result.optInt("code", -1);
-        store.debug("发送设置 " + ((System.nanoTime() - started) / 1000000) + " ms，返回码=" + code);
-        if (code != 0 && code != 1) throw new Failure("DEVICE_" + code, "设备拒绝设置，返回码 " + code);
+        store.debug("发送设置 " + ((System.nanoTime() - started) / 1000000) + " ms，返回码=" + code +
+                "，结果=" + (deviceTimeout(code) ? "设备操作超时" : code == 0 || code == 1 ? "已受理" : "设置失败"));
+        if (deviceTimeout(code)) return uncertainResult(deviceFailure(code, "设置"), value, menuControl);
+        if (code != 0 && code != 1) throw deviceFailure(code, "设置");
         // 快捷栏布尔开关统一在操作完成后批量读回，避免同一个属性重复请求。
         if (menuControl && value instanceof Boolean)
             return Json.obj("ok", true, "state", "accepted", "message", "指令已接收，正在刷新设备状态", "expected", value);
@@ -437,6 +453,20 @@ final class MijiaBridge implements AutoCloseable {
             if (MiSpec.same(value, actual.get("value"))) return Json.obj("ok", true, "state", "confirmed", "message", "已读回并确认设备状态", "value", actual.get("value"));
             return Json.obj("ok", true, "state", "accepted", "message", "指令已接收，设备状态尚未更新，请稍后刷新", "value", actual.get("value"));
         } catch (Exception error) { return Json.obj("ok", true, "state", "accepted", "message", "指令已接收，但未能读回状态，请检查设备"); }
+    }
+    private static boolean deviceTimeout(int code) {
+        // 小米官方 ha_xiaomi_home/miot/i18n/zh-Hans.json 将这两个码定义为设备操作超时。
+        return code == -704083036 || code == -704053036;
+    }
+    private static Failure deviceFailure(int code, String action) {
+        return new Failure("DEVICE_" + code, deviceTimeout(code) ? "设备操作超时，执行结果未获确认（" + code + "）" :
+                "设备" + action + "失败，返回码 " + code);
+    }
+    private static JSONObject uncertainResult(Failure error, Object value, boolean menuControl) throws Exception {
+        JSONObject result = Failure.json(error).put("state", "unknown");
+        // 写入仍只发送一次；快捷栏保留布尔目标，复用有界读回流程核对迟到的设备状态。
+        if (menuControl && value instanceof Boolean) result.put("expected", value).put("uncertain", true);
+        return result;
     }
     private static Failure controlError(Exception error) {
         if (error instanceof Failure && !((Failure) error).code.equals("TIMEOUT") && !((Failure) error).code.startsWith("HTTP_")) return (Failure) error;

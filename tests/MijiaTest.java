@@ -22,7 +22,8 @@ public final class MijiaTest {
         throw new AssertionError("job timeout");
     }
     static class FakeCloud extends MiCloud {
-        Object actual = false; int writes, actions, scenes, reads; int writeCode; boolean disconnect, offline, applyThenDisconnect, offlineAfterWrite, sceneTurnsOn; String account = "10001";
+        Object actual = false; int writes, actions, scenes, reads; int writeCode, actionCode;
+        boolean disconnect, offline, applyThenDisconnect, applyDespiteCode, offlineAfterWrite, sceneTurnsOn; String account = "10001";
         java.util.concurrent.CountDownLatch writeEntered, releaseWrite;
         java.util.concurrent.CountDownLatch readEntered, releaseRead;
         int blockAtRead;
@@ -38,14 +39,14 @@ public final class MijiaTest {
         }
         @Override Object call(MiHttp h, JSONObject a, String uri, JSONObject data) throws Exception {
             if (uri.endsWith("NewRunScene")) { scenes++; if (sceneTurnsOn) actual = true; return true; }
-            if (uri.equals("/miotspec/action")) { actions++; return Json.obj("code", 0); }
+            if (uri.equals("/miotspec/action")) { actions++; return Json.obj("code", actionCode); }
             JSONArray params = data.getJSONArray("params"), result = new JSONArray();
             for (int i = 0; i < params.length(); i++) {
                 JSONObject param = params.getJSONObject(i), item = Json.copy(param);
                 if (uri.endsWith("/set")) {
                     if (writeEntered != null) { writeEntered.countDown(); if (!releaseWrite.await(3, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("blocked write timeout"); }
                     writes++; if (disconnect) throw new java.net.SocketTimeoutException("synthetic credential=DO_NOT_PRINT");
-                    if (writeCode == 0) actual = param.get("value"); item.put("code", writeCode);
+                    if (writeCode == 0 || applyDespiteCode) actual = param.get("value"); item.put("code", writeCode);
                     delayedReads.clear(); delayedReads.addAll(afterWriteReads); afterWriteReads = Collections.emptyList();
                     if (applyThenDisconnect) throw new java.net.SocketTimeoutException("synthetic credential=DO_NOT_PRINT");
                     if (offlineAfterWrite) offline = true;
@@ -206,6 +207,65 @@ public final class MijiaTest {
             check(!waiting.isAlive() && cancelled.get(), "cancellation wakes readback wait without waiting for full delay");
         }
     }
+    static void uncertainMenuState(MijiaBridge bridge, FakeCloud cloud, PrivateStore store, String token, JSONArray visible) throws Exception {
+        JSONObject alias = await(bridge, Json.obj("op", "binding-save", "name", "fixture timeout off", "action",
+                Json.obj("kind", "set", "value", false, "home", "1", "did", "2", "siid", 2, "piid", 1)));
+        JSONArray ids = new JSONArray().put(visible.getString(0)).put(alias.getString("id")).put(visible.getString(2));
+        JSONObject base = Json.obj("op", "menu-control", "session", token, "ids", ids, "id", visible.getString(0));
+        cloud.actual = false; cloud.writeCode = -704083036; cloud.applyDespiteCode = true;
+        cloud.afterWriteReads = Arrays.<Object>asList(false, false);
+        int writes = cloud.writes, reads = cloud.reads;
+        JSONObject delayed = Json.copy(base).put("requestId", MiCloud.randomId()); bridge.handle(delayed);
+        check(menuResult(bridge, delayed).equals("D11n"), "device timeout can converge to on instead of publishing the first stale off");
+        check(cloud.writes == writes + 1 && cloud.reads == reads + 4, "timeout recovery only rereads and stops at target");
+        JSONObject last = bridge.handle(Json.obj("op", "status")).getJSONObject("last");
+        check(last.optString("state").equals("confirmed") && last.optString("code").equals("DEVICE_-704083036"), "confirmed readback keeps original device timeout code");
+        check(last.optString("message").contains("超时") && last.optString("message").contains("已读回目标状态"), "result distinguishes timeout from observed target state");
+        JSONObject completed = bridge.handle(Json.obj("op", "job", "id", delayed.getString("requestId"))).getJSONObject("result");
+        check(completed.optBoolean("ok") && !completed.has("expected") && !completed.has("uncertain"), "confirmed timeout result removes internal reconciliation fields");
+
+        cloud.writeCode = -704053036; cloud.afterWriteReads = Arrays.<Object>asList(true);
+        writes = cloud.writes; reads = cloud.reads;
+        JSONObject setOff = Json.copy(base).put("id", alias.getString("id")).put("requestId", MiCloud.randomId()); bridge.handle(setOff);
+        check(menuResult(bridge, setOff).equals("D00n"), "second official timeout code supports explicit off convergence");
+        check(cloud.writes == writes + 1 && cloud.reads == reads + 2, "explicit off timeout never adds pre-read or repeats control");
+        check(bridge.handle(Json.obj("op", "status")).getJSONObject("last").optString("code").equals("DEVICE_-704053036"), "second timeout code is preserved");
+
+        cloud.writeCode = -704083036; cloud.applyDespiteCode = false;
+        writes = cloud.writes; reads = cloud.reads;
+        JSONObject unresolved = Json.copy(base).put("requestId", MiCloud.randomId()); bridge.handle(unresolved);
+        check(menuResult(bridge, unresolved).equals("D??n"), "device timeout with unchanged readback remains uncertain for every alias");
+        check(cloud.writes == writes + 1 && cloud.reads == reads + 6, "timeout has at most five post-reads and one write");
+        last = bridge.handle(Json.obj("op", "status")).getJSONObject("last");
+        check(last.optString("state").equals("unknown") && last.optString("code").equals("DEVICE_-704083036"), "unresolved timeout is unknown and never overwritten by generic convergence error");
+        check(!last.optString("message").contains("已接收") && !last.optString("message").contains("拒绝"), "timeout never claims acceptance or definite rejection");
+        check(menuResult(bridge, unresolved).equals("D??n") && cloud.writes == writes + 1 && cloud.reads == reads + 6, "local result queries do not retry timed-out control or cloud reads");
+
+        cloud.writeCode = 0; cloud.applyThenDisconnect = true; cloud.afterWriteReads = Arrays.<Object>asList(false, false);
+        writes = cloud.writes;
+        JSONObject disconnected = Json.copy(base).put("requestId", MiCloud.randomId()); bridge.handle(disconnected);
+        check(menuResult(bridge, disconnected).equals("D11n") && cloud.writes == writes + 1, "lost response plus stale cache converges without resending");
+        last = bridge.handle(Json.obj("op", "status")).getJSONObject("last");
+        check(last.optString("state").equals("confirmed") && last.optString("code").equals("UNKNOWN"), "network ambiguity remains diagnostic even after state confirmation");
+
+        cloud.applyThenDisconnect = false; cloud.writeCode = -704030023;
+        writes = cloud.writes; reads = cloud.reads;
+        JSONObject rejected = Json.copy(base).put("requestId", MiCloud.randomId()); bridge.handle(rejected);
+        check(menuResult(bridge, rejected).equals("D11n"), "definite rejection still refreshes actual state once");
+        check(cloud.writes == writes + 1 && cloud.reads == reads + 2, "definite rejection does not enter timeout confirmation loop");
+        last = bridge.handle(Json.obj("op", "status")).getJSONObject("last");
+        check(last.optString("state").equals("error") && last.optString("code").equals("DEVICE_-704030023"), "definite rejection retains error semantics");
+        cloud.writeCode = 0;
+
+        cloud.actionCode = -704083036; int actions = cloud.actions;
+        JSONObject actionResult = await(bridge, Json.obj("op", "run", "action",
+                Json.obj("kind", "action", "home", "1", "did", "2", "siid", 2, "aiid", 1, "values", new JSONArray())));
+        check(!actionResult.optBoolean("ok") && actionResult.optString("state").equals("unknown") && cloud.actions == actions + 1, "non-boolean action timeout is explicit and never resent");
+        cloud.actionCode = 0;
+        String log = new String(Files.readAllBytes(store.root.resolve("debug.log")), java.nio.charset.StandardCharsets.UTF_8);
+        check(log.contains("当前=0") && log.contains("siid=2，piid=1，操作=toggle，目标=1") && log.contains("结果=设备操作超时"), "diagnostics identify pre-state, intended switch value and timeout phase");
+        check(!log.contains("DO_NOT_PRINT") && !log.contains("SYNTHETIC_TEST_ONLY") && !log.contains(alias.getString("id")), "timeout diagnostics remain redacted");
+    }
     public static void main(String[] args) throws Exception {
         JSONObject roomHome=Json.obj("roomlist",new JSONArray()
                 .put(Json.obj("name","客厅","dids",new JSONArray().put("2").put(3)))
@@ -283,6 +343,7 @@ public final class MijiaTest {
                 result=await(bridge,Json.obj("op","run","action",Json.obj("kind","scene","home","1","scene","3")));check(result.optString("state").equals("accepted") && cloud.scenes==1,"scene accepted");
                 menuControls(bridge, cloud, store, tokenA, visible);
                 delayedMenuState(bridge, cloud, store, tokenA, visible);
+                uncertainMenuState(bridge, cloud, store, tokenA, visible);
                 result=await(bridge,Json.obj("op","logout"));check(result.optBoolean("ok") && !Files.exists(folder.resolve("auth.json")) && !Files.exists(folder.resolve("bindings.json")),"logout erases private auth");
             }
             JSONObject redacted=Failure.json(new java.io.IOException("token=SECRET"));check(!redacted.toString().contains("SECRET"),"exception redaction");
