@@ -22,7 +22,8 @@ public final class MijiaTest {
         throw new AssertionError("job timeout");
     }
     static class FakeCloud extends MiCloud {
-        Object actual = false; int writes, actions, scenes, reads; int writeCode; boolean disconnect, offline; String account = "10001";
+        Object actual = false; int writes, actions, scenes, reads; int writeCode; boolean disconnect, offline, applyThenDisconnect, offlineAfterWrite, sceneTurnsOn; String account = "10001";
+        java.util.concurrent.CountDownLatch writeEntered, releaseWrite;
         FakeCloud(PrivateStore store) { super(store); }
         @Override JSONObject authenticated(MiHttp h) throws Exception { return Json.obj("userId", account); }
         @Override JSONArray homes(MiHttp h, JSONObject a) throws Exception { return new JSONArray().put(home(h, a, "1")); }
@@ -32,14 +33,17 @@ public final class MijiaTest {
                     "scenes", new JSONArray().put(Json.obj("id", "3", "name", "fixture", "home", "1")), "owner", 10001, "sceneError", "");
         }
         @Override Object call(MiHttp h, JSONObject a, String uri, JSONObject data) throws Exception {
-            if (uri.endsWith("NewRunScene")) { scenes++; return true; }
+            if (uri.endsWith("NewRunScene")) { scenes++; if (sceneTurnsOn) actual = true; return true; }
             if (uri.equals("/miotspec/action")) { actions++; return Json.obj("code", 0); }
             JSONArray params = data.getJSONArray("params"), result = new JSONArray();
             for (int i = 0; i < params.length(); i++) {
                 JSONObject param = params.getJSONObject(i), item = Json.copy(param);
                 if (uri.endsWith("/set")) {
+                    if (writeEntered != null) { writeEntered.countDown(); if (!releaseWrite.await(3, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("blocked write timeout"); }
                     writes++; if (disconnect) throw new java.net.SocketTimeoutException("synthetic credential=DO_NOT_PRINT");
                     if (writeCode == 0) actual = param.get("value"); item.put("code", writeCode);
+                    if (applyThenDisconnect) throw new java.net.SocketTimeoutException("synthetic credential=DO_NOT_PRINT");
+                    if (offlineAfterWrite) offline = true;
                 } else { reads++; item.put("code", offline ? -704042011 : 0).put("value", actual); }
                 result.put(item);
             }
@@ -76,6 +80,62 @@ public final class MijiaTest {
             Thread.sleep(10);
         } while(System.currentTimeMillis()<until);
         throw new AssertionError("menu state timeout");
+    }
+    static String menuResult(MijiaBridge bridge, JSONObject control) throws Exception {
+        JSONObject request = Json.obj("op", "menu-result", "session", control.getString("session"), "requestId", control.getString("requestId"));
+        long until = System.currentTimeMillis() + 5000;
+        do {
+            String state = bridge.handle(request).getString("states");
+            if (!state.equals("P")) return state;
+            Thread.sleep(10);
+        } while (System.currentTimeMillis() < until);
+        throw new AssertionError("menu control timeout");
+    }
+    static void menuControls(MijiaBridge bridge, FakeCloud cloud, PrivateStore store, String token, JSONArray visible) throws Exception {
+        cloud.actual = false;
+        JSONObject control = Json.obj("op", "menu-control", "session", token, "ids", visible, "id", visible.getString(0), "requestId", MiCloud.randomId());
+        cloud.writeEntered = new java.util.concurrent.CountDownLatch(1); cloud.releaseWrite = new java.util.concurrent.CountDownLatch(1);
+        int writes = cloud.writes, reads = cloud.reads;
+        check(bridge.handle(control).getString("states").equals("P"), "menu control returns immediately while worker executes");
+        check(cloud.writeEntered.await(1, java.util.concurrent.TimeUnit.SECONDS), "control reaches write stage");
+        check(bridge.handle(control).getString("states").equals("P") && cloud.writes == writes, "duplicate request never queues another control");
+        JSONObject poll = Json.obj("op", "menu-result", "session", token, "requestId", control.getString("requestId"));
+        check(bridge.handle(poll).getString("states").equals("P"), "no stale state returned before operation completes");
+        cloud.releaseWrite.countDown();
+        check(menuResult(bridge, control).equals("D11n"), "successful click displays freshly read on state");
+        cloud.writeEntered = cloud.releaseWrite = null;
+        check(cloud.writes == writes + 1 && cloud.reads == reads + 2, "one pre-read and one post-read, duplicate bindings merged");
+        check(bridge.handle(Json.obj("op", "status")).getJSONObject("last").optString("state").equals("confirmed"), "menu readback confirms action");
+        for (int i = 0; i < 5; i++) check(bridge.handle(poll).getString("states").equals("D11n"), "local result stays stable");
+        check(cloud.reads == reads + 2 && cloud.writes == writes + 1, "idle result polling never reads cloud or repeats write");
+        JSONObject second = Json.copy(control).put("requestId", MiCloud.randomId()); bridge.handle(second);
+        check(menuResult(bridge, second).equals("D00n"), "next click fetches fresh off state");
+        check(menuResult(bridge, control).equals("D11n"), "old result cannot change newer operation");
+        JSONObject scene = Json.copy(control).put("id", visible.getString(2)).put("requestId", MiCloud.randomId());
+        cloud.sceneTurnsOn = true; reads = cloud.reads; int scenes = cloud.scenes; bridge.handle(scene);
+        check(menuResult(bridge, scene).equals("D11n") && cloud.scenes == scenes + 1 && cloud.reads == reads + 1, "scene refreshes visible device states once after execution");
+        cloud.sceneTurnsOn = false;
+        cloud.applyThenDisconnect = true; writes = cloud.writes;
+        JSONObject uncertain = Json.copy(control).put("requestId", MiCloud.randomId()); bridge.handle(uncertain);
+        check(menuResult(bridge, uncertain).equals("D00n") && cloud.writes == writes + 1, "lost control reply rereads actual state without resending");
+        check(bridge.handle(Json.obj("op", "status")).getJSONObject("last").optString("code").equals("UNKNOWN"), "ambiguous write remains explicit in result log");
+        cloud.applyThenDisconnect = false; cloud.offlineAfterWrite = true;
+        JSONObject offline = Json.copy(control).put("requestId", MiCloud.randomId()); bridge.handle(offline);
+        check(menuResult(bridge, offline).equals("D??n"), "only real read failure produces unknown state");
+        cloud.offlineAfterWrite = cloud.offline = false;
+        cloud.actual = false; cloud.writeCode = 1;
+        JSONObject accepted = Json.copy(control).put("requestId", MiCloud.randomId()); bridge.handle(accepted);
+        check(menuResult(bridge, accepted).equals("D00n"), "gateway acceptance never fakes desired on state");
+        check(bridge.handle(Json.obj("op", "status")).getJSONObject("last").optString("state").equals("accepted"), "unchanged readback is not confirmation");
+        cloud.writeCode = 0;
+        rejects(() -> bridge.handle(Json.copy(control).put("id", visible.getString(2))), "SESSION");
+        rejects(() -> bridge.handle(Json.copy(poll).put("session", String.join("", Collections.nCopies(64, "f")))), "EXPIRED");
+        writes = cloud.writes;
+        try (MijiaBridge restarted = new MijiaBridge(store, cloud)) { rejects(() -> restarted.handle(poll), "EXPIRED"); }
+        check(cloud.writes == writes, "service restart result polling cannot repeat control");
+        String log = new String(Files.readAllBytes(store.root.resolve("debug.log")), java.nio.charset.StandardCharsets.UTF_8);
+        check(log.contains("操作后读取") && log.contains("发送设置") && log.contains("ms"), "diagnostics contain stage timings");
+        check(!log.contains("DO_NOT_PRINT") && !log.contains("SYNTHETIC_TEST_ONLY") && !log.contains(visible.getString(0)), "diagnostics exclude credentials, exception contents and binding IDs");
     }
     public static void main(String[] args) throws Exception {
         JSONObject roomHome=Json.obj("roomlist",new JSONArray()
@@ -151,6 +211,7 @@ public final class MijiaTest {
                 JSONObject request=Json.obj("op","run","action",action,"requestId","abcdabcdabcdabcdabcdabcdabcdabcd");
                 String first=bridge.handle(request).getString("job");check(first.equals(bridge.handle(request).getString("job")),"dedupe request id");
                 result=await(bridge,Json.obj("op","run","action",Json.obj("kind","scene","home","1","scene","3")));check(result.optString("state").equals("accepted") && cloud.scenes==1,"scene accepted");
+                menuControls(bridge, cloud, store, tokenA, visible);
                 result=await(bridge,Json.obj("op","logout"));check(result.optBoolean("ok") && !Files.exists(folder.resolve("auth.json")) && !Files.exists(folder.resolve("bindings.json")),"logout erases private auth");
             }
             JSONObject redacted=Failure.json(new java.io.IOException("token=SECRET"));check(!redacted.toString().contains("SECRET"),"exception redaction");

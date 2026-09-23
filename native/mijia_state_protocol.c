@@ -16,6 +16,29 @@ bool mijia_state_request(FILE *output, const char *session, const char ids[][33]
     return !ferror(output);
 }
 
+bool mijia_control_request(FILE *output, const char *session, const char ids[][33], uint32_t count,
+                           const char *id, const char *request_id)
+{
+    if (!output || !ids || !count || count > MIJIA_BINDING_CAP || !hex_id(session, 64) ||
+        !hex_id(id, 32) || !hex_id(request_id, 32)) return false;
+    bool visible = false;
+    for (uint32_t i = 0; i < count; i++) {
+        if (!hex_id(ids[i], 32)) return false;
+        if (!strcmp(ids[i], id)) visible = true;
+    }
+    if (!visible) return false;
+    fprintf(output, "{\"op\":\"menu-control\",\"session\":\"%s\",\"id\":\"%s\",\"requestId\":\"%s\",\"ids\":[", session, id, request_id);
+    for (uint32_t i = 0; i < count; i++) fprintf(output, "%s\"%s\"", i ? "," : "", ids[i]);
+    fputs("]}", output); return !ferror(output);
+}
+
+bool mijia_result_request(FILE *output, const char *session, const char *request_id)
+{
+    if (!output || !hex_id(session, 64) || !hex_id(request_id, 32)) return false;
+    fprintf(output, "{\"op\":\"menu-result\",\"session\":\"%s\",\"requestId\":\"%s\"}", session, request_id);
+    return !ferror(output);
+}
+
 int mijia_state_reply(const char *json, uint32_t count, char *states)
 {
     if (!json || !states || count > MIJIA_BINDING_CAP) return -1;

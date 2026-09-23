@@ -64,7 +64,7 @@ public final class MijiaMain {
                                     JSONObject request = receive(socket.getInputStream(), 32768);
                                     if (request.optString("op").equals("shutdown")) { send(socket.getOutputStream(), Json.obj("ok", true)); break; }
                                     result = bridge.handle(request);
-                                } catch (Exception error) { result = Failure.json(error); }
+                                } catch (Exception error) { result = Failure.json(error); store.debug("本地接口拒绝，代码=" + result.optString("code")); }
                                 try { send(socket.getOutputStream(), result); } catch (IOException ignored) { /* 客户端退出后任务仍由服务持有。 */ }
                             }
                         }

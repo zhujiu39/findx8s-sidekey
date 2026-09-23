@@ -5,6 +5,9 @@
 #include <stdio.h>
 #define MIJIA_BINDING_CAP 256
 bool mijia_state_request(FILE *output, const char *session, const char ids[][33], uint32_t count);
+bool mijia_control_request(FILE *output, const char *session, const char ids[][33], uint32_t count,
+                           const char *id, const char *request_id);
+bool mijia_result_request(FILE *output, const char *session, const char *request_id);
 /* 返回 -1 无效、0 仍在读取、1 完成；仅完成时写入 states。 */
 int mijia_state_reply(const char *json, uint32_t count, char *states);
 #endif

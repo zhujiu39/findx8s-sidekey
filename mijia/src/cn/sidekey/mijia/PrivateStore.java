@@ -46,4 +46,14 @@ final class PrivateStore {
         } finally { Files.deleteIfExists(temporary); }
     }
     synchronized void delete(String name) throws Exception { Files.deleteIfExists(path(name)); }
+    synchronized void debug(String message) {
+        try {
+            Path log = path("debug.log");
+            if (Files.exists(log) && Files.size(log) > 32768)
+                Files.move(log, path("debug.log.1"), StandardCopyOption.REPLACE_EXISTING);
+            String line = String.format(java.util.Locale.ROOT, "[%tF %<tT] %s%n", System.currentTimeMillis(), message);
+            Files.write(log, line.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            permissions(log, false);
+        } catch (IOException error) { System.err.println("米家调试日志写入失败"); }
+    }
 }

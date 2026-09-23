@@ -4,7 +4,7 @@ package cn.sidekey.mijia;
 import java.util.*;
 import org.json.*;
 
-/** 每次展开只创建一次读取任务；本地取结果不会再次访问米家。 */
+/** 每次展开或操作完成后创建一次读取快照；本地取结果不会再次访问米家。 */
 final class MenuStates {
     static final class Snapshot {
         final String account, ids;

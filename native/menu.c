@@ -131,7 +131,7 @@ bool menu_init(const char *directory)
 /* am 在独立进程中启动；UI 和网络请求都不能阻塞输入事件调度。 */
 static bool show_menu(const Config *config, uint64_t now)
 {
-    if (launcher > 0 || show_client >= 0) return false;
+    if (launcher > 0 || show_client >= 0 || mijia_menu_submitting()) return false;
     menu_cancel();
     collect_output();
     if (launch_output >= 0) { close(launch_output); launch_output = -1; }
@@ -212,7 +212,8 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
         }
     }
     if (expires && now >= expires) { session[0] = 0; expires = 0; }
-    if (*session) mijia_menu_tick(data_directory, now);
+    /* 收起面板不能丢掉已接收的点击；等服务接管控制后才停止本地取结果。 */
+    if (*session || mijia_menu_submitting()) mijia_menu_tick(data_directory, now);
     else mijia_menu_disconnect();
     if (listener < 0) return failure;
     for (int i = 0; i < CLIENT_CAP; i++) {
@@ -246,7 +247,7 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
                 uint32_t index = 0;
                 MenuCommand command = menu_authorize(clients[i].text, session, expires, now, snapshot_count, &index);
                 if (command == MENU_PING) {
-                    if (!launch_state.ui_ready) mijia_menu_reset(snapshot, snapshot_count, session, now);
+                    if (!launch_state.ui_ready) mijia_menu_reset(snapshot, snapshot_count, session, data_directory, now);
                     accepted = true; ping = true; launch_state.ui_ready = true;
                 }
                 else if (command == MENU_ITEMS || command == MENU_STATES) {
@@ -268,7 +269,10 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
                 else if (command == MENU_SELECT) {
                     const Action *action = &snapshot[index].action;
                     bool app = action->kind == ACTION_APP || action->kind == ACTION_APP_FREEFORM;
-                    accepted = selected && selected(action);
+                    if (action->kind == ACTION_MIJIA) {
+                        char request_id[MENU_TOKEN_CAP];
+                        if (random_token(request_id)) { request_id[32] = 0; accepted = mijia_menu_select(index, request_id, now); }
+                    } else accepted = selected && selected(action);
                     /* 应用离开菜单后结束会话；快捷开关允许同一面板继续选择。 */
                     if (app) { session[0] = 0; expires = 0; }
                 }
@@ -288,7 +292,7 @@ int menu_wait_ms(void)
 {
     for (int i = 0; i < CLIENT_CAP; i++) if (clients[i].fd >= 0) return 5;
     if (launcher > 0 || show_client >= 0 || launch_output >= 0) return 50;
-    return mijia_menu_wait_ms();
+    return *session || mijia_menu_submitting() ? mijia_menu_wait_ms() : 500;
 }
 
 int menu_request(const char *directory)

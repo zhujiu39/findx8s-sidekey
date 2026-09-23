@@ -59,6 +59,8 @@ public final class MenuActivity extends Activity {
         volatile int torchState = -1;
         volatile String mijiaStates;
         volatile boolean pendingMijia;
+        volatile int mijiaRevision;
+        boolean mijiaOperating;
         int itemCount;
         Session(int port, String token) { this.port = port; this.token = token; }
     }
@@ -109,8 +111,10 @@ public final class MenuActivity extends Activity {
                             currentItems = data.items; build(data.items);
                             network.execute(() -> {
                                 boolean valid = request(current, "PING");
-                                if (valid) readMijiaStates(current);
-                                handler.post(() -> { if (session == current && !closing) { if (valid) { updateSwitches(); enter(); } else closeNow(); } });
+                                if (valid) readMijiaStates(current, 0);
+                                handler.post(() -> { if (session == current && !closing) { if (valid) {
+                                    updateSwitches(); enter(); pollMijia(current, current.mijiaRevision);
+                                } else closeNow(); } });
                             });
                         } catch (Exception error) { closeNow(); }
                     }});
@@ -236,6 +240,19 @@ public final class MenuActivity extends Activity {
     private void selectSwitch(int index, String type) {
         final Session current = session;
         if (current == null) return;
+        final boolean mijia = "mijia".equals(type);
+        if (mijia && current.mijiaOperating) return;
+        if (mijia) {
+            synchronized (current) {
+                current.mijiaRevision++; current.pendingMijia = true; current.mijiaOperating = true;
+                if (current.mijiaStates != null) {
+                    char[] states = current.mijiaStates.toCharArray();
+                    for (int i = 0; i < states.length; i++) if (states[i] != 'n' || i == index) states[i] = '~';
+                    current.mijiaStates = new String(states);
+                }
+            }
+            updateSwitches();
+        }
         selecting = true;
         network.execute(() -> {
             boolean accepted = request(current, "SELECT " + index);
@@ -243,20 +260,10 @@ public final class MenuActivity extends Activity {
                 if (session != current || closing) return;
                 selecting = false;
                 if (!accepted) {
-                    Toast.makeText(getApplicationContext(), "快捷开关未执行，请重试或重新打开菜单", Toast.LENGTH_SHORT).show();
-                    return;
+                    Toast.makeText(getApplicationContext(), "快捷开关请求未确认，请查看运行日志", Toast.LENGTH_SHORT).show();
                 }
                 if ("torch".equals(type)) current.torchState = -1;
-                if ("mijia".equals(type)) {
-                    synchronized (current) {
-                        current.pendingMijia = false;
-                        if (current.mijiaStates != null) {
-                            char[] states = current.mijiaStates.toCharArray();
-                            for (int i = 0; i < states.length; i++) if (states[i] != 'n') states[i] = '?';
-                            current.mijiaStates = new String(states);
-                        }
-                    }
-                }
+                if (mijia) pollMijia(current, current.mijiaRevision);
                 updateSwitches();
             });
         });
@@ -368,10 +375,12 @@ public final class MenuActivity extends Activity {
             if (size.height != height) { size.height = height; control.setLayoutParams(size); }
             status.setVisibility(control.power && value != '0' && value != '1' ? View.VISIBLE : View.GONE);
             if (mijia) {
-                String description = MijiaSwitchState.description(value);
+                String description = session != null && session.mijiaOperating && value == '~' ? "执行并刷新中" : MijiaSwitchState.description(value);
                 status.setText(description); card.setContentDescription(name.getText() + "，" + description);
                 card.setStateDescription(description);
             } else card.setStateDescription(null);
+            boolean waiting = mijia && session != null && session.mijiaOperating;
+            card.setEnabled(!waiting); card.setAlpha(waiting ? 0.72f : 1f);
             control.invalidate();
         }
     }
@@ -442,7 +451,7 @@ public final class MenuActivity extends Activity {
 
     @Override protected void onStop() {
         super.onStop();
-        // 等透明 Activity 完全离开前台后才执行动作，避免截屏或返回键作用在菜单上。
+        // 应用启动等菜单完全离开前台；快捷开关已在点击时提交。
         dispatch();
         if (!isFinishing()) closeNow();
     }
@@ -462,12 +471,27 @@ public final class MenuActivity extends Activity {
             if (session != current || closing) return;
             network.execute(() -> {
                 boolean valid = request(current, "PING");
-                if (valid) readMijiaStates(current);
                 handler.post(() -> { if (session == current && !closing) {
                     if (valid) { updateSwitches(); heartbeat(current); } else dismiss();
                 }});
             });
         }, 2000);
+    }
+
+    private void pollMijia(Session current, int revision) {
+        if (!current.pendingMijia) return;
+        handler.postDelayed(() -> {
+            if (session != current || closing || !current.pendingMijia || current.mijiaRevision != revision) return;
+            network.execute(() -> {
+                readMijiaStates(current, revision);
+                handler.post(() -> {
+                    if (session != current || closing || current.mijiaRevision != revision) return;
+                    if (!current.pendingMijia) current.mijiaOperating = false;
+                    updateSwitches();
+                    pollMijia(current, revision);
+                });
+            });
+        }, 150);
     }
 
     private void send(Session current, String command, boolean report) {
@@ -532,14 +556,14 @@ public final class MenuActivity extends Activity {
         } catch (Exception ignored) { return false; }
     }
 
-    private static void readMijiaStates(Session current) {
-        if (!current.pendingMijia) return;
+    private static void readMijiaStates(Session current, int revision) {
+        if (!current.pendingMijia || current.mijiaRevision != revision) return;
         String states = null;
         try {
             states = MijiaSwitchState.decode(exchange(current, "STATES", 4096), current.itemCount);
         } catch (Exception ignored) { }
         synchronized (current) {
-            if (!current.pendingMijia) return;
+            if (!current.pendingMijia || current.mijiaRevision != revision) return;
             current.mijiaStates = states;
             current.pendingMijia = states != null && states.indexOf('~') >= 0;
         }

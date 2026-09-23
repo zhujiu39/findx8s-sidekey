@@ -534,7 +534,21 @@ static void print_state(void)
     path_for(path, sizeof(path), "app-launch.log"); file = fopen(path, "r"); n = 0;
     if (file) { n = fread(buffer, 1, sizeof(buffer) - 1, file); fclose(file); }
     buffer[n] = 0;
-    fputs(",\"app_logs\":", stdout); json_string(stdout, buffer); fputs("}\n", stdout);
+    fputs(",\"app_logs\":", stdout); json_string(stdout, buffer);
+    const char *mijia_logs[] = {"mijia-menu.log", "mijia/debug.log"};
+    const char *mijia_keys[] = {",\"mijia_menu_logs\":", ",\"mijia_logs\":"};
+    for (int i = 0; i < 2; i++) {
+        path_for(path, sizeof(path), mijia_logs[i]); file = fopen(path, "r"); n = 0;
+        if (file) {
+            if (fseek(file, 0, SEEK_END) == 0 && ftell(file) > 6000) (void)fseek(file, -6000, SEEK_END);
+            else rewind(file);
+            n = fread(buffer, 1, sizeof(buffer) - 1, file); fclose(file);
+        }
+        buffer[n] = 0; log_start = buffer;
+        while (((unsigned char)*log_start & 0xc0) == 0x80) log_start++;
+        fputs(mijia_keys[i], stdout); json_string(stdout, log_start);
+    }
+    fputs("}\n", stdout);
 }
 
 static int stop_daemon(void)
