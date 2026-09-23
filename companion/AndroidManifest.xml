@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="cn.sidekey.menu" android:versionCode="105" android:versionName="1.1.0-test.5">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="cn.sidekey.menu" android:versionCode="106" android:versionName="1.1.0-test.6">
     <uses-sdk android:minSdkVersion="35" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.INTERNET" />
     <queries>
@@ -7,5 +7,6 @@
     </queries>
     <application android:label="侧键快捷菜单" android:theme="@style/MenuTheme" android:allowBackup="false" android:supportsRtl="true" android:usesCleartextTraffic="false">
         <activity android:name=".MenuActivity" android:exported="false" android:excludeFromRecents="true" android:launchMode="singleTask" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode" />
+        <activity android:name=".LogExportActivity" android:label="导出侧键日志" android:exported="false" android:excludeFromRecents="true" android:taskAffinity="cn.sidekey.menu.export" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode" />
     </application>
 </manifest>

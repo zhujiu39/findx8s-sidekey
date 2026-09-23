@@ -18,6 +18,21 @@ start_service() {
 }
 
 case "$1" in
+    export-logs|export-log-status)
+        [ "$#" -eq 2 ] && [ "${#2}" -eq 32 ] || exit 2
+        case "$2" in *[!a-f0-9]*) exit 2 ;; esac
+        if [ "$1" = export-log-status ]; then
+            result="$DATA/log-export-$2.json"
+            if [ -f "$result" ] && [ ! -L "$result" ]; then cat "$result"
+            else printf '{"id":"%s","state":"preparing","message":"正在准备日志导出"}\n' "$2"; fi
+            exit 0
+        fi
+        [ ! -f "$MODDIR/disable" ] && [ ! -f "$MODDIR/remove" ] || { echo '模块已禁用' >&2; exit 1; }
+        [ -r "$MODDIR/lib/torch.jar" ] || { echo '日志导出组件缺失，请重新安装模块' >&2; exit 1; }
+        command -v setsid >/dev/null 2>&1 || { echo '系统缺少 setsid 命令' >&2; exit 1; }
+        CLASSPATH="$MODDIR/lib/torch.jar" nohup setsid /system/bin/app_process /system/bin cn.sidekey.LogExportServer "$MODDIR" "$2" </dev/null >/dev/null 2>&1 &
+        printf '{"ok":true,"id":"%s"}\n' "$2"
+        ;;
     logs)
         [ "$#" -eq 1 ] || exit 2
         exec sh "$MODDIR/scripts/logs.sh"

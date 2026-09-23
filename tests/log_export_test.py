@@ -35,12 +35,19 @@ with tempfile.TemporaryDirectory(prefix='log-export-test-', dir=root / 'build') 
     assert 'fixture-test' in text and '导出时间' in text
     assert text.count('──── ') == 10
     assert '上一段事件' in text and '日志开头不能被六千字节预览截掉' in text
-    assert text.index('上一段事件') < text.index('日志开头不能被六千字节预览截掉')
+    assert text.index('目标=0，读回=0') < text.index('日志开头不能被六千字节预览截掉') < text.index('上一段事件')
     assert '完整内容：mijia/debug.log.1' in text and '目标=0，读回=0' in text
     assert '已截取末尾 64 KiB' in text and '旧内容' not in text
     assert 'PRIVATE_DO_NOT_EXPORT' not in text and len(result.stdout) < 10 * 65536 + 4096
+    assert text.rstrip().endswith('===== SIDEKEY_LOG_END =====')
+    full_bytes = subprocess.run([bash, posix(script), 'full'], env={**os.environ, 'TEST_MODULE': posix(module), 'TEST_DATA': posix(data)},
+                                capture_output=True, check=True, timeout=15).stdout
+    full = full_bytes.decode('utf-8')
+    assert '已截取' not in full and full.count('开灯与关灯状态') == 5000 and '旧内容' in full
+    assert (data / 'mijia/debug.log').read_bytes() in full_bytes
+    assert 'PRIVATE_DO_NOT_EXPORT' not in full and full.rstrip().endswith('===== SIDEKEY_LOG_END =====')
     (data / 'mijia/debug.log').unlink()
     result = subprocess.run([bash, posix(script)], env={**os.environ, 'TEST_MODULE': posix(module), 'TEST_DATA': posix(data)},
                             capture_output=True, check=True, timeout=15)
     assert '暂无日志' in result.stdout.decode('utf-8')
-print('PASS: complete diagnostic sections, rotated logs, UTF-8 truncation, missing files, private-data exclusion')
+print('PASS: diagnostic sections, rotated logs, copy bounds, untruncated full export, missing files, private-data exclusion')

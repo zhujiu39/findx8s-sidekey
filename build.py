@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.1.0-test.5'
-VERSION_CODE = 105
+VERSION = '1.1.0-test.6'
+VERSION_CODE = 106
 
 
 def run(arguments):
@@ -88,11 +88,12 @@ def build_torch():
         sources = sorted((ROOT / 'android').rglob('*.java'))
         run([javac, '-J-Dfile.encoding=UTF-8', '-J-Dstdout.encoding=UTF-8', '-J-Dstderr.encoding=UTF-8',
              '--release', '8', '-Xlint:-options', '-encoding', 'UTF-8', '-classpath', android_jar,
-             '-d', temporary, *sources, ROOT / 'tests/TorchControllerTest.java', ROOT / 'tests/AppCatalogModelTest.java', ROOT / 'tests/ZoomControllerTest.java'])
+             '-d', temporary, *sources, ROOT / 'tests/TorchControllerTest.java', ROOT / 'tests/AppCatalogModelTest.java', ROOT / 'tests/ZoomControllerTest.java', ROOT / 'tests/LogTransferTest.java'])
         java_options = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8']
         run([java, *java_options, '-cp', temporary, 'TorchControllerTest'])
         run([java, *java_options, '-cp', temporary, 'AppCatalogModelTest'])
         run([java, *java_options, '-cp', temporary, 'ZoomControllerTest'])
+        run([java, *java_options, '-cp', temporary, 'LogTransferTest'])
         output = MODULE / 'lib/torch.jar'
         output.parent.mkdir(exist_ok=True)
         run([java, *java_options, '-cp', d8, 'com.android.tools.r8.D8', '--release', '--min-api', '33',
@@ -137,7 +138,7 @@ def build_menu():
         classes, dex = temporary / 'classes', temporary / 'dex'
         classes.mkdir(); dex.mkdir()
         run([javac, '-J-Dfile.encoding=UTF-8', '-J-Dstdout.encoding=UTF-8', '-J-Dstderr.encoding=UTF-8', '--release', '8', '-Xlint:deprecation,-options', '-Werror', '-encoding', 'UTF-8', '-classpath', android_jar,
-             '-d', classes, *sorted((ROOT / 'companion/src').rglob('*.java')), ROOT / 'tests/MenuGeometryTest.java', ROOT / 'tests/AppGridGeometryTest.java', ROOT / 'tests/MenuSwitchStateTest.java'])
+             '-d', classes, *sorted((ROOT / 'companion/src').rglob('*.java')), ROOT / 'android/cn/sidekey/LogTransfer.java', ROOT / 'tests/MenuGeometryTest.java', ROOT / 'tests/AppGridGeometryTest.java', ROOT / 'tests/MenuSwitchStateTest.java'])
         run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'MenuGeometryTest'])
         run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'AppGridGeometryTest'])
         run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'MenuSwitchStateTest'])
@@ -220,7 +221,7 @@ def main():
     required = {'module.prop', 'skip_mount', 'customize.sh', 'service.sh', 'action.sh',
                 'uninstall.sh', 'scripts/control.sh', 'scripts/app-launch.sh', 'bin/sidekey', 'lib/torch.jar', 'lib/sidekey-menu.apk', 'scripts/menu-install.sh', 'webroot/index.html',
                 'LICENSES/sidekey-LICENSE.txt', 'lib/mijia.jar', 'lib/mijia-source.zip', 'scripts/mijia.sh',
-                'webroot/mijia.js', 'webroot/clipboard.js', 'scripts/logs.sh', 'LICENSES/mijia-GPL-3.0.txt', 'LICENSES/micloud-MIT.txt'}
+                'webroot/mijia.js', 'webroot/clipboard.js', 'webroot/log-export.js', 'scripts/logs.sh', 'LICENSES/mijia-GPL-3.0.txt', 'LICENSES/micloud-MIT.txt'}
     if not required.issubset({path.relative_to(MODULE).as_posix() for path in files}):
         raise RuntimeError('模块文件不完整')
     for path in files:
@@ -235,7 +236,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_米家状态确认与日志复制')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_完整日志另存为')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -265,6 +266,9 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 本地测试包\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
+        '本版新增设置 → 运行状态与日志 → 导出完整日志。系统另存为窗口允许选择文件夹与文件名，保存为 .log。'
+        '完整文件保留现存全部诊断日志及上一段轮换日志，不按每文件 64 KiB 截取；直接传文件即可避免粘贴截断。'
+        '内容长度与 SHA-256 校验通过、目标文件关闭且返回保存回执后才报告成功；取消和失败分别提示。\n\n'
         '快捷开关点击后立即提交动作并保留快捷栏，允许连续操作；点击应用后仍自动收起，并按原有路径打开 ColorOS 小窗。'
         '米家开关在展开及每次操作完成后读取实际状态；执行期间显示进度，完成后更新开关图标，空闲时不请求云端。'
         '布尔操作后的首次读回若仍是旧值，会有限次复查目标属性，匹配即结束；不会显示旧的相反状态或重发控制。'
@@ -276,13 +280,14 @@ def main():
         '执行手动场景后核对相关开关状态；最后点击应用确认面板收起且打开小窗。'
         '米家测试可进入米家页生成登录二维码并用米家 App 扫一扫授权；选择家庭，测试设备开关或手动场景，加入快捷菜单并保存设置后再用侧键验证。'
         '该接入当前面向中国大陆账号；没有 MIOT 规格的设备可通过米家手动场景使用。\n\n'
-        '最近执行结果位于米家页；设置 → 运行状态与日志 → 复制全部日志可导出版本、时间、各类诊断及保留的上一段日志。'
-        '米家日志记录目标值、每次读回值和耗时；单文件上限 64 KiB，超限会注明截取。自动复制受限时可在弹出的文本框手动复制。'
+        '最近执行结果位于米家页；设置 → 运行状态与日志 → 导出完整日志可保存版本、时间、各类诊断及保留的上一段日志。'
+        '米家日志记录目标值、每次读回值和耗时。完整导出总上限 64 MiB，超限报错而非截取；原复制入口仍保留每文件 64 KiB 的预览边界。'
         '每次展开及每次操作完成后读取状态，读取失败或有限次复查仍未确认时显示未知；本地结果查询不会重复发送控制或持续查询云端。'
         '场景和无可读开关状态的动作仍是执行按钮。已受理不等于设备状态已确认；请求中断时不会自动重发。'
         '登录凭据保存在手机私有目录，WebUI 不显示令牌，退出账号删除本机凭据和米家动作。\n\n'
         '本地 C/Java/JavaScript/配置往返/脚本测试、ARM64 ELF、DEX、APK 签名、ZIP 和权限检查的命令输出见构建日志。'
-        '真实服务的匿名扫码握手、二维码读取和公开设备规格解析已通过；本包未完成目标手机账号与真实设备端到端实测。\n\n'
+        '真实服务的匿名扫码握手、二维码读取和公开设备规格解析已通过；本包未完成目标手机账号与真实设备端到端实测。'
+        '系统文件选择器与所选文档提供方的实际写入需要手机验证；取消选择不应显示成功。\n\n'
         '包内 lib/mijia-source.zip 是 GPL 米家服务的完整对应源码，不是另一个安装包；无需解压。'
         '其余源码与测试、说明、日志及 SHA256 在本交付目录提供。没有包含个人账号、设备数据、ADB 标识或签名私钥。\n\n'
         '本次仅本地打包，没有推送 GitHub、创建 Tag 或发布 Release。恢复原侧键可关闭接管，或禁用模块后重启。\n',

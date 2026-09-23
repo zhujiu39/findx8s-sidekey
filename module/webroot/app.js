@@ -2,6 +2,7 @@ import {initMenuEditor, fillMenu, readMenu, menuBusy, addMijiaEntry} from './men
 import {actions, gestureIds, defaultConfig, validate, serialize, hex} from './model.js';
 import {api, available, saveConfiguration} from './bridge.js';
 import {copyText} from './clipboard.js';
+import {exportLogFile} from './log-export.js';
 import {appCatalog, createAppChoice} from './app-picker.js';
 import {initNavigation} from './navigation.js';
 import {initMijia, chooseMijia, mijiaBindingLabel} from './mijia.js';
@@ -184,6 +185,17 @@ document.addEventListener('sidekey-mijia-bindings', () => {
 });
 ['enabled', 'haptic', 'long-ms', 'double-ms'].forEach(id => $(id).addEventListener('input', updateDirty));
 $('save').addEventListener('click', save);
+$('export-logs').addEventListener('click', async () => {
+  if (!available()) { toast('请从手机 KernelSU 中导出完整日志'); return; }
+  const button = $('export-logs'); button.disabled = true; button.textContent = '正在准备日志…';
+  try {
+    const result = await exportLogFile(state => {
+      button.textContent = {preparing:'正在准备日志…', choosing:'请选择保存位置…', saving:'正在保存日志…'}[state];
+    });
+    toast(result.message || (result.state === 'saved' ? '完整日志已保存' : '已取消导出日志'));
+  } catch (error) { toast(error.message); }
+  finally { button.disabled = false; button.textContent = '导出完整日志'; }
+});
 $('copy-logs').addEventListener('click', async () => {
   const button = $('copy-logs'); button.disabled = true; button.textContent = '正在收集日志…';
   try {
