@@ -69,17 +69,24 @@
     </section>
 
     <section id="page-mijia" class="page" role="tabpanel" aria-labelledby="tab-mijia" hidden>
-      <div class="page-heading"><div><p class="overline">MI HOME</p><h2>让侧键，连接家。</h2></div><button id="mijia-refresh" class="secondary" type="button">刷新 ↗</button></div>
-      <div class="mijia-account-row"><p id="mijia-account">未登录 · 中国大陆</p><button id="mijia-login" class="text-button" type="button">登录米家</button></div>
+      <div class="mijia-hero">
+        <span class="mijia-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8M5 10v10h14V10M9 20v-7h6v7"/></svg></span>
+        <div class="mijia-hero-copy"><p>MI HOME · SIDEKEY</p><h2>我的米家</h2><span>选好动作，放进快捷菜单</span></div>
+        <button id="mijia-refresh" class="mijia-refresh" type="button" aria-label="刷新米家设备"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.7-1L20 9M4 15l2.2 3A7 7 0 0 0 18 17"/></svg></button>
+      </div>
+      <section class="mijia-account-card" aria-label="米家账号">
+        <div class="mijia-account-top"><span class="mijia-connection-dot" aria-hidden="true"></span><div><strong id="mijia-account">未登录 · 中国大陆</strong><small id="mijia-count">登录后同步家庭与设备</small></div></div>
+        <button id="mijia-login" class="mijia-link" type="button">登录米家 <span aria-hidden="true">›</span></button>
+      </section>
       <label id="mijia-home-row" class="mijia-home-row" hidden><span>当前家庭</span><select id="mijia-home" aria-label="选择米家家庭"></select></label>
       <p id="mijia-message" role="status" hidden></p>
-      <div class="section-heading"><h2>手动场景</h2><span>把习惯交给侧键</span></div>
+      <div class="mijia-section-heading"><div><span>01 / AUTOMATION</span><h2>手动场景</h2></div><small>添加到快捷菜单</small></div>
       <div id="mijia-scenes" class="mijia-scenes"></div>
-      <div class="section-heading"><h2>我的设备</h2><span>按需读取状态</span></div>
+      <div class="mijia-section-heading"><div><span>02 / DEVICES</span><h2>我的设备</h2></div><small>按房间查看</small></div>
       <div id="mijia-devices" class="mijia-devices"></div>
-      <section id="mijia-bindings-section" hidden><div class="section-heading"><h2>已保存的米家动作</h2><span>重复使用</span></div><div id="mijia-bindings"></div></section>
-      <div class="section-heading"><h2>最近执行结果</h2></div><p id="mijia-last" role="status">暂无执行记录</p>
-      <p class="hint">米家控制需要联网。设备和场景中的“添加绑定”会加入设置草稿，保存后侧键立即生效。</p>
+      <section id="mijia-bindings-section" class="mijia-bindings-section" hidden><div class="mijia-section-heading"><div><span>03 / SAVED</span><h2>已配置动作</h2></div><small>可重复加入</small></div><div id="mijia-bindings"></div></section>
+      <div class="mijia-last-card"><span>最近执行</span><p id="mijia-last" role="status">暂无执行记录</p></div>
+      <p class="mijia-footnote">在此选择动作并加入快捷菜单，点击底部“保存设置”后，即可从侧键弹出的快捷菜单执行。</p>
     </section>
 
     <section id="page-settings" class="page" role="tabpanel" aria-labelledby="tab-settings" hidden>

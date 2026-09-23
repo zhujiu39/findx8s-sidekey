@@ -126,8 +126,22 @@ class MiCloud {
         for (int i = 0; i < homes.length(); i++) if (String.valueOf(homes.getJSONObject(i).get("id")).equals(id)) return homes.getJSONObject(i);
         throw new Failure("HOME", "该家庭已删除或未向当前账号共享，请刷新家庭列表");
     }
+    static Map<String, String> roomNames(JSONObject home) {
+        Map<String, String> names = new HashMap<>();
+        JSONArray rooms = Json.array(home, "roomlist");
+        for (int i = 0; i < rooms.length(); i++) {
+            JSONObject room = rooms.optJSONObject(i);
+            if (room == null) continue;
+            String name = room.optString("name", "").trim();
+            if (name.isEmpty()) continue;
+            JSONArray dids = Json.array(room, "dids");
+            for (int j = 0; j < dids.length(); j++) names.put(String.valueOf(dids.opt(j)), name);
+        }
+        return names;
+    }
     JSONObject catalog(MiHttp http, JSONObject auth, String id) throws Exception {
         JSONObject home = home(http, auth, id); JSONArray devices = new JSONArray();
+        Map<String, String> rooms = roomNames(home);
         String cursor = ""; boolean more = true;
         for (int page = 0; more && page < 20; page++) {
             JSONObject result = (JSONObject) call(http, auth, "/home/home_device_list", Json.obj("home_owner", home.getLong("uid"),
@@ -135,8 +149,10 @@ class MiCloud {
             JSONArray list = Json.array(result, "device_info");
             for (int i = 0; i < list.length(); i++) {
                 JSONObject item = list.getJSONObject(i);
-                devices.put(Json.obj("did", String.valueOf(item.get("did")), "name", item.optString("name", "未命名设备"),
-                        "model", item.optString("model"), "online", item.optBoolean("isOnline", false), "home", id));
+                String did = String.valueOf(item.get("did"));
+                devices.put(Json.obj("did", did, "name", item.optString("name", "未命名设备"),
+                        "model", item.optString("model"), "online", item.optBoolean("isOnline", false),
+                        "home", id, "room", rooms.getOrDefault(did, "未分组")));
             }
             String next = result.optString("max_did"); more = result.optBoolean("has_more", false);
             if (more && (next.isEmpty() || next.equals(cursor))) throw new Failure("PROTOCOL", "设备分页未推进，请重试");

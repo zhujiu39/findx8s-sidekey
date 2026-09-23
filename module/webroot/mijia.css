@@ -1,47 +1,112 @@
-/* 米家页面沿用当前 WebUI 外观变量，不改变手机快捷菜单。 */
-.page-tabs { gap: clamp(15px, 5vw, 25px); }
-.mijia-account-row,.mijia-home-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 0; border-bottom:1px solid var(--line); }
-.mijia-account-row p { margin:0; font-size:12px; color:var(--muted); }
-.mijia-account-row .text-button { flex:none; }
-.mijia-home-row select { max-width:70%; }
-.mijia-scenes { display:grid; gap:9px; }
-.mijia-scene { display:flex; align-items:center; gap:12px; width:100%; padding:16px; border:1px solid var(--line); border-radius:var(--card-radius); background:var(--surface); color:var(--ink); text-align:left; }
-.mijia-scene strong { flex:1; font-size:13px; }
-.mijia-scene svg { color:var(--green); }
-.mijia-devices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-.mijia-device { min-width:0; display:flex; flex-direction:column; align-items:flex-start; padding:17px 13px; border:1px solid var(--line); border-radius:var(--card-radius); color:var(--ink); background:var(--surface); text-align:left; gap:8px; }
-.mijia-device strong { font-size:13px; overflow-wrap:anywhere; line-height:1.5; }
-.mijia-device small { color:var(--muted); font-size:10px; }
-.mijia-device-icon { display:grid; place-items:center; width:35px; height:35px; border-radius:10px; background:var(--soft); color:var(--green); margin-bottom:5px; }
-.mijia-device small.offline { opacity:.7; }
-.mijia-empty { grid-column:1/-1; border:1px dashed var(--line); border-radius:var(--card-radius); padding:26px 19px; }
-.mijia-empty strong { font-size:14px; font-weight:500; }
-.mijia-empty p { margin:10px 0 0; }
-#mijia-message { margin:16px 0; font-size:12px; line-height:1.7; overflow-wrap:anywhere; color:var(--muted); }
+/* 米家配置页借鉴柔和渐变与房间卡片；手机快捷菜单保留原有外观和操作。 */
+:root {
+  --mi-bg-a:#edf1f9; --mi-bg-b:#dce4f1; --mi-card:#ffffffd9;
+  --mi-card-solid:#fff; --mi-text:#252b39; --mi-muted:#6c7689;
+  --mi-border:#d8e0ec; --mi-orange:#ed702a; --mi-orange-soft:#fff0e6;
+  --mi-blue:#5267c6; --mi-blue-soft:#edf0ff; --mi-green:#138c68;
+}
+@media (prefers-color-scheme:dark) {
+  :root {
+    --mi-bg-a:#1b1e2b; --mi-bg-b:#252a3a; --mi-card:#303647e8;
+    --mi-card-solid:#303647; --mi-text:#f2f4fb; --mi-muted:#acb7c9;
+    --mi-border:#4a5266; --mi-orange:#ffa35c; --mi-orange-soft:#4b352e;
+    --mi-blue:#a2afff; --mi-blue-soft:#3e4569; --mi-green:#6bdbb4;
+  }
+}
+.page-tabs { gap:clamp(15px,5vw,25px); }
+#page-mijia {
+  color:var(--mi-text); background:linear-gradient(155deg,var(--mi-bg-a),var(--mi-bg-b));
+  border:1px solid var(--mi-border); border-radius:26px; padding:19px 15px 22px;
+  margin:0 -10px 10px; box-shadow:0 8px 32px #27354b0b;
+}
+#page-mijia button { color:inherit; }
+.mijia-hero { display:flex; align-items:center; gap:12px; padding:5px 3px 17px; }
+.mijia-mark { display:grid; place-items:center; flex:none; width:42px; height:42px; border-radius:14px; color:#fff; background:linear-gradient(145deg,#ff9c49,#ed6429); box-shadow:0 6px 14px #ed702a32; }
+.mijia-mark svg { width:23px; height:23px; }
+.mijia-hero-copy { flex:1; min-width:0; }
+.mijia-hero-copy p { font-size:9px; letter-spacing:1.6px; font-weight:750; color:var(--mi-orange); margin:0 0 3px; }
+.mijia-hero-copy h2 { font-size:21px; line-height:1.2; margin:0; letter-spacing:-.4px; }
+.mijia-hero-copy span { display:block; color:var(--mi-muted); font-size:11px; margin-top:5px; }
+#page-mijia .mijia-refresh { display:grid; place-items:center; flex:none; width:38px; height:38px; border:1px solid var(--mi-border); border-radius:12px; background:var(--mi-card); color:var(--mi-blue); }
+.mijia-refresh svg { width:19px; height:19px; }
+.mijia-account-card,.mijia-home-row,.mijia-scene,.mijia-room,.mijia-binding,.mijia-last-card {
+  background:var(--mi-card); border:1px solid var(--mi-border); border-radius:17px;
+  box-shadow:0 2px 8px #26334b09;
+}
+.mijia-account-card { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 13px 13px 14px; }
+.mijia-account-top { display:flex; align-items:center; gap:10px; min-width:0; }
+.mijia-account-top > div { min-width:0; }
+.mijia-account-top strong { display:block; font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
+.mijia-account-top small { display:block; margin-top:3px; color:var(--mi-muted); font-size:10px; }
+.mijia-connection-dot { flex:none; width:9px; height:9px; border-radius:50%; background:#b4bac5; box-shadow:0 0 0 4px #b4bac526; }
+.mijia-connection-dot.connected { background:var(--mi-green); box-shadow:0 0 0 4px #19a77c25; }
+#page-mijia .mijia-link { flex:none; padding:9px 10px; border-radius:10px; background:var(--mi-orange-soft); color:var(--mi-orange); font-size:11px; font-weight:650; white-space:nowrap; }
+.mijia-link span { font-size:16px; padding-left:2px; vertical-align:-1px; }
+.mijia-home-row { display:flex; align-items:center; gap:12px; margin-top:10px; padding:11px 13px; }
+.mijia-home-row > span { font-size:11px; color:var(--mi-muted); flex:none; }
+#page-mijia .mijia-home-row select { margin-left:auto; max-width:70%; min-height:36px; padding:6px 31px 6px 10px; border:1px solid var(--mi-border); border-radius:10px; background:var(--mi-card-solid); color:var(--mi-text); font-size:12px; }
+#page-mijia .mijia-home-row option { background:var(--mi-card-solid); color:var(--mi-text); }
+#mijia-message { margin:10px 0 0; border:1px solid var(--mi-border); border-radius:12px; background:var(--mi-card); padding:10px 12px; font-size:11px; line-height:1.6; color:var(--mi-blue); overflow-wrap:anywhere; }
 #mijia-message.error { color:var(--danger); }
-#mijia-last { font-size:12px; line-height:1.7; color:var(--muted); overflow-wrap:anywhere; }
-.mijia-binding { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--line); }
-.mijia-binding strong { font-size:12px; font-weight:500; }
-.mijia-dialog { box-sizing:border-box; width:min(440px,calc(100vw - 24px)); max-height:85dvh; padding:0; border:1px solid var(--line); border-radius:max(12px,var(--card-radius)); background:var(--surface); color:var(--ink); }
-.mijia-dialog::backdrop { background:rgb(0 0 0 / .4); }
-.mijia-dialog header { position:sticky; top:0; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px; background:var(--surface); border-bottom:1px solid var(--line); z-index:1; }
-.mijia-dialog h2 { font-size:18px; margin:0; }
-.mijia-dialog header button { padding:9px 12px; border-radius:var(--control-radius); color:var(--ink); background:var(--soft); }
-#mijia-dialog-body { padding:18px; }
+.mijia-section-heading { display:flex; align-items:end; justify-content:space-between; gap:10px; margin:24px 3px 10px; }
+.mijia-section-heading span { color:var(--mi-orange); font-size:9px; font-weight:750; letter-spacing:1.3px; }
+.mijia-section-heading h2 { font-size:16px; margin:3px 0 0; letter-spacing:-.2px; }
+.mijia-section-heading small { color:var(--mi-muted); font-size:10px; padding-bottom:2px; white-space:nowrap; }
+.mijia-scenes,.mijia-devices,#mijia-bindings { display:grid; gap:9px; }
+#page-mijia .mijia-scene { display:flex; align-items:center; gap:12px; width:100%; min-height:65px; padding:11px 13px; text-align:left; }
+.mijia-scene-icon,.mijia-device-icon { display:grid; place-items:center; flex:none; width:39px; height:39px; border-radius:12px; }
+.mijia-scene-icon { background:var(--mi-orange-soft); color:var(--mi-orange); }
+.mijia-scene-icon svg,.mijia-device-icon svg { width:21px; height:21px; }
+.mijia-scene-copy,.mijia-device-copy { flex:1; min-width:0; }
+.mijia-scene-copy strong,.mijia-device-copy strong { display:block; font-size:13px; font-weight:650; overflow-wrap:anywhere; }
+.mijia-scene-copy small,.mijia-device-copy small { display:block; color:var(--mi-muted); font-size:10px; margin-top:4px; overflow-wrap:anywhere; }
+.mijia-chevron { color:var(--mi-muted); font-size:23px; line-height:1; }
+.mijia-room { padding:5px 7px 7px; }
+.mijia-room-title { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 7px 9px; }
+.mijia-room-title strong { font-size:12px; }
+.mijia-room-title small { color:var(--mi-muted); font-size:10px; }
+#page-mijia .mijia-device { display:flex; align-items:center; gap:11px; width:100%; min-height:72px; padding:11px 10px; margin-top:5px; border:1px solid var(--mi-border); border-radius:13px; background:var(--mi-card-solid); text-align:left; }
+.mijia-device-icon { background:var(--mi-blue-soft); color:var(--mi-blue); }
+.mijia-device-state { align-self:flex-start; flex:none; margin-top:3px; font-size:10px; color:var(--mi-green); white-space:nowrap; }
+.mijia-device-state.offline { color:var(--mi-muted); }
+.mijia-device-state::before { content:""; display:inline-block; width:5px; height:5px; margin:0 5px 1px 0; border-radius:50%; background:currentColor; }
+.mijia-empty { border:1px dashed var(--mi-border); border-radius:16px; background:var(--mi-card); padding:22px 17px; }
+.mijia-empty strong { display:block; font-size:13px; }
+.mijia-empty p { margin:7px 0 0; color:var(--mi-muted); font-size:11px; line-height:1.65; }
+.mijia-binding { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 13px; }
+.mijia-binding strong { font-size:11px; line-height:1.5; font-weight:600; overflow-wrap:anywhere; }
+#page-mijia .mijia-binding button { color:var(--mi-blue); background:var(--mi-blue-soft); border-radius:9px; font-size:11px; padding:9px 10px; flex:none; }
+.mijia-last-card { padding:12px 14px; margin-top:21px; }
+.mijia-last-card > span { color:var(--mi-muted); font-size:10px; }
+#mijia-last { margin:5px 0 0; color:var(--mi-text); font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+.mijia-footnote { color:var(--mi-muted); font-size:10px; line-height:1.7; margin:13px 3px 0; }
+.mijia-dialog { box-sizing:border-box; width:min(440px,calc(100vw - 24px)); max-height:86dvh; padding:0; border:1px solid var(--mi-border); border-radius:20px; background:var(--mi-bg-a); color:var(--mi-text); }
+.mijia-dialog::backdrop { background:#171c2c99; }
+.mijia-dialog header { position:sticky; top:0; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 17px; background:var(--mi-bg-a); border-bottom:1px solid var(--mi-border); z-index:1; }
+.mijia-dialog h2 { font-size:17px; margin:0; }
+.mijia-dialog header button { padding:8px 11px; border-radius:9px; background:var(--mi-card); color:var(--mi-muted); font-size:11px; }
+#mijia-dialog-body { padding:17px; }
+#mijia-dialog-body > .hint { margin:0 0 12px; color:var(--mi-muted); font-size:11px; line-height:1.6; }
 #mijia-dialog-body > button { margin:8px 8px 8px 0; }
-.mijia-property { padding:18px 0; border-top:1px solid var(--line); margin-top:15px; }
-.mijia-property h3 { font-size:16px; margin:6px 0 9px; }
-.mijia-value { color:var(--green); font-size:13px; }
-.mijia-actions { display:flex; align-items:center; gap:8px; margin:12px 0; }
-.mijia-actions > * { flex:1; min-width:0; }
-.mijia-dialog select,.mijia-dialog input { box-sizing:border-box; border:1px solid var(--line); border-radius:var(--control-radius); padding:11px 9px; color:var(--ink); background:var(--surface); max-width:100%; font:inherit; font-size:13px; min-width:0; }
-.mijia-dialog .primary,.mijia-dialog .secondary { border-radius:var(--control-radius); padding:11px 15px; }
-.mijia-dialog .primary { background:var(--green); color:var(--on-accent); }
-.mijia-dialog .secondary { border:1px solid var(--line); background:var(--surface); color:var(--ink); }
-.mijia-field { display:grid; gap:8px; font-size:13px; margin-bottom:12px; }
+.mijia-property { padding:15px; margin-top:10px; border:1px solid var(--mi-border); border-radius:15px; background:var(--mi-card); }
+.mijia-property h3 { font-size:14px; margin:3px 0 5px; }
+.mijia-property small { color:var(--mi-muted); font-size:10px; }
+.mijia-value { color:var(--mi-green); font-size:11px; margin:4px 0 10px; }
+.mijia-dialog select,.mijia-dialog input { box-sizing:border-box; border:1px solid var(--mi-border); border-radius:10px; padding:10px 9px; color:var(--mi-text); background:var(--mi-card-solid); max-width:100%; font:inherit; font-size:12px; min-width:0; }
+.mijia-property > select,.mijia-property > input { width:100%; margin-top:3px; }
+.mijia-dialog .primary,.mijia-dialog .secondary { border-radius:10px; padding:10px 13px; font-size:12px; }
+.mijia-dialog .primary { background:var(--mi-orange); color:#fff; }
+.mijia-dialog .secondary { border:1px solid var(--mi-border); background:var(--mi-card-solid); color:var(--mi-blue); }
+.mijia-property .mijia-add { width:100%; margin-top:11px; }
+.mijia-field { display:grid; gap:8px; font-size:12px; margin-bottom:12px; }
 .mijia-qr { display:block; width:240px; max-width:100%; aspect-ratio:1; object-fit:contain; margin:10px auto 18px; border:10px solid #fff; background:#fff; box-sizing:border-box; }
-#mijia-dialog-message { padding:0 18px 18px; font-size:12px; line-height:1.7; color:var(--green); margin:0; overflow-wrap:anywhere; }
-#mijia-dialog-body .mijia-choice { display:block; width:100%; padding:15px; text-align:left; border-bottom:1px solid var(--line); color:var(--ink); background:var(--surface); }
-.mijia-gesture-choice { display:block; margin:8px 0; text-align:left; }
-:root[data-theme="graphite"] .mijia-device { box-shadow:0 2px 4px rgb(0 0 0 / .025); }
-@media (max-width:340px) { .mijia-actions { flex-wrap:wrap; } .mijia-actions > * { flex-basis:calc(50% - 8px); } }
+#mijia-dialog-message { padding:0 18px 18px; font-size:11px; line-height:1.7; color:var(--mi-green); margin:0; overflow-wrap:anywhere; }
+#mijia-dialog-body .mijia-choice { display:block; width:100%; padding:13px; margin:7px 0; text-align:left; border:1px solid var(--mi-border); border-radius:11px; color:var(--mi-text); background:var(--mi-card); }
+@media (max-width:359px) {
+  #page-mijia { margin-inline:-7px; padding-inline:11px; }
+  .mijia-hero { gap:9px; }
+  .mijia-hero-copy h2 { font-size:19px; }
+  .mijia-account-card { flex-wrap:wrap; }
+  .mijia-account-card .mijia-link { margin-left:19px; }
+}
+@media (prefers-reduced-motion:reduce) { #page-mijia *, .mijia-dialog * { transition:none!important; } }

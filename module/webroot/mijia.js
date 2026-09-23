@@ -48,8 +48,10 @@ async function status() {
   bindings = lastStatus.bindings || [];
   document.dispatchEvent(new Event('sidekey-mijia-bindings'));
   $('mijia-account').textContent = lastStatus.loggedIn ? `小米账号 ${lastStatus.account} · 中国大陆` : '未登录 · 中国大陆';
+  document.querySelector('.mijia-connection-dot').classList.toggle('connected', !!lastStatus.loggedIn);
   $('mijia-login').textContent = lastStatus.loggedIn ? '账号管理' : '登录米家';
   $('mijia-home-row').hidden = !lastStatus.loggedIn;
+  if (!lastStatus.loggedIn) $('mijia-count').textContent = '登录后同步家庭与设备';
   $('mijia-last').textContent = lastStatus.last?.message ? `${new Date(lastStatus.last.time).toLocaleTimeString()} · ${lastStatus.last.message}` : '暂无执行记录';
   renderBindings(); return lastStatus;
 }
@@ -63,20 +65,37 @@ async function loadHome() {
     if (!data.scenes.length) scenes.append(textBlock('没有手动场景', data.sceneError || '在米家 App 中创建手动场景，再点击刷新。'));
     data.scenes.forEach(scene => {
       const item = button('', () => showScene(scene), 'mijia-scene');
-      item.append(icon('scene'), node('strong', '', scene.name), node('span', '', '↗')); scenes.append(item);
+      const mark = node('span','mijia-scene-icon'), copy = node('span','mijia-scene-copy');
+      mark.append(icon('scene')); copy.append(node('strong','',scene.name),node('small','','加入快捷菜单'));
+      item.append(mark,copy,node('span','mijia-chevron','›')); scenes.append(item);
     });
     const devices = $('mijia-devices'); devices.replaceChildren();
     if (!data.devices.length) devices.append(textBlock('这个家还没有设备', '请先在米家 App 添加设备，或切换家庭。'));
+    const rooms = new Map();
     data.devices.forEach(device => {
-      const item = button('', () => task(() => showDevice(device)), 'mijia-device');
-      const badge = node('span', 'mijia-device-icon'); badge.append(icon(/light|lamp/.test(device.model) ? 'lamp' : /plug|outlet/.test(device.model) ? 'plug' : 'device'));
-      item.append(badge, node('strong', '', device.name), node('small', device.online ? '' : 'offline', device.online ? '在线 · 查看控制' : '离线 · 查看详情'));
-      devices.append(item);
+      const roomName = device.room || '未分组';
+      if (!rooms.has(roomName)) rooms.set(roomName, []);
+      rooms.get(roomName).push(device);
     });
+    rooms.forEach((list, roomName) => {
+      const room = node('section','mijia-room'), heading = node('div','mijia-room-title');
+      heading.append(node('strong','',roomName),node('small','',`${list.length} 台设备`)); room.append(heading);
+      list.forEach(device => {
+        const item = button('', () => task(() => showDevice(device)), 'mijia-device');
+        const badge = node('span', 'mijia-device-icon'), copy = node('span','mijia-device-copy');
+        badge.append(icon(/light|lamp/.test(device.model) ? 'lamp' : /plug|outlet/.test(device.model) ? 'plug' : 'device'));
+        copy.append(node('strong','',device.name),node('small','',device.model || '选择要加入的设备动作'));
+        item.append(badge,copy,node('span',device.online ? 'mijia-device-state' : 'mijia-device-state offline',device.online ? '在线' : '离线'));
+        room.append(item);
+      });
+      devices.append(room);
+    });
+    $('mijia-count').textContent = `${data.devices.length} 台设备 · ${data.scenes.length} 个场景`;
     message(data.sceneError ? `设备已同步；场景读取失败：${data.sceneError}` : `已同步 ${data.devices.length} 台设备 · ${data.scenes.length} 个场景`, !!data.sceneError);
   } catch (error) {
     $('mijia-scenes').replaceChildren(textBlock('同步失败', '点击刷新重新读取。'));
     $('mijia-devices').replaceChildren(textBlock('设备未更新', '请检查网络和米家账号。'));
+    $('mijia-count').textContent = '同步失败，可点击刷新重试';
     throw error;
   }
 }
@@ -115,24 +134,16 @@ async function dialogTask(work) {
   catch (error) { $('mijia-dialog-message').textContent = error.message; }
   finally { delete dialog.dataset.busy; controls.forEach(item => { if (item.isConnected) item.disabled = false; }); }
 }
-async function execute(action) {
-  const result = await mijiaRequest('run', {action});
-  $('mijia-dialog-message').textContent = result.message; await status();
-}
 function bindingTools(body, makeAction, name) {
-  const tools = node('div', 'mijia-actions');
-  const select = node('select'); select.setAttribute('aria-label', '绑定位置');
-  [['menu','快捷栏'],['single','短按'],['double','双击'],['long','长按']].forEach(([value,label]) => select.add(new Option(label,value)));
-  tools.append(select, button('添加绑定', () => dialogTask(async () => {
+  body.append(button('加入快捷菜单', () => dialogTask(async () => {
     const entry = await mijiaRequest('binding-save', {name:typeof name==='function' ? name() : name, action:makeAction()});
-    attach(select.value, entry); await status();
-    $('mijia-dialog-message').textContent = '已加入设置草稿，请点击底部“保存设置”使绑定生效';
-  })));
-  body.append(tools);
+    attach('menu', entry); await status();
+    $('mijia-dialog-message').textContent = '已加入快捷菜单草稿，关闭此窗口后点击底部“保存设置”';
+  }), 'primary mijia-add'));
 }
 function showScene(scene) {
   const body = openDialog(scene.name); const action = {kind:'scene',home:scene.home,scene:scene.id};
-  body.append(node('p','hint','执行米家 App 中配置的完整手动场景。'), button('执行场景', () => dialogTask(() => execute(action)), 'primary'));
+  body.append(node('p','hint','将米家 App 中的手动场景加入快捷菜单，之后从侧键弹出的菜单执行。'));
   bindingTools(body, () => action, bindingName(scene.name, '场景'));
 }
 function valueInput(property, state) {
@@ -154,23 +165,27 @@ function valueInput(property, state) {
 async function showDevice(device) {
   const data = await mijiaRequest('device', {home:device.home,did:device.did});
   message('设备信息已读取'); const body = openDialog(device.name);
-  body.append(node('p', 'hint', device.model + ' · ' + (device.online ? '设备状态按需读取' : '上次同步离线')));
+  body.append(node('p', 'hint', '选择要加入快捷菜单的动作。当前页面只负责配置，实际控制在快捷菜单中完成。'));
   body.append(button('刷新设备状态', () => dialogTask(async () => { await showDevice(device); })));
-  if (!data.spec.properties.length && !data.spec.actions.length) body.append(textBlock('暂无可用操作', '可以在米家 App 建立手动场景，再把场景绑定到侧键。'));
+  if (!data.spec.properties.some(property => property.write) && !data.spec.actions.length)
+    body.append(textBlock('暂无可配置动作', '可以在米家 App 建立手动场景，再把场景加入快捷菜单。'));
   data.spec.properties.forEach(property => {
-    if (!property.read && !property.write) return;
+    if (!property.write) return;
     const card = node('section', 'mijia-property'), state = data.states.find(item => item.siid === property.siid && item.piid === property.piid);
     card.append(node('small','hint',property.service), node('h3','',property.name), node('p','mijia-value',property.read ? stateLabel(property,state) : '只写属性'));
-    if (property.write) {
-      const input = valueInput(property,state), kind = node('select'); kind.setAttribute('aria-label', property.name + '操作');
-      kind.add(new Option('设置为','set'));
-      if (property.format === 'bool' && property.read) kind.add(new Option('切换当前状态','toggle'));
-      kind.addEventListener('change', () => input.hidden = kind.value === 'toggle');
-      const row = node('div','mijia-actions'); row.append(kind,input); card.append(row);
+    if (property.format === 'bool' && !property.values?.length) {
+      const choice = node('select'); choice.setAttribute('aria-label', property.name + '快捷菜单动作');
+      choice.add(new Option('开启','true')); choice.add(new Option('关闭','false'));
+      if (property.read) choice.add(new Option('切换开关','toggle'));
+      choice.value = property.read ? 'toggle' : 'true';
+      card.append(choice);
+      const action = () => makePropertyAction(device.home,device,property,choice.value === 'toggle' ? 'toggle' : 'set',choice.value);
+      bindingTools(card,action,()=>bindingName(device.name,property.name+' · '+choice.selectedOptions[0].textContent));
+    } else {
+      const input = valueInput(property,state); card.append(input);
       if (property.range?.length >= 2) card.append(node('p','hint',`范围 ${property.range[0]}～${property.range[1]} · 步长 ${property.range[2] ?? 1}`));
-      const action = () => makePropertyAction(device.home,device,property,kind.value,input.value);
-      card.append(button('执行', () => dialogTask(() => execute(action())), 'primary'));
-      bindingTools(card,action,()=>bindingName(device.name,property.name+' · '+(kind.value==='toggle' ? '切换' : input.tagName==='SELECT' ? input.selectedOptions[0].textContent : input.value)));
+      const action = () => makePropertyAction(device.home,device,property,'set',input.value);
+      bindingTools(card,action,()=>bindingName(device.name,property.name+' · '+(input.tagName==='SELECT' ? input.selectedOptions[0].textContent : input.value)));
     }
     body.append(card);
   });
@@ -184,7 +199,6 @@ async function showDevice(device) {
     if (inputs.some(item => !item)) card.append(node('p','hint','设备动作的参数定义不完整，暂不可执行。'));
     else {
       const descriptor = () => ({kind:'action',home:device.home,did:device.did,siid:action.siid,aiid:action.aiid,values:inputs.map(item => propertyValue(item.property,item.input.value))});
-      card.append(button('执行动作', () => dialogTask(() => execute(descriptor())), 'primary'));
       bindingTools(card,descriptor,bindingName(device.name,action.name));
     }
     body.append(card);
@@ -194,10 +208,11 @@ function renderBindings() {
   const host = $('mijia-bindings'); host.replaceChildren();
   $('mijia-bindings-section').hidden = !bindings.length;
   bindings.forEach(entry => {
-    const row = node('div','mijia-binding'); row.append(node('strong','',entry.name), button('使用', () => {
-      const body = openDialog(entry.name), target = node('select'); target.setAttribute('aria-label','绑定位置');
-      [['menu','快捷栏'],['single','短按'],['double','双击'],['long','长按']].forEach(([value,label])=>target.add(new Option(label,value)));
-      body.append(target, button('加入设置', () => { attach(target.value,entry); $('mijia-dialog-message').textContent='已加入草稿，请保存设置'; },'primary'),
+    const row = node('div','mijia-binding'); row.append(node('strong','',entry.name), button('管理 ›', () => {
+      const body = openDialog(entry.name);
+      body.append(button('再次加入快捷菜单', () => {
+        attach('menu',entry); $('mijia-dialog-message').textContent='已加入快捷菜单草稿，请保存设置';
+      },'primary'),
         button('移除米家动作', () => dialogTask(async () => {
           await mijiaRequest('binding-delete',{id:entry.id}); await status();
           $('mijia-dialog-message').textContent='动作已移除；已有手势或快捷项也需要移除或重新选择';
@@ -208,7 +223,7 @@ function renderBindings() {
 export async function chooseMijia(onSelect) {
   try {
     await status(); const body = openDialog('选择米家动作');
-    if (!bindings.length) body.append(textBlock('还没有米家动作','到米家页选择设备或场景，点击“添加绑定”。'));
+    if (!bindings.length) body.append(textBlock('还没有米家动作','到米家页选择设备或场景，点击“加入快捷菜单”。'));
     bindings.forEach(entry => body.append(button(entry.name,()=>{onSelect(entry);closeDialog();},'mijia-choice')));
   } catch (error) { message(error.message,true); $('tab-mijia').click(); }
 }

@@ -78,6 +78,12 @@ public final class MijiaTest {
         throw new AssertionError("menu state timeout");
     }
     public static void main(String[] args) throws Exception {
+        JSONObject roomHome=Json.obj("roomlist",new JSONArray()
+                .put(Json.obj("name","客厅","dids",new JSONArray().put("2").put(3)))
+                .put(Json.obj("name"," ","dids",new JSONArray().put("4"))));
+        Map<String,String> roomNames=MiCloud.roomNames(roomHome);
+        check("客厅".equals(roomNames.get("2")) && "客厅".equals(roomNames.get("3")), "room names for string and numeric did");
+        check(!roomNames.containsKey("4") && MiCloud.roomNames(new JSONObject()).isEmpty(), "missing room info stays ungrouped");
         if (args.length > 0 && args[0].equals("live")) {
             Path path=Files.createTempDirectory("mijia-live-");
             try (MiHttp http=new MiHttp(45000)) {
