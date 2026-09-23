@@ -4,7 +4,7 @@
 
 [ "$ARCH" = "arm64" ] || abort "当前安装包仅支持 ARM64 手机。"
 [ "$API" -ge 35 ] || abort "当前版本面向 Android 15 及以上系统。"
-ui_print "侧键自定义 v1.1.0-test.2"
+ui_print "侧键自定义 v1.1.0-test.3"
 ui_print "安装后请重启手机，再打开模块 WebUI 设置。"
 ui_print "升级会保留已有配置。"
 # webroot 的权限和 SELinux 上下文由 KernelSU 安装器管理。

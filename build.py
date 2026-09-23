@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.1.0-test.2'
-VERSION_CODE = 102
+VERSION = '1.1.0-test.3'
+VERSION_CODE = 103
 
 
 def run(arguments):
@@ -234,7 +234,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_米家状态显示')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_快捷开关连续操作')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -264,15 +264,15 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 本地测试包\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '延续米家扫码登录、设备/场景控制和侧键绑定；快捷栏现在每次展开读取一次米家布尔开关属性，'
-        '开启显示绿色电源图标、关闭显示灰色电源图标，读取中和未知单独显示。'
-        '内置墨白极简与石墨工具箱两套 WebUI；手机快捷菜单布局和 ColorOS 小窗实现沿用现有版本。\n\n'
+        '快捷开关点击后立即提交动作并保留快捷栏，允许连续操作；点击应用后仍自动收起，并按原有路径打开 ColorOS 小窗。'
+        '米家开关每次展开读取一次实际状态，点击控制后将本次显示状态标为未知，重新展开再读取。'
+        '内置墨白极简与石墨工具箱两套 WebUI；手机快捷菜单外观保持不变。\n\n'
         f'安装文件：test_oppo_sidekey_v{VERSION}.zip。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU；无需额外安装 Python 或 Termux。\n\n'
-        '测试顺序：进入米家页，点击登录米家，生成二维码，用米家扫一扫授权；本机可截图后从相册识别。'
-        '选择家庭，先测试一个设备开关或手动场景，再添加绑定并保存设置，最后用侧键验证。'
+        '测试顺序：先用侧键打开快捷栏，连续点击手电筒等开关并确认面板仍在；点击应用确认面板收起且打开小窗。'
+        '米家测试可进入米家页生成登录二维码并用米家 App 扫一扫授权；选择家庭，测试设备开关或手动场景，加入快捷菜单并保存设置后再用侧键验证。'
         '该接入当前面向中国大陆账号；没有 MIOT 规格的设备可通过米家手动场景使用。\n\n'
-        '最近执行结果位于米家页。设备状态仅在每次展开快捷栏时读取一次，展开期间不会重复云端请求；'
+        '最近执行结果位于米家页。设备状态仅在每次展开快捷栏时读取一次，展开期间不会重复云端请求；点击米家开关后本次状态显示为未知。'
         '场景和无可读开关状态的动作仍是执行按钮。已受理不等于设备状态已确认；请求中断时不会自动重发。'
         '登录凭据保存在手机私有目录，WebUI 不显示令牌，退出账号删除本机凭据和米家动作。\n\n'
         '本地 C/Java/JavaScript/配置往返/脚本测试、ARM64 ELF、DEX、APK 签名、ZIP 和权限检查的命令输出见构建日志。'
