@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.1.0-test.1'
-VERSION_CODE = 101
+VERSION = '1.1.0-test.2'
+VERSION_CODE = 102
 
 
 def run(arguments):
@@ -137,9 +137,10 @@ def build_menu():
         classes, dex = temporary / 'classes', temporary / 'dex'
         classes.mkdir(); dex.mkdir()
         run([javac, '-J-Dfile.encoding=UTF-8', '-J-Dstdout.encoding=UTF-8', '-J-Dstderr.encoding=UTF-8', '--release', '8', '-Xlint:deprecation,-options', '-Werror', '-encoding', 'UTF-8', '-classpath', android_jar,
-             '-d', classes, *sorted((ROOT / 'companion/src').rglob('*.java')), ROOT / 'tests/MenuGeometryTest.java', ROOT / 'tests/AppGridGeometryTest.java'])
+             '-d', classes, *sorted((ROOT / 'companion/src').rglob('*.java')), ROOT / 'tests/MenuGeometryTest.java', ROOT / 'tests/AppGridGeometryTest.java', ROOT / 'tests/MenuSwitchStateTest.java'])
         run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'MenuGeometryTest'])
         run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'AppGridGeometryTest'])
+        run([java, '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-cp', classes, 'MenuSwitchStateTest'])
         run([java, '-cp', d8, 'com.android.tools.r8.D8', '--release', '--min-api', '34',
              '--lib', android_jar, '--output', dex, *sorted((classes / 'cn').rglob('*.class'))])
         with zipfile.ZipFile(unsigned, 'a', zipfile.ZIP_DEFLATED) as apk:
@@ -149,6 +150,8 @@ def build_menu():
         run([java, '-jar', signer, 'sign', '--ks', key, '--ks-key-alias', 'sidekey',
              '--ks-pass', 'file:' + str(password), '--out', output, aligned])
         run([java, '-jar', signer, 'verify', '--verbose', output])
+        # 侧载只使用已校验的 APK；增量安装用的 .idsig 不属于 KernelSU 模块。
+        output.with_name(output.name + '.idsig').unlink(missing_ok=True)
         badging = run([find('build-tools/*/aapt.exe'), 'dump', 'badging', output])
         if ("package: name='cn.sidekey.menu'" not in badging or
                 f"versionCode='{VERSION_CODE}'" not in badging or f"versionName='{VERSION}'" not in badging):
@@ -171,14 +174,14 @@ def main():
     sources = ['native/gesture.c', 'native/config.c']
     common = ['-Wall', '-Wextra', '-Werror', '-std=c11', '-I', 'native']
     run([zig, 'cc', '-target', 'aarch64-linux-musl', '-static', '-O2', *common,
-         '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', 'native/torch.c', 'native/haptic.c', 'native/menu.c', 'native/menu_protocol.c', 'native/menu_launch.c', *sources, '-o', MODULE / 'bin/sidekey'])
+         '-Wl,-z,max-page-size=16384', '-s', 'native/sidekey.c', 'native/torch.c', 'native/haptic.c', 'native/menu.c', 'native/menu_protocol.c', 'native/menu_launch.c', 'native/mijia_menu.c', 'native/mijia_state_protocol.c', *sources, '-o', MODULE / 'bin/sidekey'])
     validate_elf(MODULE / 'bin/sidekey')
     build_torch()
     build_menu()
     from build_mijia import build as build_mijia
     build_mijia(run)
     test_binary = BUILD / ('native_tests.exe' if os.name == 'nt' else 'native_tests')
-    run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', 'native/menu_protocol.c', 'native/menu_launch.c', *sources, '-o', test_binary])
+    run([zig, 'cc', '-O1', '-UNDEBUG', *common, 'tests/native_tests.c', 'native/menu_protocol.c', 'native/menu_launch.c', 'native/mijia_state_protocol.c', *sources, '-o', test_binary])
     run([test_binary])
     run([sys.executable, 'tests/config_scale_test.py', test_binary])
     run([sys.executable, 'tests/menu_layout_test.py', test_binary])
@@ -231,7 +234,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_米家接入')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_米家状态显示')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -261,14 +264,16 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 本地测试包\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '新增米家扫码登录、家庭与设备列表、MIOT 属性控制、手动场景及侧键/快捷栏绑定。'
-        '内置墨白极简与石墨工具箱两套 WebUI；手机快捷菜单外观和 ColorOS 小窗实现沿用现有版本。\n\n'
+        '延续米家扫码登录、设备/场景控制和侧键绑定；快捷栏现在每次展开读取一次米家布尔开关属性，'
+        '开启显示绿色电源图标、关闭显示灰色电源图标，读取中和未知单独显示。'
+        '内置墨白极简与石墨工具箱两套 WebUI；手机快捷菜单布局和 ColorOS 小窗实现沿用现有版本。\n\n'
         f'安装文件：test_oppo_sidekey_v{VERSION}.zip。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU；无需额外安装 Python 或 Termux。\n\n'
         '测试顺序：进入米家页，点击登录米家，生成二维码，用米家扫一扫授权；本机可截图后从相册识别。'
         '选择家庭，先测试一个设备开关或手动场景，再添加绑定并保存设置，最后用侧键验证。'
         '该接入当前面向中国大陆账号；没有 MIOT 规格的设备可通过米家手动场景使用。\n\n'
-        '最近执行结果位于米家页。已受理不等于设备状态已确认；请求中断时不会自动重发。'
+        '最近执行结果位于米家页。设备状态仅在每次展开快捷栏时读取一次，展开期间不会重复云端请求；'
+        '场景和无可读开关状态的动作仍是执行按钮。已受理不等于设备状态已确认；请求中断时不会自动重发。'
         '登录凭据保存在手机私有目录，WebUI 不显示令牌，退出账号删除本机凭据和米家动作。\n\n'
         '本地 C/Java/JavaScript/配置往返/脚本测试、ARM64 ELF、DEX、APK 签名、ZIP 和权限检查的命令输出见构建日志。'
         '真实服务的匿名扫码握手、二维码读取和公开设备规格解析已通过；本包未完成目标手机账号与真实设备端到端实测。\n\n'

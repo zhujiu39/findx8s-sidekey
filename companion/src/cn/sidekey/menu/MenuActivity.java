@@ -50,13 +50,16 @@ public final class MenuActivity extends Activity {
     private boolean closing, dispatched, entered;
     private int selection = -1, position, widthDp, appGapDp;
     private boolean right;
-    private int foreground, muted, surface, tileTop, stroke;
+    private int foreground, muted, surface, tileTop, stroke, powerOff, powerInk;
     private JSONArray currentItems;
 
     private static final class Session {
         final int port;
         final String token;
         volatile int torchState = -1;
+        volatile String mijiaStates;
+        volatile boolean pendingMijia;
+        int itemCount;
         Session(int port, String token) { this.port = port; this.token = token; }
     }
 
@@ -106,7 +109,8 @@ public final class MenuActivity extends Activity {
                             currentItems = data.items; build(data.items);
                             network.execute(() -> {
                                 boolean valid = request(current, "PING");
-                                handler.post(() -> { if (session == current && !closing) { if (valid) enter(); else closeNow(); } });
+                                if (valid) readMijiaStates(current);
+                                handler.post(() -> { if (session == current && !closing) { if (valid) { updateSwitches(); enter(); } else closeNow(); } });
                             });
                         } catch (Exception error) { closeNow(); }
                     }});
@@ -138,6 +142,8 @@ public final class MenuActivity extends Activity {
     private void build(JSONArray items) throws Exception {
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         foreground = Color.parseColor(dark ? "#F3F4F6" : "#252932");
+        powerOff = Color.parseColor(dark ? "#515C64" : "#C6D2D9");
+        powerInk = Color.parseColor(dark ? "#EDF1F4" : "#29343C");
         muted = Color.parseColor(dark ? "#AFB3BA" : "#868D96");
         surface = Color.parseColor(dark ? "#ED303237" : "#EDE3E5E8");
         tileTop = Color.parseColor(dark ? "#393E45" : "#FFFFFF");
@@ -295,31 +301,73 @@ public final class MenuActivity extends Activity {
     private final class SwitchRow extends LinearLayout {
         final LinearLayout card;
         final TextView name;
+        final TextView status;
         final SwitchGlyph control;
+        boolean mijia;
+        int index;
         SwitchRow() {
             super(MenuActivity.this); setOrientation(VERTICAL);
             card = new LinearLayout(MenuActivity.this); card.setGravity(Gravity.CENTER_VERTICAL);
             card.setPadding(dp(10), dp(8), dp(8), dp(8)); card.setBackground(background(tileTop, 16));
             name = text("", 12, foreground); name.setMaxLines(2); name.setEllipsize(TextUtils.TruncateAt.END);
-            card.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+            LinearLayout labels = new LinearLayout(MenuActivity.this); labels.setOrientation(VERTICAL);
+            labels.addView(name, new LinearLayout.LayoutParams(-1, -2));
+            status = text("", 9, muted); status.setMaxLines(1); status.setEllipsize(TextUtils.TruncateAt.END);
+            labels.addView(status, new LinearLayout.LayoutParams(-1, -2));
+            card.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
             control = new SwitchGlyph();
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(dp(32), dp(20)); size.leftMargin = dp(5);
             card.addView(control, size); addView(card, new LinearLayout.LayoutParams(-1, dp(56)));
         }
         void bind(JSONObject item) {
             name.setText(item.optString("name")); control.stateful = "torch".equals(item.optString("type"));
+            mijia = "mijia".equals(item.optString("type")); index = item.optInt("index", -1);
             card.setContentDescription(name.getText()); bindSelection(card, item); updateState();
         }
-        void updateState() { control.state = session == null ? -1 : session.torchState; control.invalidate(); }
+        void updateState() {
+            char value = session == null ? '?' : MijiaSwitchState.at(session.mijiaStates, index, session.pendingMijia);
+            control.power = mijia && value != 'n'; control.powerState = value;
+            control.state = session == null ? -1 : session.torchState;
+            ViewGroup.LayoutParams size = control.getLayoutParams();
+            int height = dp(control.power ? 32 : 20);
+            if (size.height != height) { size.height = height; control.setLayoutParams(size); }
+            status.setVisibility(control.power && value != '0' && value != '1' ? View.VISIBLE : View.GONE);
+            if (mijia) {
+                String description = MijiaSwitchState.description(value);
+                status.setText(description); card.setContentDescription(name.getText() + "，" + description);
+                card.setStateDescription(description);
+            } else card.setStateDescription(null);
+            control.invalidate();
+        }
     }
 
     private final class SwitchGlyph extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         boolean stateful;
+        boolean power;
+        char powerState;
         int state = -1;
         SwitchGlyph() { super(MenuActivity.this); }
         @Override protected void onDraw(Canvas canvas) {
             float w = getWidth(), h = getHeight();
+            paint.setStyle(Paint.Style.FILL);
+            if (power) {
+                float cx = w / 2, cy = h / 2, radius = Math.min(w, h) / 2;
+                paint.setColor(powerState == '1' ? Color.rgb(8, 199, 152) : powerOff);
+                canvas.drawCircle(cx, cy, radius, paint);
+                paint.setColor(powerState == '1' ? Color.WHITE : powerInk);
+                if (powerState == '0' || powerState == '1') {
+                    float r = radius * 0.29f;
+                    paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(2)); paint.setStrokeCap(Paint.Cap.ROUND);
+                    canvas.drawArc(new RectF(cx - r, cy - r, cx + r, cy + r), -50, 280, false, paint);
+                    canvas.drawLine(cx, cy - radius * 0.40f, cx, cy - radius * 0.04f, paint);
+                    paint.setStyle(Paint.Style.FILL);
+                } else {
+                    paint.setTextAlign(Paint.Align.CENTER); paint.setTextSize(dp(powerState == '~' ? 14 : 17));
+                    canvas.drawText(powerState == '~' ? "···" : "?", cx, cy - (paint.ascent() + paint.descent()) / 2, paint);
+                }
+                return;
+            }
             paint.setColor(stateful && state == 1 ? Color.rgb(83, 221, 161) : stroke);
             canvas.drawRoundRect(new RectF(0, 0, w, h), h / 2, h / 2, paint);
             paint.setColor(stateful && state >= 0 ? Color.WHITE : muted);
@@ -379,6 +427,7 @@ public final class MenuActivity extends Activity {
             if (session != current || closing) return;
             network.execute(() -> {
                 boolean valid = request(current, "PING");
+                if (valid) readMijiaStates(current);
                 handler.post(() -> { if (session == current && !closing) {
                     if (valid) { updateSwitches(); heartbeat(current); } else dismiss();
                 }});
@@ -427,9 +476,10 @@ public final class MenuActivity extends Activity {
                 JSONObject item = items.getJSONObject(i);
                 if (item.getInt("index") != result.length()) throw new IllegalStateException("菜单顺序异常");
                 result.put(item);
+                if ("mijia".equals(item.optString("type"))) current.pendingMijia = true;
             }
             int next = response.getInt("next");
-            if (next == -1) return data;
+            if (next == -1) { current.itemCount = result.length(); return data; }
             if (next != offset + 16 || result.length() > 2060) throw new IllegalStateException("菜单分页无效");
             offset = next;
         }
@@ -445,6 +495,14 @@ public final class MenuActivity extends Activity {
             }
             return "OK".equals(result);
         } catch (Exception ignored) { return false; }
+    }
+
+    private static void readMijiaStates(Session current) {
+        if (!current.pendingMijia) return;
+        try {
+            current.mijiaStates = MijiaSwitchState.decode(exchange(current, "STATES", 4096), current.itemCount);
+            current.pendingMijia = current.mijiaStates != null && current.mijiaStates.indexOf('~') >= 0;
+        } catch (Exception ignored) { current.mijiaStates = null; current.pendingMijia = false; }
     }
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }

@@ -9,6 +9,7 @@ final class MijiaBridge implements AutoCloseable {
     private final PrivateStore store;
     private final MiCloud cloud;
     private final MiSpec specs;
+    private final MenuStates menuStates;
     private final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(4));
     private final ExecutorService loginWorker = Executors.newSingleThreadExecutor();
     private final Map<String, Job> jobs = new LinkedHashMap<>();
@@ -27,7 +28,11 @@ final class MijiaBridge implements AutoCloseable {
         this(store, new MiCloud(store));
     }
     MijiaBridge(PrivateStore store, MiCloud cloud) throws Exception {
+        this(store, cloud, new MenuStates());
+    }
+    MijiaBridge(PrivateStore store, MiCloud cloud, MenuStates menuStates) throws Exception {
         this.store = store; this.cloud = cloud; specs = new MiSpec(store);
+        this.menuStates = menuStates;
         last = store.read("last.json");
         if (last.optString("state").equals("pending")) {
             last.put("state", "unknown").put("message", "服务曾中断，上一条指令结果未知；请检查设备实际状态"); store.write("last.json", last);
@@ -36,6 +41,7 @@ final class MijiaBridge implements AutoCloseable {
     synchronized JSONObject handle(JSONObject request) throws Exception {
         String op = Json.text(request, "op", 32);
         if (closing) throw new Failure("STOPPED", "米家服务正在停止");
+        if (op.equals("menu-states")) return menuStates(request);
         if (op.equals("status")) {
             JSONObject auth = store.read("auth.json"); String uid = auth.optString("userId");
             return Json.obj("ok", true, "loggedIn", auth.has("serviceToken"), "account", uid.length() > 4 ? "•••• " + uid.substring(uid.length() - 4) : "",
@@ -96,6 +102,7 @@ final class MijiaBridge implements AutoCloseable {
         if (op.equals("login-start")) { startLogin(http, generation); return Json.obj("ok", true); }
         if (op.equals("logout")) {
             store.delete("auth.json"); store.delete("bindings.json");
+            menuStates.clear();
             return Json.obj("ok", true, "message", "已退出米家并删除本机登录凭据和米家动作");
         }
         JSONObject auth = cloud.authenticated(http);
@@ -135,7 +142,7 @@ final class MijiaBridge implements AutoCloseable {
             return Json.obj("ok", true, "id", id, "name", name);
         }
         if (op.equals("binding-delete")) {
-            JSONObject all = store.read("bindings.json"); all.remove(Json.id(request, "id")); store.write("bindings.json", all); return Json.obj("ok", true);
+            JSONObject all = store.read("bindings.json"); all.remove(Json.id(request, "id")); store.write("bindings.json", all); menuStates.clear(); return Json.obj("ok", true);
         }
         JSONObject descriptor = request.optJSONObject("action");
         if (op.equals("trigger")) {
@@ -146,6 +153,79 @@ final class MijiaBridge implements AutoCloseable {
         }
         if (descriptor == null) throw new Failure("INVALID", "未选择米家动作");
         return run(http, auth, normalize(http, auth, descriptor));
+    }
+
+    private JSONObject menuStates(JSONObject request) throws Exception {
+        JSONArray ids = request.getJSONArray("ids");
+        if (ids.length() > 256) throw new Failure("LIMIT", "快捷栏状态请求过多");
+        String session = Json.text(request, "session", 64);
+        if (!session.matches("[a-f0-9]{64}")) throw new Failure("INVALID", "快捷栏状态会话无效");
+        for (int i = 0; i < ids.length(); i++)
+            if (!ids.getString(i).matches("[a-f0-9]{32}")) throw new Failure("INVALID", "米家动作编号无效");
+        JSONObject auth = store.read("auth.json"), all = store.read("bindings.json");
+        String account = auth.has("serviceToken") ? auth.optString("userId") : "";
+        MenuStates.Snapshot previous = menuStates.find(session, account, ids.toString());
+        if (previous != null) return Json.obj("states", menuStates.wire(previous));
+        StringBuilder states = new StringBuilder(); Map<String, JSONObject> switches = new LinkedHashMap<>();
+        for (int i = 0; i < ids.length(); i++) {
+            String id = ids.getString(i);
+            JSONObject binding = all.optJSONObject(id);
+            if (account.isEmpty() || binding == null || !account.equals(binding.optString("account"))) { states.append('?'); continue; }
+            JSONObject action = binding.getJSONObject("action");
+            states.append(MenuStates.switchAction(action) ? '?' : 'n');
+            if (MenuStates.switchAction(action)) switches.put(id, Json.copy(action));
+        }
+        final MenuStates.Snapshot snapshot = menuStates.create(session, account, ids.toString(), states.toString());
+        if (switches.isEmpty()) menuStates.complete(snapshot, states.toString());
+        else try { worker.execute(() -> refreshMenuStates(snapshot, ids, switches)); }
+        catch (RejectedExecutionException error) { menuStates.complete(snapshot, states.toString()); }
+        // 此窄接口只有 n/未知/关/开，不携带账号、设备标识或控制参数。
+        return Json.obj("states", menuStates.wire(snapshot));
+    }
+
+    private void refreshMenuStates(MenuStates.Snapshot snapshot, JSONArray ids, Map<String, JSONObject> switches) {
+        Map<String, Character> values = new LinkedHashMap<>();
+        for (String id : switches.keySet()) values.put(id, '?');
+        try (MiHttp http = new MiHttp(15000)) {
+            requests.add(http);
+            try {
+                if (System.nanoTime() - snapshot.created > 10000000000L) throw new Failure("EXPIRED", "快捷栏状态读取排队超时");
+                JSONObject auth = cloud.authenticated(http);
+                if (!snapshot.account.equals(auth.getString("userId"))) throw new Failure("AUTH", "米家账号已更换");
+                Map<String, JSONObject> params = new LinkedHashMap<>(); Map<String, List<String>> groups = new LinkedHashMap<>();
+                for (Map.Entry<String, JSONObject> entry : switches.entrySet()) {
+                    JSONObject action = entry.getValue();
+                    try {
+                        JSONObject device = device(http, auth, action);
+                        JSONObject property = MiSpec.find(specs.get(http, device.getString("model")), action.getInt("siid"), action.getInt("piid"), false);
+                        if (!property.optBoolean("read") || !property.optString("format").equals("bool")) { values.put(entry.getKey(), 'n'); continue; }
+                        String key = action.getString("did") + ":" + action.getInt("siid") + ":" + action.getInt("piid");
+                        params.put(key, Json.obj("did", action.getString("did"), "siid", action.getInt("siid"), "piid", action.getInt("piid")));
+                        groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(entry.getKey());
+                    } catch (Exception ignored) { /* 单个设备规格不可用时保留未知，不影响其余设备。 */ }
+                }
+                List<String> keys = new ArrayList<>(params.keySet());
+                for (int first = 0; first < keys.size(); first += 20) {
+                    int end = Math.min(first + 20, keys.size()); JSONArray batch = new JSONArray();
+                    for (int i = first; i < end; i++) batch.put(params.get(keys.get(i)));
+                    JSONArray response = (JSONArray) cloud.call(http, auth, "/miotspec/prop/get", Json.obj("params", batch, "datasource", 1));
+                    for (int i = first; i < end; i++) {
+                        String key = keys.get(i); char state = '?';
+                        try { state = MenuStates.value(matching(response, params.get(key))); } catch (Exception ignored) { }
+                        for (String id : groups.get(key)) values.put(id, state);
+                    }
+                }
+            } finally { requests.remove(http); }
+        } catch (Exception ignored) { /* 网络或登录失效不伪装为关闭；已成功读取的批次仍可展示。 */ }
+        try {
+            boolean sameAccount = snapshot.account.equals(store.read("auth.json").optString("userId"));
+            char[] result = snapshot.states.toCharArray();
+            for (int i = 0; i < ids.length(); i++) {
+                Character value = values.get(ids.getString(i));
+                if (!sameAccount) result[i] = '?'; else if (value != null) result[i] = value;
+            }
+            menuStates.complete(snapshot, new String(result));
+        } catch (Exception ignored) { menuStates.complete(snapshot, snapshot.states); }
     }
     private JSONObject catalog(MiHttp http, JSONObject auth, String home) throws Exception {
         JSONObject cached = store.read("catalog-" + home + ".json");

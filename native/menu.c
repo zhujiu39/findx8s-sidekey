@@ -2,6 +2,7 @@
 #include "menu.h"
 #include "menu_protocol.h"
 #include "menu_launch.h"
+#include "mijia_menu.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -77,6 +78,7 @@ static bool random_token(char *out)
 
 void menu_close_descriptors(void)
 {
+    mijia_menu_disconnect();
     if (show_client >= 0) close(show_client);
     if (launch_output >= 0) close(launch_output);
     if (launch_log >= 0) close(launch_log);
@@ -210,6 +212,8 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
         }
     }
     if (expires && now >= expires) { session[0] = 0; expires = 0; }
+    if (*session) mijia_menu_tick(data_directory, now);
+    else mijia_menu_disconnect();
     if (listener < 0) return failure;
     for (int i = 0; i < CLIENT_CAP; i++) {
         if (clients[i].fd < 0) {
@@ -241,9 +245,18 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
             else {
                 uint32_t index = 0;
                 MenuCommand command = menu_authorize(clients[i].text, session, expires, now, snapshot_count, &index);
-                if (command == MENU_PING) { accepted = true; ping = true; launch_state.ui_ready = true; }
-                else if (command == MENU_ITEMS) {
-                    clients[i].response_size = item_page(clients[i].response, sizeof(clients[i].response), index);
+                if (command == MENU_PING) {
+                    if (!launch_state.ui_ready) mijia_menu_reset(snapshot, snapshot_count, session, now);
+                    accepted = true; ping = true; launch_state.ui_ready = true;
+                }
+                else if (command == MENU_ITEMS || command == MENU_STATES) {
+                    if (command == MENU_ITEMS)
+                        clients[i].response_size = item_page(clients[i].response, sizeof(clients[i].response), index);
+                    else {
+                        memcpy(clients[i].response, "STATES ", 7);
+                        for (uint32_t item = 0; item < snapshot_count; item++) clients[i].response[7 + item] = mijia_menu_state(item);
+                        clients[i].response[7 + snapshot_count] = '\n'; clients[i].response_size = 8 + snapshot_count;
+                    }
                     if (clients[i].response_size) {
                         ssize_t written = send(clients[i].fd, clients[i].response, clients[i].response_size, MSG_NOSIGNAL);
                         if (written > 0) clients[i].sent = (size_t)written;
@@ -272,7 +285,7 @@ int menu_wait_ms(void)
 {
     for (int i = 0; i < CLIENT_CAP; i++) if (clients[i].fd >= 0) return 5;
     if (launcher > 0 || show_client >= 0 || launch_output >= 0) return 50;
-    return 500;
+    return mijia_menu_wait_ms();
 }
 
 int menu_request(const char *directory)

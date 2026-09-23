@@ -2,6 +2,7 @@
 #include "config.h"
 #include "menu_protocol.h"
 #include "menu_launch.h"
+#include "mijia_state_protocol.h"
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
@@ -225,6 +226,25 @@ int main(int argc, char **argv)
     }
     snprintf(text, sizeof(text), "PING %s", token);
     assert(menu_authorize(text, token, 60000, 1, 0, &selected) == MENU_PING);
+    snprintf(text, sizeof(text), "STATES %s", token);
+    assert(menu_authorize(text, token, 60000, 1, 3, &selected) == MENU_STATES);
+    assert(menu_authorize(text, token, 60000, 60000, 3, &selected) == MENU_INVALID);
+    char state_reply[3] = {0};
+    assert(mijia_state_reply("{\"states\":\"P\"}", 2, state_reply) == 0);
+    assert(mijia_state_reply("{\"states\":\"D01\"}", 2, state_reply) == 1);
+    assert(state_reply[0] == '0' && state_reply[1] == '1');
+    assert(mijia_state_reply("{\"states\":\"D0x\"}", 2, state_reply) == -1);
+    assert(mijia_state_reply("{\"states\":\"D0\"}", 2, state_reply) == -1);
+    const char ids[2][33] = {"0123456789abcdef0123456789abcdef", "abcdef0123456789abcdef0123456789"};
+    FILE *state_output = tmpfile(); assert(state_output);
+    assert(mijia_state_request(state_output, token, ids, 2));
+    rewind(state_output); char state_text[300] = {0};
+    assert(fread(state_text, 1, sizeof(state_text) - 1, state_output) > 0);
+    assert(strstr(state_text, "\"session\":\"0123456789abcdef") != NULL);
+    assert(strstr(state_text, "\"ids\":[\"0123456789abcdef") != NULL);
+    assert(fclose(state_output) == 0);
+    assert(!mijia_state_request(stdout, "bad", ids, 2));
+    snprintf(text, sizeof(text), "PING %s", token);
     text[5] = 'x'; assert(menu_authorize(text, token, 60000, 1, 0, &selected) == MENU_INVALID);
     snprintf(text, sizeof(text), "CLOSE %s", token);
     assert(menu_authorize(text, token, 60000, 1, 0, &selected) == MENU_CLOSE);

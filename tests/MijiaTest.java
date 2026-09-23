@@ -22,7 +22,7 @@ public final class MijiaTest {
         throw new AssertionError("job timeout");
     }
     static class FakeCloud extends MiCloud {
-        Object actual = false; int writes, actions, scenes; int writeCode; boolean disconnect, offline; String account = "10001";
+        Object actual = false; int writes, actions, scenes, reads; int writeCode; boolean disconnect, offline; String account = "10001";
         FakeCloud(PrivateStore store) { super(store); }
         @Override JSONObject authenticated(MiHttp h) throws Exception { return Json.obj("userId", account); }
         @Override JSONArray homes(MiHttp h, JSONObject a) throws Exception { return new JSONArray().put(home(h, a, "1")); }
@@ -40,7 +40,7 @@ public final class MijiaTest {
                 if (uri.endsWith("/set")) {
                     writes++; if (disconnect) throw new java.net.SocketTimeoutException("synthetic credential=DO_NOT_PRINT");
                     if (writeCode == 0) actual = param.get("value"); item.put("code", writeCode);
-                } else item.put("code", offline ? -704042011 : 0).put("value", actual);
+                } else { reads++; item.put("code", offline ? -704042011 : 0).put("value", actual); }
                 result.put(item);
             }
             return result;
@@ -66,6 +66,16 @@ public final class MijiaTest {
             bridge.handle(Json.obj("op","login-cancel")); release.countDown();
         }
         check(!Files.exists(store.root.resolve("auth.json")),"late cancelled login must not restore credentials");
+    }
+    static String menu(MijiaBridge bridge, String token, JSONArray ids) throws Exception {
+        JSONObject request=Json.obj("op","menu-states","session",token,"ids",ids);
+        long until=System.currentTimeMillis()+5000; String state;
+        do {
+            state=bridge.handle(request).getString("states");
+            if (!state.equals("P")) return state;
+            Thread.sleep(10);
+        } while(System.currentTimeMillis()<until);
+        throw new AssertionError("menu state timeout");
     }
     public static void main(String[] args) throws Exception {
         if (args.length > 0 && args[0].equals("live")) {
@@ -118,6 +128,18 @@ public final class MijiaTest {
                 cloud.writeCode=1;result=await(bridge,Json.obj("op","run","action",action));check(result.optString("state").equals("accepted"),"accepted != confirmed");cloud.writeCode=0;
                 cloud.offline=true;int before=cloud.writes;result=await(bridge,Json.obj("op","run","action",action));check(!result.optBoolean("ok") && cloud.writes==before,"offline blocks toggle");cloud.offline=false;
                 JSONObject binding=await(bridge,Json.obj("op","binding-save","action",action,"name","fixture switch"));check(binding.optBoolean("ok"),"binding persisted");
+                JSONObject sceneBinding=await(bridge,Json.obj("op","binding-save","action",Json.obj("kind","scene","home","1","scene","3"),"name","fixture scene"));
+                String tokenA=String.join("",Collections.nCopies(64,"a")), tokenB=String.join("",Collections.nCopies(64,"b")), tokenC=String.join("",Collections.nCopies(64,"c"));
+                JSONArray visible=new JSONArray().put(binding.getString("id")).put(binding.getString("id")).put(sceneBinding.getString("id"));
+                int readsBefore=cloud.reads;
+                check(menu(bridge,tokenA,visible).equals("D11n"),"menu shows live on and scene has no switch state");
+                check(cloud.reads==readsBefore+1,"duplicate visible switches batched into one read");
+                cloud.actual=false;
+                check(menu(bridge,tokenA,visible).equals("D11n") && cloud.reads==readsBefore+1,"same menu session never rereads cloud");
+                check(menu(bridge,tokenB,visible).equals("D00n") && cloud.reads==readsBefore+2,"new menu session fetches current off state once");
+                cloud.offline=true;
+                check(menu(bridge,tokenC,visible).equals("D??n"),"offline switch is unknown, never off");cloud.offline=false;
+                rejects(()->bridge.handle(Json.obj("op","menu-states","session",tokenA,"ids",new JSONArray().put(sceneBinding.getString("id")))),"SESSION");
                 result=await(bridge,Json.obj("op","trigger","id",binding.getString("id")));check(result.optBoolean("ok"),"binding executes");
                 cloud.account="other";result=await(bridge,Json.obj("op","trigger","id",binding.getString("id")));check(result.optString("code").equals("BINDING"),"account binding isolation");cloud.account="10001";
                 JSONObject request=Json.obj("op","run","action",action,"requestId","abcdabcdabcdabcdabcdabcdabcdabcd");
