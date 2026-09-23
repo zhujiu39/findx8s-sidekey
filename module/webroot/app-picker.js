@@ -6,7 +6,7 @@ export const appCatalog = new AppCatalogStore(async () => {
   const data = await api('apps'); resetAppIcons(data.user); return data;
 });
 let dialog, search, status, list, refreshButton, selection, chosen, catalog, footer, applyButton, counter, title;
-let multiple = false, maximum = 8, generation = 0;
+let multiple = false, generation = 0;
 let picked = new Map();
 function node(tag, className, text) {
   const result = document.createElement(tag); result.className = className;
@@ -53,10 +53,9 @@ function render() {
 function updateSelection() {
   if (!multiple) return;
   counter.textContent = `已选 ${picked.size} 个应用`;
-  applyButton.disabled = !catalog || picked.size > maximum;
+  applyButton.disabled = !catalog;
   list.querySelectorAll('.app-result').forEach(row => {
     const checkbox = row.querySelector('input'); checkbox.checked = picked.has(row.dataset.packageName);
-    checkbox.disabled = !checkbox.checked && picked.size >= maximum;
     row.classList.toggle('selected', checkbox.checked);
   });
 }
@@ -100,15 +99,15 @@ function init() {
   });
   document.addEventListener('sidekey-icons-failed', () => { if (dialog.open) status.textContent = '部分图标暂不可读，点击“刷新”重试；勾选内容会保留。'; });
 }
-export function chooseApp(packageName, callback) {
+function chooseApp(packageName, callback) {
   init(); if (dialog.open) return;
   multiple = false; footer.hidden = true; title.textContent = '选择应用';
   selection = callback; chosen = packageName; search.value = '';
   dialog.showModal(); search.focus(); load(false);
 }
-export function chooseApps(apps, limit, callback) {
+export function chooseApps(apps, callback) {
   init(); if (dialog.open) return;
-  multiple = true; maximum = limit; footer.hidden = false; title.textContent = '勾选菜单应用';
+  multiple = true; footer.hidden = false; title.textContent = '勾选菜单应用';
   picked = new Map(apps.map(app => [app.packageName, {...app}])); selection = callback; search.value = '';
   dialog.showModal(); load(false);
 }

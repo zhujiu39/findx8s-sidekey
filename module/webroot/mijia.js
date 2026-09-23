@@ -8,7 +8,7 @@ const node = (tag, cls = '', text) => {
   if (text !== undefined) item.textContent = text;
   return item;
 };
-let bindings = [], homes = [], home = '', lastStatus = {}, busy = false, initialized = false;
+let bindings = [], home = '', lastStatus = {}, busy = false, initialized = false;
 let attach = () => {}, loginTimer, resultTimer, loginPanel, lastFocus;
 let loginRenderKey = '', loginPollId = 0;
 export const mijiaBindingLabel = id => bindings.find(item => item.id === id)?.name || '米家动作（请到米家页检查）';
@@ -24,8 +24,7 @@ function textBlock(title, text) {
   const div = node('div', 'mijia-empty'); div.append(node('strong', '', title), node('p', 'hint', text)); return div;
 }
 function icon(kind) {
-  const paths = {home:'M3 11 12 3l9 8M5 10v10h14V10M9 20v-7h6v7',
-    scene:'m13 2-8 12h7l-1 8 8-12h-7z', device:'M5 7h14v14H5zM8 3h8M8 11h8M8 15h4',
+  const paths = {scene:'m13 2-8 12h7l-1 8 8-12h-7z', device:'M5 7h14v14H5zM8 3h8M8 11h8M8 15h4',
     lamp:'M9 18h6M10 21h4M8 13a6 6 0 1 1 8 0l-1 3H9z',
     plug:'M8 3v5M16 3v5M6 8h12v4a6 6 0 0 1-12 0zM12 18v4'};
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -106,7 +105,7 @@ async function refresh() {
     $('mijia-devices').replaceChildren(textBlock('登录后同步设备', '使用米家扫一扫授权，无需在此输入密码。'));
     message(''); initialized = true; return;
   }
-  const data = await mijiaRequest('homes'); homes = data.homes;
+  const data = await mijiaRequest('homes'), homes = data.homes;
   if (!homes.some(item => item.id === home)) home = homes[0]?.id || '';
   $('mijia-home').replaceChildren(...homes.map(item => new Option(item.name, item.id)));
   $('mijia-home').value = home;
@@ -137,8 +136,8 @@ async function dialogTask(work) {
 function bindingTools(body, makeAction, name) {
   body.append(button('加入快捷菜单', () => dialogTask(async () => {
     const entry = await mijiaRequest('binding-save', {name:typeof name==='function' ? name() : name, action:makeAction()});
-    attach('menu', entry); await status();
-    $('mijia-dialog-message').textContent = '已加入快捷菜单草稿，关闭此窗口后点击底部“保存设置”';
+    attach(entry); await status();
+    $('mijia-dialog-message').textContent = '已加入快捷菜单，请保存设置';
   }), 'primary mijia-add'));
 }
 function showScene(scene) {
@@ -165,7 +164,7 @@ function valueInput(property, state) {
 async function showDevice(device) {
   const data = await mijiaRequest('device', {home:device.home,did:device.did});
   message('设备信息已读取'); const body = openDialog(device.name);
-  body.append(node('p', 'hint', '选择要加入快捷菜单的动作。当前页面只负责配置，实际控制在快捷菜单中完成。'));
+  body.append(node('p', 'hint', '选择要加入快捷菜单的动作。'));
   body.append(button('刷新设备状态', () => dialogTask(async () => { await showDevice(device); })));
   if (!data.spec.properties.some(property => property.write) && !data.spec.actions.length)
     body.append(textBlock('暂无可配置动作', '可以在米家 App 建立手动场景，再把场景加入快捷菜单。'));
@@ -211,7 +210,7 @@ function renderBindings() {
     const row = node('div','mijia-binding'); row.append(node('strong','',entry.name), button('管理 ›', () => {
       const body = openDialog(entry.name);
       body.append(button('再次加入快捷菜单', () => {
-        attach('menu',entry); $('mijia-dialog-message').textContent='已加入快捷菜单草稿，请保存设置';
+        attach(entry); $('mijia-dialog-message').textContent='已加入快捷菜单，请保存设置';
       },'primary'),
         button('移除米家动作', () => dialogTask(async () => {
           await mijiaRequest('binding-delete',{id:entry.id}); await status();

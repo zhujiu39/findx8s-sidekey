@@ -22,7 +22,7 @@ python build.py
 
 完整构建会编译 ARM64 监听程序、Java 服务及菜单 APK，运行 C、Java、JavaScript、配置与脚本检查，随后校验 ELF、DEX、APK 和 ZIP。每次新建独立的 `交付文件/时间_test_版本_改动内容/`，内含安装包、源码与测试、使用说明、验证记录、构建日志及 SHA256。
 
-只有 `test_oppo_sidekey_v1.1.0-test.1.zip` 用于 KernelSU 安装。米家服务对应源码以 lib/mijia-source.zip 随模块提供；模拟家庭、个人数据、签名私钥和桌面调试服务器不进入安装包。
+将交付目录中的 `test_oppo_sidekey_v<版本>.zip` 安装到 KernelSU。`源码与测试.zip` 用于审查与复现；模块内的 `lib/mijia-source.zip` 提供米家服务对应源码，无需单独安装。
 
 ## 签名
 
@@ -40,7 +40,7 @@ node --test tests/*.test.js
 python -m http.server 8765 --bind 127.0.0.1 --directory module/webroot
 ```
 
-浏览器访问 `http://127.0.0.1:8765`。普通浏览器预览不具备 Root 桥接，无法读取手机应用或执行动作。完整测试范围见 [本地验证记录](../diagnostics/模块本地验证.md)。
+浏览器访问 `http://127.0.0.1:8765`。普通浏览器无法读取手机应用或执行动作。完整测试范围见 [验证说明](../diagnostics/模块本地验证.md)。
 
 ## 运行边界
 
@@ -61,6 +61,7 @@ python -m http.server 8765 --bind 127.0.0.1 --directory module/webroot
 native/                 监听服务、配置、手势与动作调度
 android/cn/sidekey/      手电筒、应用目录与 ColorOS 小窗服务
 companion/              快捷菜单 Android 组件
+mijia/                  米家独立服务及许可说明
 module/webroot/         WebUI
 module/scripts/         配置、服务与安装控制脚本
 module/LICENSES/        随模块分发的许可证
@@ -70,6 +71,8 @@ docs/                   构建与维护文档
 bootstrap_android.py    工具链准备
 build.py                编译、检查与打包
 ```
+
+`build/` 为可重建的中间产物，`交付文件/` 保存历史交付。清理中间产物不应删除 `tools/private/` 的签名文件。
 
 ## 发布
 

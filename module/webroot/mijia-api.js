@@ -8,12 +8,12 @@ function check(result) {
   }
   return result;
 }
-export async function mijiaRequest(op, fields = {}, wait = true) {
+export async function mijiaRequest(op, fields = {}) {
   if (!available()) throw new Error('请在手机 KernelSU 中打开米家页面');
   const bytes = new Uint8Array(16); crypto.getRandomValues(bytes);
   const requestId = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
   const result = check(await api('mijia', hex(JSON.stringify({...fields, op, requestId}))));
-  if (!result.job || !wait) return result;
+  if (!result.job) return result;
   const end = Date.now() + 125000;
   while (Date.now() < end) {
     await pause(650);

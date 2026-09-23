@@ -170,14 +170,10 @@ async function packages() {
 initNavigation();
 initMenuEditor(updateDirty);
 buildCards();
-initMijia((target, entry) => {
+initMijia(entry => {
   if (busy || !loaded) throw new Error('请等待模块配置加载完成');
-  if (target === 'menu') addMijiaEntry(entry);
-  else if (gestureIds.includes(target)) {
-    $(`action-${target}`).value = 'mijia'; $(`value-${target}`).value = entry.id;
-    updateArgument(target); updateDirty();
-  }
-  toast('米家动作已加入草稿，请保存设置');
+  addMijiaEntry(entry);
+  toast('已加入快捷菜单，请保存设置');
 });
 document.addEventListener('sidekey-mijia-bindings', () => {
   gestureIds.forEach(id => { if ($(`action-${id}`).value === 'mijia') updateArgument(id); });

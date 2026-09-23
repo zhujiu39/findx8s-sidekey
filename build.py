@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.1.0-test.7'
-VERSION_CODE = 107
+VERSION = '1.1.0-test.8'
+VERSION_CODE = 108
 
 
 def run(arguments):
@@ -236,7 +236,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_米家控制超时状态核对')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_test_v{VERSION}_开发遗留清理')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'test_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -266,33 +266,15 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} 本地测试包\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '本版修正米家设备操作超时后的状态核对：-704083036 和 -704053036 作为执行结果未确认处理，保留原始错误码。'
-        '快捷栏布尔操作遇到设备超时或网络中断时，仍保留目标值并进行有限次读回；匹配后更新图标，否则显示未知，不把第一次旧值当成最终状态。'
-        '控制只发送一次，正常成功时不增加读取或等待。诊断增加切换前状态、属性编号、目标值和发送阶段的错误原因。'
-        '此修复不代表已经消除云端、网关或设备侧约 6 秒的响应超时，仍需观察实体设备测试。\n\n'
-        '快捷开关点击后立即提交动作并保留快捷栏，允许连续操作；点击应用后仍自动收起，并按原有路径打开 ColorOS 小窗。'
-        '米家开关在展开及每次操作完成后读取实际状态；执行期间显示进度，完成后更新开关图标，空闲时不请求云端。'
-        '布尔操作后的首次读回若仍是旧值，会有限次复查目标属性，匹配即结束；不会显示旧的相反状态或重发控制。'
-        '快捷栏直接连接常驻米家服务，省去每次点击启动命令进程；属性读回合并为批量请求。'
-        '内置墨白极简与石墨工具箱两套 WebUI；手机快捷菜单外观保持不变。\n\n'
+        '本次清理失效样式、旧应用数量限制及未使用的米家分发分支，精简说明文档与交付文案。'
+        '保留快捷菜单布局、两套 WebUI、米家状态核对及完整日志功能。\n\n'
         f'安装文件：test_oppo_sidekey_v{VERSION}.zip。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
-        '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU；无需额外安装 Python 或 Termux。\n\n'
-        '测试顺序：先用侧键打开快捷栏，点击米家开关，观察执行完成后图标能否变成实际开/关状态；连续切换时确认面板仍在。'
-        '执行手动场景后核对相关开关状态；最后点击应用确认面板收起且打开小窗。'
-        '米家测试可进入米家页生成登录二维码并用米家 App 扫一扫授权；选择家庭，测试设备开关或手动场景，加入快捷菜单并保存设置后再用侧键验证。'
-        '该接入当前面向中国大陆账号；没有 MIOT 规格的设备可通过米家手动场景使用。\n\n'
-        '最近执行结果位于米家页；超时后读回匹配会明确说明已读回目标状态，并保留控制超时的原因。'
-        '设置 → 运行状态与日志 → 导出完整日志可选择保存位置，保存版本、时间、各类诊断及保留的上一段日志。'
-        '米家日志记录目标值、每次读回值和耗时。完整导出总上限 64 MiB，超限报错而非截取；原复制入口仍保留每文件 64 KiB 的预览边界。'
-        '每次展开及每次操作完成后读取状态，读取失败或有限次复查仍未确认时显示未知；本地结果查询不会重复发送控制或持续查询云端。'
-        '场景和无可读开关状态的动作仍是执行按钮。已受理不等于设备状态已确认；请求中断时不会自动重发。'
-        '登录凭据保存在手机私有目录，WebUI 不显示令牌，退出账号删除本机凭据和米家动作。\n\n'
-        '本地 C/Java/JavaScript/配置往返/脚本测试、ARM64 ELF、DEX、APK 签名、ZIP 和权限检查的命令输出见构建日志。'
-        '真实服务的匿名扫码握手、二维码读取和公开设备规格解析已通过；本包未完成目标手机账号与真实设备端到端实测。'
-        '系统文件选择器与所选文档提供方的实际写入需要手机验证；取消选择不应显示成功。\n\n'
-        '包内 lib/mijia-source.zip 是 GPL 米家服务的完整对应源码，不是另一个安装包；无需解压。'
-        '其余源码与测试、说明、日志及 SHA256 在本交付目录提供。没有包含个人账号、设备数据、ADB 标识或签名私钥。\n\n'
-        '本次仅本地打包，没有推送 GitHub、创建 Tag 或发布 Release。恢复原侧键可关闭接管，或禁用模块后重启。\n',
+        '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
+        '构建入口：python build.py。C、Java、JavaScript、脚本、APK 签名与 ZIP 校验结果见“构建日志.txt”；'
+        '测试范围及真机验收步骤见“验证记录.md”。本包未进行手机实测，米家云端和设备响应仍需实际环境验证。\n\n'
+        '“源码与测试.zip”提供完整项目；模块内 lib/mijia-source.zip 提供 GPL 米家服务对应源码，无需单独安装。'
+        '使用方法见“使用说明.md”，文件校验值见 SHA256SUMS.txt。\n\n'
+        '本包仅供本地测试，未发布。\n',
         encoding='utf-8')
     sums = '\n'.join(f'{sha256(p.read_bytes()).hexdigest()}  {p.name}' for p in sorted(delivery.iterdir()) if p.is_file())
     (delivery / 'SHA256SUMS.txt').write_text(sums + '\n', encoding='utf-8')

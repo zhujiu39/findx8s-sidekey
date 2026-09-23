@@ -78,7 +78,7 @@ export function initMenuEditor(change) {
   $('choose-menu-apps').addEventListener('click',()=>{
     if (isBusy) return;
     const selected=entries.filter(isApp).map(item=>appCatalog.lookup(item.argument) || {packageName:item.argument,label:item.name});
-    chooseApps(selected,Infinity,apps=>{entries=applyAppSelection(entries,apps);changed();});
+    chooseApps(selected,apps=>{entries=applyAppSelection(entries,apps);changed();});
   });
   $('add-menu-switch').addEventListener('click',()=>{
     if (isBusy || entries.length>=2060) return;

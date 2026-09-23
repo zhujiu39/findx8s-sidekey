@@ -1,4 +1,4 @@
-/* 两种外观只作用于设置界面，快捷菜单预览沿用原有样式。 */
+/* WebUI 主题；菜单预览使用独立配色。 */
 .menu-preview { --green: #355b42; --soft: #e8eee5; }
 @media (prefers-color-scheme: dark) {
   .menu-preview { --green: #9dbe87; --soft: #2d382c; }

@@ -1,4 +1,4 @@
-/* 米家配置页借鉴柔和渐变与房间卡片；手机快捷菜单保留原有外观和操作。 */
+/* 米家配置页。 */
 :root {
   --mi-bg-a:#edf1f9; --mi-bg-b:#dce4f1; --mi-card:#ffffffd9;
   --mi-card-solid:#fff; --mi-text:#252b39; --mi-muted:#6c7689;
