@@ -98,7 +98,9 @@ function init() {
     if (dialog.open) return;
     generation++; selection = null; releaseAppIcons(list); list.replaceChildren();
   });
-  document.addEventListener('sidekey-icons-failed', () => { if (dialog.open) status.textContent = '部分图标暂不可读，点击“刷新”重试；勾选内容会保留。'; });
+  document.addEventListener('sidekey-icons-failed', event => {
+    if (dialog.open) status.textContent = `部分图标暂不可读：${String(event.detail?.message || '读取失败').slice(0, 160)}。点击“刷新”重试，勾选内容会保留。`;
+  });
 }
 function chooseApp(packageName, callback) {
   init(); if (dialog.open) return;

@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.2.0-test.3'
-VERSION_CODE = 116
+VERSION = '1.2.0-test.4'
+VERSION_CODE = 117
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -264,7 +264,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_Apple界面与原生快捷栏')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_修复WebUI图标与米家加载')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -290,16 +290,16 @@ def main():
             archive.write(path, path.relative_to(ROOT).as_posix())
     shutil.copyfile(ROOT / 'README.md', delivery / '使用说明.md')
     shutil.copyfile(ROOT / 'diagnostics/模块本地验证.md', delivery / '验证记录.md')
-    shutil.copyfile(ROOT / 'docs/APPLE-UI-v1.2.0-test.3.md', delivery / '本版变化与真机实测.md')
+    shutil.copyfile(ROOT / f'docs/RELEASE-v{VERSION}.md', delivery / '本版变化与真机实测.md')
     (delivery / '构建日志.txt').write_text('\n'.join(LOG), encoding='utf-8')
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '本版将 Apple 风格预览接入实际 WebUI 与原生快捷栏。'
-        '使用 SF Symbols、分组动作选择、折叠项目编辑、分层字号与保存状态；支持浅色、深色和跟随系统。'
-        '原生菜单重排米家只读卡片、快捷开关、Surfing 统计与订阅用量，保留手机应用的真实身份图标和 ColorOS 小窗。'
-        '手势识别、配置格式、米家扫码与属性/场景/读数绑定、Surfing 显示项目和八项文案、日志导出均继续接入真实接口。'
-        '不包含模拟账号、模拟执行或示例统计。WebUI 布局预览只呈现草稿占位，实际操作按侧键进入菜单。\n\n'
+        '本版修复 WebUI 图标持续显示占位以及米家页面的 classList 空引用错误。'
+        '米家账号状态圆点已恢复，装饰元素缺失不再中断账号、家庭和设备加载。'
+        'WebUI 图标按可见范围主动加载，切页、弹窗及滚动后补充读取；应用列表初始化或刷新后恢复现有图标请求。'
+        '相同应用合并请求，每批最多两张 PNG；成功解码后显示，失败不永久缓存为空，并在应用选择和快捷栏页显示具体提示。'
+        '保留原 Apple 风格、手机应用实际图标、配置、签名和业务接口。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'

@@ -116,6 +116,11 @@ function renderSummary(apps, switches) {
 }
 export function initMenuEditor(change) {
   onChange=()=>{change();renderLiveMenu(readMenu());};
+  document.addEventListener('sidekey-icons-failed',event=>{
+    const hint=$('app-icon-message');
+    hint.textContent=`部分图标暂不可读：${String(event.detail?.message || '读取失败').slice(0,160)}。可在设置页刷新应用列表，原有配置会保留。`;
+    hint.hidden=false;
+  });
   document.addEventListener('sidekey-mijia-bindings',()=>{
     $('menu-items').querySelectorAll('[data-mijia-binding]').forEach(item=>{
       item.textContent=mijiaBindingLabel(item.dataset.mijiaBinding);
@@ -146,6 +151,7 @@ export function initMenuEditor(change) {
   $('preview-menu').addEventListener('click',preview);
   $('expand-preview').addEventListener('click',preview);
   document.addEventListener('sidekey-apps-updated',()=>{
+    $('app-icon-message').hidden=true;
     entries.forEach(item=>{if(isApp(item)){const app=appCatalog.lookup(item.argument);if(app)item.name=menuAppName(app.label);item.icon='';}});
     render();onChange();
   });

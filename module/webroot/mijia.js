@@ -43,7 +43,8 @@ async function status() {
   bindings = lastStatus.bindings || [];
   document.dispatchEvent(new Event('sidekey-mijia-bindings'));
   $('mijia-account').textContent = lastStatus.loggedIn ? `小米账号 ${lastStatus.account} · 中国大陆` : '未登录 · 中国大陆';
-  document.querySelector('.mijia-connection-dot').classList.toggle('connected', !!lastStatus.loggedIn);
+  // 装饰性状态圆点不应阻断账号、家庭与设备数据的加载。
+  $('mijia-connection')?.classList.toggle('connected', !!lastStatus.loggedIn);
   $('mijia-login').textContent = lastStatus.loggedIn ? '账号管理' : '登录米家';
   $('mijia-home-row').hidden = !lastStatus.loggedIn;
   if (!lastStatus.loggedIn) $('mijia-count').textContent = '登录后同步家庭与设备';
