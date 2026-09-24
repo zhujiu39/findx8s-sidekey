@@ -11,11 +11,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-static char script[1024], log_path[1024], frame[2048], snapshot[2048] = "{\"state\":\"unknown\"}";
+static char script[1024], log_path[1024], frame[16384], snapshot[16384] = "{\"state\":\"unknown\"}";
 static pid_t watcher, controller;
 static int output_fd = -1, control_result;
 static size_t used;
 static bool dropping, visible;
+static uint32_t display_fields;
 static uint64_t watch_deadline, control_deadline, updated, retry_at, control_finished;
 
 bool surfing_init(const char *module, const char *directory)
@@ -66,7 +67,9 @@ static pid_t launch(bool control)
         close(null_fd); close(log_fd);
         if (!control) { close(descriptors[0]); close(descriptors[1]); }
         menu_close_descriptors();
-        execl("/system/bin/sh", "sh", script, control ? "toggle" : "watch", (char *)NULL);
+        char fields[12]; snprintf(fields, sizeof(fields), "%u", display_fields);
+        if (control) execl("/system/bin/sh", "sh", script, "toggle", (char *)NULL);
+        else execl("/system/bin/sh", "sh", script, "watch", fields, (char *)NULL);
         _exit(127);
     }
     if (!control) {
@@ -98,11 +101,13 @@ static void collect(uint64_t now)
     }
 }
 
-void surfing_tick(bool active, uint64_t now)
+void surfing_tick(bool active, uint32_t fields, uint64_t now)
 {
-    if (active != visible) {
+    fields &= 31u;
+    if (active != visible || (active && display_fields != fields)) {
+        stop_watcher(); display_fields = fields;
         visible = active; updated = 0; strcpy(snapshot, "{\"state\":\"unknown\"}");
-        if (!active) stop_watcher(); else retry_at = 0;
+        if (active) retry_at = 0;
     }
     collect(now);
     if (watcher > 0) {

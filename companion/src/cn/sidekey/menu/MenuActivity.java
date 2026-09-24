@@ -352,9 +352,7 @@ public final class MenuActivity extends Activity {
         final TextView status;
         final TextView readings;
         final SwitchGlyph control;
-        final LinearLayout trafficPanel;
-        final TextView[] trafficValues = new TextView[4];
-        final TextView trafficNote;
+        final SurfingContent trafficPanel;
         boolean mijia, surfing;
         int index;
         SwitchRow() {
@@ -374,27 +372,7 @@ public final class MenuActivity extends Activity {
             control = new SwitchGlyph();
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(dp(32), dp(20)); size.leftMargin = dp(5);
             header.addView(control, size); header.setMinimumHeight(dp(40)); card.addView(header, new LinearLayout.LayoutParams(-1, -2));
-            trafficPanel = new LinearLayout(MenuActivity.this); trafficPanel.setOrientation(VERTICAL);
-            String[] labelsText = {"↑ 上传速率", "↓ 下载速率", "↑ 上传流量", "↓ 下载流量"};
-            for (int row = 0; row < 2; row++) {
-                LinearLayout pair = new LinearLayout(MenuActivity.this);
-                for (int column = 0; column < 2; column++) {
-                    int metric = row * 2 + column;
-                    LinearLayout cell = new LinearLayout(MenuActivity.this); cell.setOrientation(VERTICAL);
-                    cell.setPadding(column == 0 ? 0 : dp(3), dp(7), column == 0 ? dp(3) : 0, 0);
-                    TextView label = text(labelsText[metric], 9, muted); label.setSingleLine();
-                    label.setAutoSizeTextTypeUniformWithConfiguration(7, 9, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
-                    TextView value = text("—", 12, foreground); value.setSingleLine();
-                    value.setAutoSizeTextTypeUniformWithConfiguration(7, 12, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
-                    value.setTypeface(null, android.graphics.Typeface.BOLD); trafficValues[metric] = value;
-                    cell.addView(label, new LinearLayout.LayoutParams(-1, dp(15)));
-                    cell.addView(value, new LinearLayout.LayoutParams(-1, dp(21)));
-                    pair.addView(cell, new LinearLayout.LayoutParams(0, -2, 1));
-                }
-                trafficPanel.addView(pair, new LinearLayout.LayoutParams(-1, -2));
-            }
-            trafficNote = text("本次核心统计", 8, muted); trafficNote.setPadding(0, dp(7), 0, 0); trafficNote.setMaxLines(2);
-            trafficPanel.addView(trafficNote, new LinearLayout.LayoutParams(-1, -2));
+            trafficPanel = new SurfingContent(MenuActivity.this, foreground, muted);
             card.addView(trafficPanel, new LinearLayout.LayoutParams(-1, -2));
             card.setMinimumHeight(dp(56)); addView(card, new LinearLayout.LayoutParams(-1, -2));
         }
@@ -402,6 +380,7 @@ public final class MenuActivity extends Activity {
             name.setText(item.optString("name")); control.stateful = "torch".equals(item.optString("type"));
             mijia = "mijia".equals(item.optString("type")); index = item.optInt("index", -1);
             surfing = "surfing".equals(item.optString("type")); trafficPanel.setVisibility(surfing ? View.VISIBLE : View.GONE);
+            if (surfing) trafficPanel.bind(item);
             name.setMaxLines(mijia ? 1 : 2);
             card.setContentDescription(name.getText()); bindSelection(card, item); updateState();
         }
@@ -441,10 +420,9 @@ public final class MenuActivity extends Activity {
             ViewGroup.LayoutParams size = control.getLayoutParams();
             if (size.height != dp(32)) { size.height = dp(32); control.setLayoutParams(size); }
             status.setVisibility(View.VISIBLE); status.setText(submitting ? "切换中…" : value.status());
-            trafficNote.setText(value.note());
+            trafficPanel.update(value);
             StringBuilder description = new StringBuilder(name.getText()).append('，').append(status.getText());
-            String[] descriptions = {"上传速率", "下载速率", "上传流量", "下载流量"};
-            for (int i = 0; i < 4; i++) { trafficValues[i].setText(value.metric(i)); description.append('，').append(descriptions[i]).append(value.metric(i)); }
+            description.append(trafficPanel.description());
             card.setContentDescription(description.toString()); card.setStateDescription(status.getText());
             card.setEnabled(!submitting && value.canToggle()); card.setAlpha(1f); control.invalidate();
         }
@@ -545,7 +523,7 @@ public final class MenuActivity extends Activity {
     private static void readSurfing(Session current) {
         int revision = current.surfingRevision;
         SurfingState value;
-        try { value = SurfingState.decode(exchange(current, "SURFING", 4096)); }
+        try { value = SurfingState.decode(exchange(current, "SURFING", 32768)); }
         catch (Exception error) { value = SurfingState.unknown(); }
         if (current.surfingRevision == revision) current.surfing = value;
     }

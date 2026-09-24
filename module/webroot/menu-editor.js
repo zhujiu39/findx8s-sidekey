@@ -1,4 +1,4 @@
-import {actions} from './model.js';
+import {actions, surfingFields, surfingTextDefaults, surfingText, surfingMask} from './model.js';
 import {appCatalog, chooseApps} from './app-picker.js';
 import {menuAppName} from './app-catalog.js';
 import {isApp, applyAppSelection} from './app-selection.js';
@@ -12,6 +12,31 @@ const element = (tag, className, text) => {
   return node;
 };
 function field(title, input) { const label = element('label','menu-field'); label.append(element('span','',title),input); return label; }
+function surfingEditor(item, card) {
+  const options=element('fieldset','surfing-options');options.append(element('legend','','显示项目'));
+  const textFields=element('div','surfing-text-fields'), text=surfingText(item), inputs=new Map();
+  function sync() {
+    const mask=surfingMask(item);
+    for (const [key,,bit] of surfingFields) inputs.get(key).hidden=!(mask & bit);
+    inputs.get('note').hidden=!(mask & 15);
+    inputs.get('used').hidden=inputs.get('total').hidden=!(mask & 16);
+  }
+  for (const [key, title, bit] of surfingFields) {
+    const check=element('input','');check.type='checkbox';check.checked=Boolean(surfingMask(item) & bit);
+    const label=element('label','surfing-option');label.append(check,element('span','',title));options.append(label);
+    check.addEventListener('change',()=>{item.surfing_fields=check.checked ? surfingMask(item)|bit : surfingMask(item)&~bit;sync();onChange();});
+  }
+  const titles={up:'上传速率文案',down:'下载速率文案',upload:'上传流量文案',download:'下载流量文案',note:'统计说明',quota:'订阅标题',used:'已用流量文案',total:'总流量文案'};
+  for (const [key,title] of Object.entries(titles)) {
+    const input=element('input','');input.type='text';input.value=text[key];input.maxLength=60;
+    input.placeholder=surfingTextDefaults[key];
+    input.addEventListener('input',()=>{item.surfing_text={...surfingText(item),[key]:input.value};onChange();});
+    const label=field(title,input);inputs.set(key,label);textFields.append(label);
+  }
+  const reset=element('button','secondary','恢复默认文案');reset.type='button';
+  reset.addEventListener('click',()=>{item.surfing_text={...surfingTextDefaults};changed();});
+  sync();card.append(options,textFields,element('p','hint','只显示勾选项。文案留空时只显示数值；统计说明留空则隐藏。每项最多 20 个汉字或 60 个英文字母，保存设置后生效。'),reset);
+}
 function changed() { entries.forEach((item, slot) => item.slot = slot); render(); onChange(); }
 function controls(item, group) {
   const tools = element('div','menu-item-tools'), index = group.indexOf(item);
@@ -41,7 +66,7 @@ function render() {
     const name=element('input',''); name.value=item.name; name.addEventListener('input',()=>{item.name=name.value;onChange();}); card.append(field('显示名称',name));
     const action=element('select',''); actions.filter(([id])=>!['menu','app','app_freeform'].includes(id)).forEach(([id,label])=>action.add(new Option(label,id)));
     action.value=item.type; card.append(field('项目类型',action));
-    if (item.type==='surfing') card.append(element('p','hint','显示代理开关、上传和下载速率、累计流量。快捷栏展开时更新，收起后停止。'));
+    if (item.type==='surfing') surfingEditor(item,card);
     if (item.type==='mijia') {
       const choice=element('button','secondary',mijiaBindingLabel(item.argument));choice.type='button';
       choice.dataset.mijiaBinding=item.argument;
@@ -156,10 +181,20 @@ function preview() {
     if (item.type==='surfing') {
       row.classList.add('surfing-preview');
       const heading=element('span','surfing-preview-heading');heading.append(element('span','',item.name),element('span','menu-switch-glyph','⏻'));row.append(heading);
-      row.append(element('small','surfing-preview-status','状态与流量在手机中显示'));
-      const grid=element('span','surfing-preview-grid');
-      for(const label of ['↑ 上传速率','↓ 下载速率','↑ 上传流量','↓ 下载流量']) {const metric=element('span','');metric.append(element('small','',label),element('strong','','—'));grid.append(metric);}
-      row.append(grid,element('small','surfing-preview-status','本次核心统计'));
+      row.append(element('small','surfing-preview-status','状态在手机中显示'));
+      const labels=surfingText(item), mask=surfingMask(item), grid=element('span','surfing-preview-grid');
+      for(const [key,,bit] of surfingFields.slice(0,4)) {
+        if (!(mask & bit)) continue;
+        const metric=element('span','');if(labels[key])metric.append(element('small','',labels[key]));
+        metric.append(element('strong','','—'));grid.append(metric);
+      }
+      if(mask & 15) { row.append(grid);if(labels.note)row.append(element('small','surfing-preview-status',labels.note)); }
+      if(mask & 16) {
+        const quota=element('span','surfing-preview-quota');
+        if(labels.quota)quota.append(element('strong','',labels.quota));
+        for(const key of ['used','total'])quota.append(element('span','',(labels[key] ? labels[key]+'：' : '')+'—'));
+        row.append(quota);
+      }
     } else row.append(element('span','',item.name),element('span','menu-switch-glyph',reading?'读数':item.type==='torch'?'—':'›'));
     $('menu-preview-switches').append(row);
   }

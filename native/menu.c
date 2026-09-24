@@ -29,6 +29,7 @@ static size_t logged_bytes;
 static MenuItem snapshot[MENU_CAP];
 static uint32_t snapshot_count, snapshot_width, snapshot_gap;
 static bool has_surfing;
+static uint32_t surfing_fields;
 static struct { int fd; size_t size, sent, response_size; char text[REQUEST_CAP], response[32768]; uint64_t until; } clients[CLIENT_CAP] = {{.fd = -1}, {.fd = -1}, {.fd = -1}, {.fd = -1}};
 
 static size_t item_page(char *buffer, size_t capacity, uint32_t first)
@@ -157,8 +158,10 @@ static bool show_menu(const Config *config, uint64_t now)
     if (launch_output >= 0) { close(launch_output); launch_output = -1; }
     if (launch_log >= 0) { close(launch_log); launch_log = -1; }
     snapshot_count = menu_snapshot(config, snapshot, MENU_CAP);
-    has_surfing = false;
-    for (uint32_t i = 0; i < snapshot_count; i++) if (snapshot[i].action.kind == ACTION_SURFING) has_surfing = true;
+    has_surfing = false; surfing_fields = 0;
+    for (uint32_t i = 0; i < snapshot_count; i++) if (snapshot[i].action.kind == ACTION_SURFING) {
+        has_surfing = true; surfing_fields |= snapshot[i].surfing_fields;
+    }
     snapshot_width = config->menu_width; snapshot_gap = config->menu_gap;
     /* 空菜单正常结束，不启动透明 Activity，也不等待不存在的组件握手。 */
     if (!snapshot_count) return true;
@@ -237,7 +240,7 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
     /* 收起面板不能丢掉已接收的点击；等服务接管控制后才停止本地取结果。 */
     if (*session || mijia_menu_submitting()) mijia_menu_tick(data_directory, now);
     else mijia_menu_disconnect();
-    surfing_tick(*session && launch_state.ui_ready && has_surfing, now);
+    surfing_tick(*session && launch_state.ui_ready && has_surfing, surfing_fields, now);
     if (listener < 0) return failure;
     for (int i = 0; i < CLIENT_CAP; i++) {
         if (clients[i].fd < 0) {

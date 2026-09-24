@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.2.0-test.1'
-VERSION_CODE = 114
+VERSION = '1.2.0-test.2'
+VERSION_CODE = 115
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -246,7 +246,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_Surfing开关与流量')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_Surfing自选文案与订阅用量')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -276,15 +276,19 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '新增 Surfing 快捷卡片：开关、实际状态、上传/下载速率、上传/下载累计流量。'
-        'WebUI → 快捷栏 → 添加 Surfing 卡片，保存后显示。'
-        '仅展开快捷栏时采集本机统计，收起即停；启停调用 SurfingTile 原有服务，快捷栏保持展开。\n\n'
+        'Surfing 卡片支持自定义名称、四项流量文案、统计说明和订阅用量文案。'
+        'WebUI → 快捷栏 → Surfing 卡片 → 显示项目，分别勾选上传速率、下载速率、上传流量、下载流量、订阅用量。'
+        '保存后按勾选项紧凑排版；全部取消只保留开关和状态。文案留空只显示数值，统计说明留空则隐藏。'
+        '新增订阅已用/总额，多个订阅分别显示，不将本次核心流量当作套餐用量。'
+        '仅展开快捷栏时读取已选数据，收起即停；启停调用 SurfingTile 原有服务，快捷栏保持展开。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'
         + ('本次运行自动测试。' if args.test else '按项目要求，本次未运行自动测试或界面测试；真机反馈见验证记录。') +
         '本次 Surfing 接入尚未实机验证；需已安装并配置 Surfing 与 SurfingTile 6.0.0 的本机 HTTP API。'
-        '流量统计来自 mihomo，核心重启或重置统计后清零，不代表套餐流量。'
+        '实时速率和核心累计流量来自 mihomo；核心重启或重置统计后累计值清零。'
+        '订阅用量来自本机 /providers/proxies 的订阅元数据，依赖服务商上报并随订阅更新；只读，不触发订阅下载。'
+        '未提供的用量或总额显示缺失提示，不推算或填 0；API 读取失败时提示查看日志。'
         '密钥只在 Root 侧读取，不传给菜单或写入日志。\n\n'
         '“源码与测试.zip”提供完整项目；模块内 lib/mijia-source.zip 提供 GPL 米家服务对应源码，无需单独安装。'
         '使用方法见“使用说明.md”，文件校验值见 SHA256SUMS.txt。\n\n'

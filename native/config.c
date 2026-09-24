@@ -16,6 +16,13 @@ const char *const action_names[ACTION_COUNT] = {
     "volume_down", "mute", "camera", "app", "keycode", "shell", "torch", "menu", "app_freeform", "mijia", "surfing"
 };
 
+const char *const surfing_text_keys[SURFING_TEXT_COUNT] = {
+    "up", "down", "upload", "download", "note", "quota", "used", "total"
+};
+static const char *const surfing_text_defaults[SURFING_TEXT_COUNT] = {
+    "↑ 上传速率", "↓ 下载速率", "↑ 上传流量", "↓ 下载流量", "本次核心统计", "订阅流量", "已用", "总额"
+};
+
 void config_defaults(Config *c)
 {
     if (!c) return;
@@ -26,7 +33,12 @@ void config_defaults(Config *c)
     c->menu_position = 35;
     c->menu_width = 196;
     c->menu_gap = 12;
-    for (uint32_t i = 0; i < MENU_CAP; i++) c->menu[i].slot = i;
+    for (uint32_t i = 0; i < MENU_CAP; i++) {
+        c->menu[i].slot = i;
+        c->menu[i].surfing_fields = 31;
+        for (int f = 0; f < SURFING_TEXT_COUNT; f++)
+            strcpy(c->menu[i].surfing_text[f], surfing_text_defaults[f]);
+    }
 }
 
 static int hex_digit(char c)
@@ -111,6 +123,25 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
                     item->action.kind = (ActionKind)action;
                 }
             }
+            for (int f = 0; f < SURFING_TEXT_COUNT; f++) {
+                char expected[48];
+                snprintf(expected, sizeof(expected), "menu_%u_surfing_%s", i, surfing_text_keys[f]);
+                if (strcmp(line, expected)) continue;
+                unsigned int bit = 1u << (5 + f);
+                if (menu_seen[i] & bit) goto invalid;
+                menu_seen[i] |= bit; matched = true;
+                char *label = next.menu[i].surfing_text[f];
+                if (!hex_decode(equal, label, SURFING_TEXT_CAP)) goto invalid;
+                for (const unsigned char *p = (const unsigned char *)label; *p; p++)
+                    if (*p < 32 || *p == 127) goto invalid;
+            }
+            char fields_key[48];
+            snprintf(fields_key, sizeof(fields_key), "menu_%u_surfing_fields", i);
+            if (!strcmp(line, fields_key)) {
+                if (menu_seen[i] & (1u << 13)) goto invalid;
+                menu_seen[i] |= 1u << 13; matched = true;
+                if (!number(equal, 0, 31, &next.menu[i].surfing_fields)) goto invalid;
+            }
             if (!matched) goto invalid;
             continue;
         }
@@ -151,6 +182,7 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
             for (uint32_t j = 0; j < i; j++) if (next.menu[j].slot == next.menu[i].slot) goto invalid;
         } else if (menu_seen[i]) goto invalid;
         if (i < next.menu_count && !next.menu[i].name[0]) goto invalid;
+        if ((menu_seen[i] >> 5) && next.menu[i].action.kind != ACTION_SURFING) goto invalid;
     }
     for (uint32_t i = 0; i < 3 + next.menu_count; i++) {
         Action *a = i < 3 ? &next.actions[i] : &next.menu[i - 3].action;
@@ -245,6 +277,14 @@ bool config_write(const char *directory, const Config *config)
             for (const unsigned char *p = (const unsigned char *)values[f]; *p; p++) fprintf(file, "%02x", *p);
             fputc('\n', file);
         }
+        if (item->action.kind == ACTION_SURFING) {
+            fprintf(file, "menu_%u_surfing_fields=%u\n", i, item->surfing_fields);
+            for (int f = 0; f < SURFING_TEXT_COUNT; f++) {
+                fprintf(file, "menu_%u_surfing_%s=", i, surfing_text_keys[f]);
+                for (const unsigned char *p = (const unsigned char *)item->surfing_text[f]; *p; p++) fprintf(file, "%02x", *p);
+                fputc('\n', file);
+            }
+        }
     }
     bool good = !ferror(file) && fflush(file) == 0 && fsync(fileno(file)) == 0;
     if (fclose(file) != 0) good = false;
@@ -264,6 +304,17 @@ void json_string(FILE *output, const char *text)
     fputc('"', output);
 }
 
+void surfing_text_json(FILE *output, const MenuItem *item)
+{
+    fprintf(output, ",\"surfing_fields\":%u,\"surfing_text\":{", item->surfing_fields);
+    for (int f = 0; f < SURFING_TEXT_COUNT; f++) {
+        if (f) fputc(',', output);
+        json_string(output, surfing_text_keys[f]); fputc(':', output);
+        json_string(output, item->surfing_text[f]);
+    }
+    fputc('}', output);
+}
+
 void config_json(FILE *out, const Config *c)
 {
     fprintf(out, "{\"enabled\":%s,\"haptic\":%s,\"long_ms\":%u,\"double_ms\":%u,\"actions\":[", c->enabled ? "true" : "false", c->haptic ? "true" : "false", c->long_ms, c->double_ms);
@@ -280,6 +331,7 @@ void config_json(FILE *out, const Config *c)
         fputs(",\"icon\":", out); json_string(out, c->menu[i].icon);
         fputs(",\"type\":", out); json_string(out, action_names[c->menu[i].action.kind]);
         fputs(",\"argument\":", out); json_string(out, c->menu[i].action.argument);
+        if (c->menu[i].action.kind == ACTION_SURFING) surfing_text_json(out, &c->menu[i]);
         fputc('}', out);
     }
     fputs("]}", out);

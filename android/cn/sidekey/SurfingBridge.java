@@ -17,14 +17,19 @@ public final class SurfingBridge {
     private static final Path MODULE = Paths.get("/data/adb/modules/Surfing");
     private static final Path BOX = Paths.get("/data/adb/box_bll");
     private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor();
+    private final ExecutorService subscriptions = Executors.newSingleThreadExecutor();
     private final String user;
     private String core = "clash", address = "http://127.0.0.1:9090", secret = "";
     private HttpURLConnection stream;
     private BufferedReader traffic;
     private long fallbackAt, fallbackUp = -1, fallbackDown = -1;
     private String lastProblem = "";
+    private Future<JSONObject> quotaRequest;
+    private JSONObject quota;
+    private long quotaAt;
+    private boolean quotaWasOn;
 
-    private SurfingBridge() throws Exception {
+    private SurfingBridge(boolean statistics) throws Exception {
         user = command("/system/bin/am", "get-current-user");
         if (!user.matches("[0-9]{1,6}")) throw new IOException("无法确定当前 Android 用户");
         Path config = BOX.resolve("scripts/box.config");
@@ -38,6 +43,7 @@ public final class SurfingBridge {
                 }
             }
         }
+        if (!statistics) return;
         Path preferences = Paths.get("/data/user", user, "com.github.surfing/shared_prefs/ApiSettingsPrefs.xml");
         if (Files.isRegularFile(preferences)) {
             XmlPullParser parser = Xml.newPullParser();
@@ -182,7 +188,7 @@ public final class SurfingBridge {
         return ((Number)value).longValue();
     }
 
-    private JSONObject sample() throws Exception {
+    private JSONObject sample(boolean totals) throws Exception {
         if (traffic == null) {
             stream = connect("/traffic");
             traffic = new BufferedReader(new InputStreamReader(stream.getInputStream(), StandardCharsets.UTF_8));
@@ -195,6 +201,7 @@ public final class SurfingBridge {
         if (value == -1) throw new EOFException("流量连接已关闭");
         JSONObject source = new JSONObject(line.toString());
         JSONObject result = new JSONObject().put("up", counter(source, "up")).put("down", counter(source, "down"));
+        if (!totals) return result;
         if (source.has("upTotal") && source.has("downTotal"))
             return result.put("uploadTotal", counter(source, "upTotal")).put("downloadTotal", counter(source, "downTotal"));
         // 旧核心的 /traffic 仅有速率；只取 /connections 顶层计数，不保存连接列表。
@@ -233,20 +240,56 @@ public final class SurfingBridge {
         System.out.println(result.toString()); System.out.flush();
     }
 
-    private void watch() throws Exception {
+    private JSONObject subscriptionSample(boolean on) throws Exception {
+        if (!on) {
+            if (quotaRequest != null) { quotaRequest.cancel(true); quotaRequest = null; }
+            quotaWasOn = false;
+            if (quota != null && quota.optJSONArray("items") != null && quota.getJSONArray("items").length() > 0)
+                return new JSONObject(quota.toString()).put("state", "cached");
+            return new JSONObject().put("state", "unavailable");
+        }
+        if (!quotaWasOn) { quotaAt = 0; quota = null; }
+        quotaWasOn = true;
+        if (quotaRequest != null && quotaRequest.isDone()) {
+            try { quota = quotaRequest.get(); }
+            catch (Exception error) { quota = new JSONObject().put("state", "error"); log("订阅额度读取失败"); }
+            quotaRequest = null;
+        }
+        if (quotaRequest == null && SystemClock.elapsedRealtime() >= quotaAt) {
+            quotaAt = SystemClock.elapsedRealtime() + 30000;
+            quotaRequest = subscriptions.submit(() -> {
+                HttpURLConnection connection = null;
+                ScheduledFuture<?> timeout = null;
+                try {
+                    connection = connect("/providers/proxies");
+                    HttpURLConnection request = connection;
+                    timeout = timer.schedule(request::disconnect, 3500, TimeUnit.MILLISECONDS);
+                    return SurfingSubscriptions.read(connection);
+                } catch (Exception error) {
+                    String problem = friendly(error);
+                    log("订阅额度：" + (problem.startsWith("本机") || problem.startsWith("订阅") ? problem : "读取失败（" + error.getClass().getSimpleName() + "）"));
+                    return new JSONObject().put("state", "error");
+                } finally { if (timeout != null) timeout.cancel(false); if (connection != null) connection.disconnect(); }
+            });
+        }
+        return quota == null ? new JSONObject().put("state", "loading") : quota;
+    }
+
+    private void watch(int fields) throws Exception {
         long deadline = SystemClock.elapsedRealtime() + 65000;
         while (SystemClock.elapsedRealtime() < deadline) {
             long started = SystemClock.elapsedRealtime();
             JSONObject result = new JSONObject().put("state", "unknown");
             try {
                 String state = state(); result.put("state", state);
-                if ("on".equals(state)) result.put("traffic", sample()); else disconnect();
+                if ("on".equals(state) && (fields & 15) != 0) result.put("traffic", sample((fields & 12) != 0)); else disconnect();
                 lastProblem = "";
             } catch (Exception error) {
                 disconnect(); String message = friendly(error);
                 result.put("message", message);
                 if (!message.equals(lastProblem)) { log(message); lastProblem = message; }
             }
+            if ((fields & 16) != 0) result.put("quota", subscriptionSample("on".equals(result.optString("state"))));
             emit(result);
             if (System.out.checkError()) return;
             long delay = 1000 - (SystemClock.elapsedRealtime() - started);
@@ -289,14 +332,15 @@ public final class SurfingBridge {
     public static void main(String[] args) {
         SurfingBridge bridge = null; int result = 0;
         try {
-            if (args.length != 1 || !("watch".equals(args[0]) || "toggle".equals(args[0]))) throw new IllegalArgumentException("操作无效");
-            bridge = new SurfingBridge();
-            if ("watch".equals(args[0])) bridge.watch(); else bridge.toggle();
+            boolean watch = args.length == 2 && "watch".equals(args[0]) && args[1].matches("[0-9]{1,2}") && Integer.parseInt(args[1]) <= 31;
+            if (!watch && !(args.length == 1 && "toggle".equals(args[0]))) throw new IllegalArgumentException("操作无效");
+            bridge = new SurfingBridge(watch && Integer.parseInt(args[1]) != 0);
+            if (watch) bridge.watch(Integer.parseInt(args[1])); else bridge.toggle();
         } catch (Exception error) {
             result = 1; String message = friendly(error); log(message);
-            if (args.length == 1 && "watch".equals(args[0])) try { emit(new JSONObject().put("state", "unknown").put("message", message)); } catch (Exception ignored) { }
+            if (args.length >= 1 && "watch".equals(args[0])) try { emit(new JSONObject().put("state", "unknown").put("message", message)); } catch (Exception ignored) { }
         } finally {
-            if (bridge != null) { bridge.disconnect(); bridge.timer.shutdownNow(); }
+            if (bridge != null) { bridge.disconnect(); bridge.subscriptions.shutdownNow(); bridge.timer.shutdownNow(); }
         }
         System.exit(result);
     }

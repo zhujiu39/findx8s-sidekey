@@ -36,6 +36,7 @@ bool menu_write_items(FILE *output, const MenuItem *items, uint32_t count, uint3
         if (i != first) fputc(',', output);
         fprintf(output, "{\"index\":%u,\"type\":\"%s\",\"name\":", i, action_names[items[i].action.kind]);
         json_string(output, items[i].name); fputs(",\"icon\":", output); json_string(output, items[i].icon);
+        if (items[i].action.kind == ACTION_SURFING) surfing_text_json(output, &items[i]);
         if (items[i].action.kind == ACTION_APP || items[i].action.kind == ACTION_APP_FREEFORM) {
             fputs(",\"packageName\":", output); json_string(output, items[i].action.argument);
         }

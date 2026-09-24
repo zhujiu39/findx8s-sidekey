@@ -10,6 +10,11 @@ export const actions = [
   ['app_freeform', '启动应用（ColorOS 小窗）'], ['app', '启动应用'], ['keycode', '发送 Android 按键'], ['shell', '自定义 Shell 命令'],
 ];
 export const gestureIds = ['single', 'double', 'long'];
+export const surfingTextDefaults = Object.freeze({up:'↑ 上传速率',down:'↓ 下载速率',upload:'↑ 上传流量',download:'↓ 下载流量',
+  note:'本次核心统计',quota:'订阅流量',used:'已用',total:'总额'});
+export const surfingFields = Object.freeze([['up','上传速率',1],['down','下载速率',2],['upload','上传流量',4],['download','下载流量',8],['quota','订阅用量（已用 / 总额）',16]]);
+export function surfingText(item) { return {...surfingTextDefaults,...item.surfing_text}; }
+export function surfingMask(item) { return item.surfing_fields ?? 31; }
 export const defaultConfig = () => ({enabled: false, haptic: true, long_ms: 600, double_ms: 280,
   actions: gestureIds.map(() => ({type: 'none', argument: ''})), menu_side: 'left', menu_position: 35, menu_width: 196, menu_gap: 12, menu: []});
 
@@ -43,6 +48,16 @@ export function validate(config) {
     if (typeof item.icon !== 'string' || item.icon.includes('\0') || bytes(item.icon) > 24)
       throw new Error('菜单图标最多 24 个 UTF-8 字节，可填写 emoji');
     if (item.type === 'menu') throw new Error('菜单内不能再次打开菜单');
+    if (item.type === 'surfing') {
+      const mask = surfingMask(item);
+      if (!Number.isInteger(mask) || mask < 0 || mask > 31) throw new Error('Surfing 显示项目无效');
+      if (item.surfing_text !== undefined && (!item.surfing_text || typeof item.surfing_text !== 'object' || Array.isArray(item.surfing_text)))
+        throw new Error('Surfing 文案格式无效');
+      for (const [key, label] of Object.entries(surfingText(item))) {
+        if (!Object.hasOwn(surfingTextDefaults,key) || typeof label !== 'string' || /[\u0000-\u001f\u007f]/u.test(label) || bytes(label) > 60)
+          throw new Error('Surfing 每项文案最多 60 个 UTF-8 字节，不能包含换行或控制字符');
+      }
+    }
   }
   for (const action of [...config.actions, ...config.menu]) {
     if (!actions.some(([id]) => id === action.type)) throw new Error('不支持的动作');
@@ -68,8 +83,14 @@ export function serialize(config) {
   gestureIds.forEach((id, i) => lines.push(`${id}_arg=${hex(config.actions[i].argument)}`));
   lines.push(`menu_count=${config.menu.length}`, `menu_side=${config.menu_side}`, `menu_position=${config.menu_position}`);
   lines.push(`menu_width=${config.menu_width ?? 196}`, `menu_gap=${config.menu_gap ?? 12}`);
-  config.menu.forEach((item, i) => lines.push(`menu_${i}_name=${hex(item.name)}`, `menu_${i}_icon=${hex(item.icon)}`,
-    `menu_${i}_slot=${item.slot ?? i}`, `menu_${i}_action=${item.type}`, `menu_${i}_arg=${hex(item.argument)}`));
+  config.menu.forEach((item, i) => {
+    lines.push(`menu_${i}_name=${hex(item.name)}`, `menu_${i}_icon=${hex(item.icon)}`,
+      `menu_${i}_slot=${item.slot ?? i}`, `menu_${i}_action=${item.type}`, `menu_${i}_arg=${hex(item.argument)}`);
+    if (item.type === 'surfing') {
+      lines.push(`menu_${i}_surfing_fields=${surfingMask(item)}`);
+      for (const [key, label] of Object.entries(surfingText(item))) lines.push(`menu_${i}_surfing_${key}=${hex(label)}`);
+    }
+  });
   return lines.join('\n') + '\n';
 }
 export function quote(text) { return "'" + String(text).replaceAll("'", "'\\''") + "'"; }
