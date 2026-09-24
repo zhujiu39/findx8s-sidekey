@@ -12,6 +12,10 @@
 
 设备属性及其单位来自 [Xiaomi Miot Spec](https://home.miot-spec.com/) 与 [MIOT-SPEC](https://miot-spec.org/) 的公开规格。规格按手机所选设备获取并缓存在本机，不将用户设备清单或缓存打包发布。
 
+## Surfing 接入
+
+感谢 [GitMetaio／Surfing](https://github.com/GitMetaio/Surfing) 与 [MetaCubeX／mihomo](https://github.com/MetaCubeX/mihomo) 的作者及贡献者。快捷卡片调用手机上已安装的 SurfingTile 启停服务，读取 mihomo 的本机 `/traffic` 接口；旧版核心通过 `/connections` 顶层计数补充累计值。接口字段参考 [流量接口](https://github.com/MetaCubeX/mihomo/blob/Meta/hub/route/server.go) 与 [统计实现](https://github.com/MetaCubeX/mihomo/blob/Meta/tunnel/statistic/manager.go)。本项目不打包 Surfing、SurfingTile、mihomo 或其配置、订阅与节点，接入代码为独立实现。
+
 ## 构建与运行组件
 
 主机测试使用 Apache-2.0 的 Android JSON 实现 `com.vaadin.external.google:android-json:0.0.20131108.vaadin1`，只在忽略提交的 `tools/` 中使用，不随 Android 产物分发。固定下载来源及 SHA256 见 `build_mijia.py`。

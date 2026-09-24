@@ -13,7 +13,7 @@
 const char *const action_names[ACTION_COUNT] = {
     "none", "home", "back", "recents", "notifications", "quick_settings",
     "screenshot", "screen_off", "play_pause", "next", "previous", "volume_up",
-    "volume_down", "mute", "camera", "app", "keycode", "shell", "torch", "menu", "app_freeform", "mijia"
+    "volume_down", "mute", "camera", "app", "keycode", "shell", "torch", "menu", "app_freeform", "mijia", "surfing"
 };
 
 void config_defaults(Config *c)
@@ -154,6 +154,7 @@ bool config_parse(const char *text, Config *config, char *error, size_t error_ca
     }
     for (uint32_t i = 0; i < 3 + next.menu_count; i++) {
         Action *a = i < 3 ? &next.actions[i] : &next.menu[i - 3].action;
+        if (i < 3 && a->kind == ACTION_SURFING) goto invalid;
         if (a->kind == ACTION_APP || a->kind == ACTION_APP_FREEFORM) {
             if (!*a->argument || !strchr(a->argument, '.')) goto invalid;
             for (const unsigned char *p = (unsigned char *)a->argument; *p; p++)

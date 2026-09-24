@@ -369,7 +369,7 @@ static int run_daemon(void)
     reset_gesture();
     gesture.callback = on_gesture;
     log_event("监听服务启动，PID %ld", (long)getpid());
-    if (!menu_init(data_dir)) log_event("快捷菜单本地接口启动失败");
+    if (!menu_init(data_dir, module_dir)) log_event("快捷菜单本地接口启动失败");
     uint64_t check_at = 0, discover_at = 0;
     struct stat previous = {0};
     bool ignore_until_release = false, sync_dropped = false;
@@ -535,9 +535,9 @@ static void print_state(void)
     if (file) { n = fread(buffer, 1, sizeof(buffer) - 1, file); fclose(file); }
     buffer[n] = 0;
     fputs(",\"app_logs\":", stdout); json_string(stdout, buffer);
-    const char *mijia_logs[] = {"mijia-menu.log", "mijia/debug.log"};
-    const char *mijia_keys[] = {",\"mijia_menu_logs\":", ",\"mijia_logs\":"};
-    for (int i = 0; i < 2; i++) {
+    const char *mijia_logs[] = {"mijia-menu.log", "mijia/debug.log", "surfing.log"};
+    const char *mijia_keys[] = {",\"mijia_menu_logs\":", ",\"mijia_logs\":", ",\"surfing_logs\":"};
+    for (int i = 0; i < 3; i++) {
         path_for(path, sizeof(path), mijia_logs[i]); file = fopen(path, "r"); n = 0;
         if (file) {
             if (fseek(file, 0, SEEK_END) == 0 && ftell(file) > 6000) (void)fseek(file, -6000, SEEK_END);

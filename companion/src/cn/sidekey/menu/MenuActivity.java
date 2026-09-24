@@ -62,6 +62,9 @@ public final class MenuActivity extends Activity {
         volatile boolean pendingMijia;
         volatile int mijiaRevision;
         boolean mijiaOperating;
+        boolean hasSurfing, surfingSelecting;
+        volatile int surfingRevision;
+        volatile SurfingState surfing = SurfingState.unknown();
         int itemCount;
         Session(int port, String token) { this.port = port; this.token = token; }
     }
@@ -114,7 +117,7 @@ public final class MenuActivity extends Activity {
                                 boolean valid = request(current, "PING");
                                 if (valid) readMijiaStates(current, 0);
                                 handler.post(() -> { if (session == current && !closing) { if (valid) {
-                                    updateSwitches(); enter(); pollMijia(current, current.mijiaRevision);
+                                    updateSwitches(); enter(); pollMijia(current, current.mijiaRevision); pollSurfing(current);
                                 } else closeNow(); } });
                             });
                         } catch (Exception error) { closeNow(); }
@@ -242,6 +245,9 @@ public final class MenuActivity extends Activity {
         final Session current = session;
         if (current == null) return;
         final boolean mijia = "mijia".equals(type);
+        final boolean surfing = "surfing".equals(type);
+        if (surfing && (current.surfingSelecting || !current.surfing.canToggle())) return;
+        if (surfing) { current.surfingSelecting = true; current.surfingRevision++; updateSwitches(); }
         if (mijia && (current.mijiaOperating || !MijiaSwitchState.enabled(
                 MijiaSwitchState.at(current.mijiaStates, index, current.pendingMijia)))) return;
         if (mijia) {
@@ -254,9 +260,11 @@ public final class MenuActivity extends Activity {
         selecting = true;
         network.execute(() -> {
             boolean accepted = request(current, "SELECT " + index);
+            if (surfing) readSurfing(current);
             handler.post(() -> {
                 if (session != current || closing) return;
                 selecting = false;
+                if (surfing) current.surfingSelecting = false;
                 if (!accepted) {
                     Toast.makeText(getApplicationContext(), "快捷开关请求未确认，请查看运行日志", Toast.LENGTH_SHORT).show();
                 }
@@ -344,12 +352,16 @@ public final class MenuActivity extends Activity {
         final TextView status;
         final TextView readings;
         final SwitchGlyph control;
-        boolean mijia;
+        final LinearLayout trafficPanel;
+        final TextView[] trafficValues = new TextView[4];
+        final TextView trafficNote;
+        boolean mijia, surfing;
         int index;
         SwitchRow() {
             super(MenuActivity.this); setOrientation(VERTICAL);
-            card = new LinearLayout(MenuActivity.this); card.setGravity(Gravity.CENTER_VERTICAL);
+            card = new LinearLayout(MenuActivity.this); card.setOrientation(VERTICAL);
             card.setPadding(dp(10), dp(8), dp(8), dp(8)); card.setBackground(background(tileTop, 16));
+            LinearLayout header = new LinearLayout(MenuActivity.this); header.setGravity(Gravity.CENTER_VERTICAL);
             name = text("", 12, foreground); name.setMaxLines(2); name.setEllipsize(TextUtils.TruncateAt.END);
             LinearLayout labels = new LinearLayout(MenuActivity.this); labels.setOrientation(VERTICAL);
             labels.addView(name, new LinearLayout.LayoutParams(-1, -2));
@@ -358,18 +370,43 @@ public final class MenuActivity extends Activity {
             readings = text("", 12, foreground); readings.setLineSpacing(dp(3), 1f); readings.setVisibility(View.GONE);
             LinearLayout.LayoutParams readingSize = new LinearLayout.LayoutParams(-1, -2); readingSize.topMargin = dp(6);
             labels.addView(readings, readingSize);
-            card.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
+            header.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
             control = new SwitchGlyph();
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(dp(32), dp(20)); size.leftMargin = dp(5);
-            card.addView(control, size); card.setMinimumHeight(dp(56)); addView(card, new LinearLayout.LayoutParams(-1, -2));
+            header.addView(control, size); header.setMinimumHeight(dp(40)); card.addView(header, new LinearLayout.LayoutParams(-1, -2));
+            trafficPanel = new LinearLayout(MenuActivity.this); trafficPanel.setOrientation(VERTICAL);
+            String[] labelsText = {"↑ 上传速率", "↓ 下载速率", "↑ 上传流量", "↓ 下载流量"};
+            for (int row = 0; row < 2; row++) {
+                LinearLayout pair = new LinearLayout(MenuActivity.this);
+                for (int column = 0; column < 2; column++) {
+                    int metric = row * 2 + column;
+                    LinearLayout cell = new LinearLayout(MenuActivity.this); cell.setOrientation(VERTICAL);
+                    cell.setPadding(column == 0 ? 0 : dp(3), dp(7), column == 0 ? dp(3) : 0, 0);
+                    TextView label = text(labelsText[metric], 9, muted); label.setSingleLine();
+                    label.setAutoSizeTextTypeUniformWithConfiguration(7, 9, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
+                    TextView value = text("—", 12, foreground); value.setSingleLine();
+                    value.setAutoSizeTextTypeUniformWithConfiguration(7, 12, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
+                    value.setTypeface(null, android.graphics.Typeface.BOLD); trafficValues[metric] = value;
+                    cell.addView(label, new LinearLayout.LayoutParams(-1, dp(15)));
+                    cell.addView(value, new LinearLayout.LayoutParams(-1, dp(21)));
+                    pair.addView(cell, new LinearLayout.LayoutParams(0, -2, 1));
+                }
+                trafficPanel.addView(pair, new LinearLayout.LayoutParams(-1, -2));
+            }
+            trafficNote = text("本次核心统计", 8, muted); trafficNote.setPadding(0, dp(7), 0, 0); trafficNote.setMaxLines(2);
+            trafficPanel.addView(trafficNote, new LinearLayout.LayoutParams(-1, -2));
+            card.addView(trafficPanel, new LinearLayout.LayoutParams(-1, -2));
+            card.setMinimumHeight(dp(56)); addView(card, new LinearLayout.LayoutParams(-1, -2));
         }
         void bind(JSONObject item) {
             name.setText(item.optString("name")); control.stateful = "torch".equals(item.optString("type"));
             mijia = "mijia".equals(item.optString("type")); index = item.optInt("index", -1);
+            surfing = "surfing".equals(item.optString("type")); trafficPanel.setVisibility(surfing ? View.VISIBLE : View.GONE);
             name.setMaxLines(mijia ? 1 : 2);
             card.setContentDescription(name.getText()); bindSelection(card, item); updateState();
         }
         void updateState() {
+            if (surfing) { updateSurfing(); return; }
             char value = session == null ? '?' : MijiaSwitchState.at(session.mijiaStates, index, session.pendingMijia);
             boolean displayOnly = mijia && MijiaSwitchState.displayOnly(value);
             control.setVisibility(displayOnly ? View.GONE : View.VISIBLE);
@@ -395,6 +432,21 @@ public final class MenuActivity extends Activity {
             card.setEnabled(!waiting && (!mijia || MijiaSwitchState.enabled(value)));
             card.setAlpha(mijia && !displayOnly && !MijiaSwitchState.enabled(value) ? 0.60f : 1f);
             control.invalidate();
+        }
+        void updateSurfing() {
+            SurfingState value = session == null ? SurfingState.unknown() : session.surfing;
+            boolean submitting = session != null && session.surfingSelecting;
+            name.setMaxLines(1); readings.setVisibility(View.GONE); control.setVisibility(View.VISIBLE);
+            control.power = true; control.powerState = submitting ? '~' : value.power();
+            ViewGroup.LayoutParams size = control.getLayoutParams();
+            if (size.height != dp(32)) { size.height = dp(32); control.setLayoutParams(size); }
+            status.setVisibility(View.VISIBLE); status.setText(submitting ? "切换中…" : value.status());
+            trafficNote.setText(value.note());
+            StringBuilder description = new StringBuilder(name.getText()).append('，').append(status.getText());
+            String[] descriptions = {"上传速率", "下载速率", "上传流量", "下载流量"};
+            for (int i = 0; i < 4; i++) { trafficValues[i].setText(value.metric(i)); description.append('，').append(descriptions[i]).append(value.metric(i)); }
+            card.setContentDescription(description.toString()); card.setStateDescription(status.getText());
+            card.setEnabled(!submitting && value.canToggle()); card.setAlpha(1f); control.invalidate();
         }
     }
 
@@ -479,6 +531,25 @@ public final class MenuActivity extends Activity {
         handler.removeCallbacksAndMessages(null); dispatch(); network.shutdown(); super.onDestroy();
     }
 
+    private void pollSurfing(Session current) {
+        if (!current.hasSurfing || session != current || closing) return;
+        network.execute(() -> {
+            readSurfing(current);
+            handler.post(() -> {
+                if (session != current || closing) return;
+                updateSwitches(); handler.postDelayed(() -> pollSurfing(current), 1000);
+            });
+        });
+    }
+
+    private static void readSurfing(Session current) {
+        int revision = current.surfingRevision;
+        SurfingState value;
+        try { value = SurfingState.decode(exchange(current, "SURFING", 4096)); }
+        catch (Exception error) { value = SurfingState.unknown(); }
+        if (current.surfingRevision == revision) current.surfing = value;
+    }
+
     private void heartbeat(Session current) {
         handler.postDelayed(() -> {
             if (session != current || closing) return;
@@ -549,6 +620,7 @@ public final class MenuActivity extends Activity {
                 if (item.getInt("index") != result.length()) throw new IllegalStateException("菜单顺序异常");
                 result.put(item);
                 if ("mijia".equals(item.optString("type"))) current.pendingMijia = true;
+                if ("surfing".equals(item.optString("type"))) current.hasSurfing = true;
             }
             int next = response.getInt("next");
             if (next == -1) { current.itemCount = result.length(); return data; }

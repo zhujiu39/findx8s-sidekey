@@ -6,6 +6,7 @@ export const actions = [
   ['volume_down', '减小音量'], ['mute', '切换媒体静音'], ['camera', '打开相机'],
   ['torch', '切换手电筒（系统最高亮度）'],
   ['mijia', '执行米家动作'],
+  ['surfing', 'Surfing 代理与流量'],
   ['app_freeform', '启动应用（ColorOS 小窗）'], ['app', '启动应用'], ['keycode', '发送 Android 按键'], ['shell', '自定义 Shell 命令'],
 ];
 export const gestureIds = ['single', 'double', 'long'];
@@ -20,6 +21,7 @@ export function validate(config) {
   if (!Number.isInteger(config.double_ms) || config.double_ms < 150 || config.double_ms > 600)
     throw new Error('双击间隔应在 150～600 毫秒之间');
   if (!Array.isArray(config.actions) || config.actions.length !== 3) throw new Error('手势配置不完整');
+  if (config.actions.some(action => action.type === 'surfing')) throw new Error('Surfing 卡片请添加到快捷栏');
   if (!['left', 'right'].includes(config.menu_side)) throw new Error('请选择菜单弹出方向');
   if (!Number.isInteger(config.menu_position) || config.menu_position < 10 || config.menu_position > 90)
     throw new Error('菜单高度应在 10%～90% 之间');

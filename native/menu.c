@@ -3,6 +3,7 @@
 #include "menu_protocol.h"
 #include "menu_launch.h"
 #include "mijia_menu.h"
+#include "surfing.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -27,6 +28,7 @@ static int show_client = -1, launch_output = -1, launch_log = -1;
 static size_t logged_bytes;
 static MenuItem snapshot[MENU_CAP];
 static uint32_t snapshot_count, snapshot_width, snapshot_gap;
+static bool has_surfing;
 static struct { int fd; size_t size, sent, response_size; char text[REQUEST_CAP], response[32768]; uint64_t until; } clients[CLIENT_CAP] = {{.fd = -1}, {.fd = -1}, {.fd = -1}, {.fd = -1}};
 
 static size_t item_page(char *buffer, size_t capacity, uint32_t first)
@@ -94,6 +96,7 @@ static bool random_token(char *out)
 
 void menu_close_descriptors(void)
 {
+    surfing_close_descriptors();
     mijia_menu_disconnect();
     if (show_client >= 0) close(show_client);
     if (launch_output >= 0) close(launch_output);
@@ -116,6 +119,7 @@ void menu_cancel(void)
 
 void menu_stop(void)
 {
+    surfing_stop();
     menu_cancel(); menu_close_descriptors();
     if (*data_directory) {
         char path[1024]; snprintf(path, sizeof(path), "%s/menu.endpoint", data_directory);
@@ -123,10 +127,10 @@ void menu_stop(void)
     }
 }
 
-bool menu_init(const char *directory)
+bool menu_init(const char *directory, const char *module)
 {
     for (int i = 0; i < CLIENT_CAP; i++) clients[i].fd = -1;
-    if (!directory || strlen(directory) >= sizeof(data_directory)) return false;
+    if (!directory || strlen(directory) >= sizeof(data_directory) || !surfing_init(module, directory)) return false;
     strcpy(data_directory, directory);
     listener = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     struct sockaddr_in address = {.sin_family = AF_INET, .sin_addr.s_addr = htonl(INADDR_LOOPBACK)};
@@ -153,6 +157,8 @@ static bool show_menu(const Config *config, uint64_t now)
     if (launch_output >= 0) { close(launch_output); launch_output = -1; }
     if (launch_log >= 0) { close(launch_log); launch_log = -1; }
     snapshot_count = menu_snapshot(config, snapshot, MENU_CAP);
+    has_surfing = false;
+    for (uint32_t i = 0; i < snapshot_count; i++) if (snapshot[i].action.kind == ACTION_SURFING) has_surfing = true;
     snapshot_width = config->menu_width; snapshot_gap = config->menu_gap;
     /* 空菜单正常结束，不启动透明 Activity，也不等待不存在的组件握手。 */
     if (!snapshot_count) return true;
@@ -231,6 +237,7 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
     /* 收起面板不能丢掉已接收的点击；等服务接管控制后才停止本地取结果。 */
     if (*session || mijia_menu_submitting()) mijia_menu_tick(data_directory, now);
     else mijia_menu_disconnect();
+    surfing_tick(*session && launch_state.ui_ready && has_surfing, now);
     if (listener < 0) return failure;
     for (int i = 0; i < CLIENT_CAP; i++) {
         if (clients[i].fd < 0) {
@@ -266,9 +273,11 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
                     if (!launch_state.ui_ready) mijia_menu_reset(snapshot, snapshot_count, session, data_directory, now);
                     accepted = true; ping = true; launch_state.ui_ready = true;
                 }
-                else if (command == MENU_ITEMS || command == MENU_STATES || command == MENU_READINGS) {
+                else if (command == MENU_ITEMS || command == MENU_STATES || command == MENU_READINGS || command == MENU_SURFING) {
                     if (command == MENU_ITEMS)
                         clients[i].response_size = item_page(clients[i].response, sizeof(clients[i].response), index);
+                    else if (command == MENU_SURFING)
+                        clients[i].response_size = has_surfing ? surfing_reply(clients[i].response, sizeof(clients[i].response), now) : 0;
                     else if (command == MENU_READINGS)
                         clients[i].response_size = reading_page(clients[i].response, sizeof(clients[i].response), index);
                     else {
@@ -290,7 +299,8 @@ int menu_poll(const Config *config, uint64_t now, MenuSelect selected, int32_t t
                     if (action->kind == ACTION_MIJIA) {
                         char request_id[MENU_TOKEN_CAP];
                         if (random_token(request_id)) { request_id[32] = 0; accepted = mijia_menu_select(index, request_id, now); }
-                    } else accepted = selected && selected(action);
+                    } else if (action->kind == ACTION_SURFING) accepted = surfing_select(now);
+                    else accepted = selected && selected(action);
                     /* 应用离开菜单后结束会话；快捷开关允许同一面板继续选择。 */
                     if (app) { session[0] = 0; expires = 0; }
                 }

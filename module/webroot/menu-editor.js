@@ -41,6 +41,7 @@ function render() {
     const name=element('input',''); name.value=item.name; name.addEventListener('input',()=>{item.name=name.value;onChange();}); card.append(field('显示名称',name));
     const action=element('select',''); actions.filter(([id])=>!['menu','app','app_freeform'].includes(id)).forEach(([id,label])=>action.add(new Option(label,id)));
     action.value=item.type; card.append(field('项目类型',action));
+    if (item.type==='surfing') card.append(element('p','hint','显示代理开关、上传和下载速率、累计流量。快捷栏展开时更新，收起后停止。'));
     if (item.type==='mijia') {
       const choice=element('button','secondary',mijiaBindingLabel(item.argument));choice.type='button';
       choice.dataset.mijiaBinding=item.argument;
@@ -52,7 +53,7 @@ function render() {
     }
     const parameter=element('textarea',''); parameter.value=item.argument; parameter.rows=2;
     const parameterField=field('动作参数',parameter); parameterField.hidden=!['shell','keycode'].includes(item.type); card.append(parameterField);
-    action.addEventListener('change',()=>{item.type=action.value;item.argument='';changed();});
+    action.addEventListener('change',()=>{item.type=action.value;item.argument='';if(item.type==='surfing' && item.name==='新开关')item.name='Surfing 代理';changed();});
     if (item.type==='none') card.append(element('p','hint','未设置动作，快捷栏中不显示。'));
     parameter.addEventListener('input',()=>{item.argument=parameter.value;onChange();}); host.append(card);
   });
@@ -96,6 +97,10 @@ export function initMenuEditor(change) {
     if (isBusy || entries.length>=2060) return;
     entries.push({name:'新开关',icon:'',type:'none',argument:''}); changed();
   });
+  $('add-surfing').addEventListener('click',()=>{
+    if (isBusy || entries.length>=2060 || entries.some(item=>item.type==='surfing')) return;
+    entries.push({name:'Surfing 代理',icon:'',type:'surfing',argument:''}); changed();
+  });
   ['menu-side','menu-position','menu-width','menu-gap'].forEach(id=>$(id).addEventListener('input',onChange));
   $('preview-menu').addEventListener('click',preview);
   $('menu-preview').addEventListener('click',event=>{if(event.target===$('menu-preview'))dismiss();});
@@ -120,6 +125,7 @@ export function readMenu() { return {menu_side:$('menu-side').value,menu_positio
 export function menuBusy(value) {
   isBusy=value;$('choose-menu-apps').disabled=value;
   $('add-menu-switch').disabled=value || entries.length>=2060;
+  $('add-surfing').disabled=value || entries.length>=2060 || entries.some(item=>item.type==='surfing');
   $('preview-menu').disabled=value || !entries.some(item=>item.type!=='none');
   $('preview-shortcuts').disabled=$('preview-menu').disabled;
   $('menu-position-output').value=$('menu-position').value+'%';
@@ -147,7 +153,14 @@ function preview() {
   for(const item of switches) {
     const row=element('button','sidebar-switch');row.type='button';
     const reading=item.type==='mijia' && mijiaBindingIsReading(item.argument);
-    row.append(element('span','',item.name),element('span','menu-switch-glyph',reading?'读数':item.type==='torch'?'—':'›'));
+    if (item.type==='surfing') {
+      row.classList.add('surfing-preview');
+      const heading=element('span','surfing-preview-heading');heading.append(element('span','',item.name),element('span','menu-switch-glyph','⏻'));row.append(heading);
+      row.append(element('small','surfing-preview-status','状态与流量在手机中显示'));
+      const grid=element('span','surfing-preview-grid');
+      for(const label of ['↑ 上传速率','↓ 下载速率','↑ 上传流量','↓ 下载流量']) {const metric=element('span','');metric.append(element('small','',label),element('strong','','—'));grid.append(metric);}
+      row.append(grid,element('small','surfing-preview-status','本次核心统计'));
+    } else row.append(element('span','',item.name),element('span','menu-switch-glyph',reading?'读数':item.type==='torch'?'—':'›'));
     $('menu-preview-switches').append(row);
   }
   const apps=entries.filter(isApp);

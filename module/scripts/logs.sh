@@ -47,6 +47,8 @@ dump_log '手电筒服务' torch-service.log || exit 1
 dump_log '菜单组件安装' menu-install.log || exit 1
 dump_log '菜单组件启动' menu-launch.log || exit 1
 dump_log '应用启动' app-launch.log || exit 1
+dump_log 'Surfing 启停与流量' surfing.log || exit 1
+dump_log 'Surfing 启停与流量（上一段）' surfing.log.1 || exit 1
 dump_log '米家执行与状态读回（上一段）' mijia/debug.log.1 || exit 1
 dump_log '米家快捷栏通信（上一段）' mijia-menu.log.1 || exit 1
 dump_log '监听服务（上一段）' events.log.1 || exit 1

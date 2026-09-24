@@ -43,7 +43,7 @@ function buildCards() {
     }));
     $(`argument-${id}`).append(mijiaChoice);
     const select = $(`action-${id}`);
-    actions.forEach(([value, name]) => select.add(new Option(name, value)));
+    actions.filter(([value]) => value !== 'surfing').forEach(([value, name]) => select.add(new Option(name, value)));
     select.addEventListener('change', () => { $(`value-${id}`).value = ''; $(`shell-${id}`).value = ''; updateArgument(id); updateDirty(); });
     $(`value-${id}`).addEventListener('input', updateDirty);
     $(`shell-${id}`).addEventListener('input', updateDirty);
@@ -128,6 +128,7 @@ function runtime(data) {
     !t.known ? '等待系统状态' : !t.available ? '不可用（相机占用或系统限制）' :
     `${t.enabled ? '已开启' : '已关闭'} · ${t.maximum > 1 ? `亮度 ${t.strength || 0} / ${t.maximum}` : '系统仅开放默认亮度'}`;
   $('logs').textContent = (data.logs || '暂无日志') + (data.torch_logs ? '\n手电筒服务：\n' + data.torch_logs : '') + (data.menu_logs ? '\n菜单组件：\n' + data.menu_logs : '') + (data.app_logs ? '\n应用启动：\n' + data.app_logs : '') + (data.mijia_menu_logs ? '\n米家快捷栏通信：\n' + data.mijia_menu_logs : '') + (data.mijia_logs ? '\n米家执行与状态读回：\n' + data.mijia_logs : '');
+  if (data.surfing_logs) $('logs').textContent += '\nSurfing 启停与流量：\n' + data.surfing_logs;
   if (r.error && data.config.enabled) notice(r.error);
 }
 async function refresh(initial = false) {

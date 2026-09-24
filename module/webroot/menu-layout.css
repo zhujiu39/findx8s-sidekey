@@ -18,3 +18,10 @@
 .selected-app-title{font-size:14px;margin:22px 0 10px}.selected-app-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--line)}
 .selected-app-row .selected-app{margin:0;min-width:0;gap:10px}.selected-app-row .selected-app strong{font-size:13px;min-width:0;overflow-wrap:anywhere}.selected-app-row select{grid-column:1/-1;padding:8px 30px 8px 10px;font-size:12px}
 @media(prefers-color-scheme:dark){.menu-preview section{background:#303237ed}.sidebar-switch{background:#414449}}
+.sidebar-switch.surfing-preview{display:flex;flex-direction:column;align-items:stretch;gap:6px;cursor:default}
+.surfing-preview-heading{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.surfing-preview-status{font-size:9px;line-height:1.4;opacity:.65}
+.surfing-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 5px}
+.surfing-preview-grid>span{display:flex;flex-direction:column;gap:4px;min-width:0}
+.surfing-preview-grid small{font-size:8px;opacity:.65;white-space:nowrap}
+.surfing-preview-grid strong{font-size:12px;font-variant-numeric:tabular-nums}
