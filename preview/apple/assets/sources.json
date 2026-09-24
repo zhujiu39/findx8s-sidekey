@@ -1,0 +1,499 @@
+[
+  {
+    "symbol_key": "air.conditioner.horizontal.fill",
+    "apple_symbol": "air.conditioner.horizontal",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\家庭\\air.conditioner.horizontal.svg",
+    "source_sha256": "50b50ab2eea9d3995143deaf0976fb8a8c7b776ff24a40d37e58c9867c7625d0",
+    "preview_sha256": "77cd7716524092616c54edd9f8e8ee134588d7518bf11498b417627d479094fa"
+  },
+  {
+    "symbol_key": "app.fill",
+    "apple_symbol": "app",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\形状\\app.svg",
+    "source_sha256": "9c743d0f81a043aa693c3ec4495cbf0193b4a4d4569a4d738aae446bdca8b412",
+    "preview_sha256": "6d73de996d50a7347b6b24e2e8b16e5f5dfa8decb793de595730918bb0b5119a"
+  },
+  {
+    "symbol_key": "arrow.clockwise",
+    "apple_symbol": "arrow.clockwise",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\箭头\\arrow.clockwise.svg",
+    "source_sha256": "b7afbd3564c4096d42d21bc346ccd230b003768b176a191fb32a30833cb77609",
+    "preview_sha256": "868ff57bb8d8bc2e6c008b0cba60a98d284396a22c55ed7377dbabd81048f8af"
+  },
+  {
+    "symbol_key": "arrow.down",
+    "apple_symbol": "arrow.down",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\箭头\\arrow.down.svg",
+    "source_sha256": "7a48a24b7c53b2d750b571b2d3726660a054dc00d74ca9efbbb5f2aac8872f41",
+    "preview_sha256": "6776e295c4ef1db7012103ab401b6c8216a380d2dbeedaa4f7721eadd8a1498c"
+  },
+  {
+    "symbol_key": "arrow.up",
+    "apple_symbol": "arrow.up",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\箭头\\arrow.up.svg",
+    "source_sha256": "e05cfc3f78c6892abec0048b0ab57256704bfadfafb6e64e29742aa5b0317e9d",
+    "preview_sha256": "413f19e1701127c610598e5d873ce56cb7a752e984a566e23719bbd377b90bc1"
+  },
+  {
+    "symbol_key": "arrow.uturn.backward",
+    "apple_symbol": "arrow.uturn.backward",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\箭头\\arrow.uturn.backward.svg",
+    "source_sha256": "c8a3d3d54780b44a799e91483bcebf4d09a4a5622340a229788b30b0fd68b318",
+    "preview_sha256": "91f1fabd823410409552eee5c403f0bccbb2d38c2ccfe83a58ff4ae422936e09"
+  },
+  {
+    "symbol_key": "backward.fill",
+    "apple_symbol": "backward",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\媒体\\backward.svg",
+    "source_sha256": "2067a64a5b25544dc20bdf1cf98dfaa25cf2c9af261aeda150e50a1c58230357",
+    "preview_sha256": "bc8bc10fe16e0b75f4f10c84d30a80e79758d8f25feee07e59143f860fb8f8e2"
+  },
+  {
+    "symbol_key": "battery.100",
+    "apple_symbol": "battery.100percent",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\battery.100percent.svg",
+    "source_sha256": "62ac57fabce6240cec84a374bd3bfc76d41b1896a780ec222ee8af5b64595595",
+    "preview_sha256": "204ecd7c01459719049166a649a4658dd64a92e563c6df923619011ebc36ed8e"
+  },
+  {
+    "symbol_key": "bell.fill",
+    "apple_symbol": "bell",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\bell.svg",
+    "source_sha256": "74a3192af944d81c9659be1ee925ac2b50b4722acf0fc224a50b061c917f0d72",
+    "preview_sha256": "e77a8f63c521ffdb26cacb27ec9411abd9c10ab306f43cdf9626debb9bab7187"
+  },
+  {
+    "symbol_key": "bolt.fill",
+    "apple_symbol": "bolt",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\相机与照片\\bolt.svg",
+    "source_sha256": "e3da505396212defd3eb7c38b8a576da18bfd191ea66ea89100c2754c5b5a454",
+    "preview_sha256": "a6a7907c0903d835d581b4eead199003f34571029479c7dda959820c5ef74989"
+  },
+  {
+    "symbol_key": "camera.fill",
+    "apple_symbol": "camera",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\camera.svg",
+    "source_sha256": "854b8e246abccb1bdd7eb62fe0ac0dcb09a8cf1957d587820ea007511262e508",
+    "preview_sha256": "f1b780d1f4a1575bdcff04acbb4908169809940be21fde35a9ee557211b3b11f"
+  },
+  {
+    "symbol_key": "checkmark",
+    "apple_symbol": "checkmark",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\绘制\\checkmark.svg",
+    "source_sha256": "d35768d8201af68a6a0d68e914c07be7ee52f6d106ad3d90ba8011d8fd102527",
+    "preview_sha256": "d24cd5b1e1aa5e80c3d3a4d9323da93e592494b7d297b19588dee3d1e11b992a"
+  },
+  {
+    "symbol_key": "checkmark.circle.fill",
+    "apple_symbol": "checkmark",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\绘制\\checkmark.svg",
+    "source_sha256": "d35768d8201af68a6a0d68e914c07be7ee52f6d106ad3d90ba8011d8fd102527",
+    "preview_sha256": "d24cd5b1e1aa5e80c3d3a4d9323da93e592494b7d297b19588dee3d1e11b992a"
+  },
+  {
+    "symbol_key": "chevron.down",
+    "apple_symbol": "chevron.down",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\相机与照片\\chevron.down.svg",
+    "source_sha256": "548b559f59b9624a81b7f6be826f5329b8bff0009e6c94a1e707658758d25834",
+    "preview_sha256": "6b5b30a92f80ee925e393cbfe1d46a1f8a1cebaa79f5043b8f82b2d9a0dad1eb"
+  },
+  {
+    "symbol_key": "chevron.right",
+    "apple_symbol": "chevron.right",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\相机与照片\\chevron.right.svg",
+    "source_sha256": "b3b94824ecdf42e9989117f90e9b33ad1369df7da8fd65174fbde1ecc9d48bbc",
+    "preview_sha256": "f832498396ec7851e16c2be333371fb4d2effe21382bf2a157569e0f0145206f"
+  },
+  {
+    "symbol_key": "circle.fill",
+    "apple_symbol": "circle",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\可变\\circle.svg",
+    "source_sha256": "bafd1c3d14d0ebec794b338654a562d0369ffef6a0a992a76e816913701c5d89",
+    "preview_sha256": "7458560360ab43bd28b896276003e13e8e5220f751fee844c85cc6e3cedb36a8"
+  },
+  {
+    "symbol_key": "circle.lefthalf.filled",
+    "apple_symbol": "circle.lefthalf.filled",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\编辑\\circle.lefthalf.filled.svg",
+    "source_sha256": "384c3d0d6696f15096dc5ad2c1c32ca8e10145920fe4070241194508275ff3fd",
+    "preview_sha256": "5c67638a4693b8aca645f6c441b8e4ece6dd7ff5037fe68ceda1c7fed2b1a314"
+  },
+  {
+    "symbol_key": "clock.fill",
+    "apple_symbol": "clock",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\时间\\clock.svg",
+    "source_sha256": "c274fef99a79029cb6113e88fed2ee9cd57ecc8aa0881d3f4978db6f1e7a90db",
+    "preview_sha256": "7ef7c6709a6260123d46f945376cb716427f6e426df5d9d6357bac2a805c33be"
+  },
+  {
+    "symbol_key": "creditcard.fill",
+    "apple_symbol": "creditcard",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\商业\\creditcard.svg",
+    "source_sha256": "1d8a64ca0ad1b1702944dfdfd0d1bcbc1af39aceab0b0a0626c55be195fcef90",
+    "preview_sha256": "54c400c41a218a71b817c152791a54bc81e32a24c92b4df8d5375e438da7ba38"
+  },
+  {
+    "symbol_key": "curtains.closed",
+    "apple_symbol": "curtains.closed",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\家庭\\curtains.closed.svg",
+    "source_sha256": "42e14ff2eba8e349f8b0b1725607eb0466b8f52353e2122b448249516459ec78",
+    "preview_sha256": "ba37888d69cf3e5021b1781b3f6a458a48a7a02c5805a724cb969f87a433764a"
+  },
+  {
+    "symbol_key": "doc.on.doc",
+    "apple_symbol": "document.on.document",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\document.on.document.svg",
+    "source_sha256": "60ac183102ca2e9c455e36dbe276a05ce5100d3c00eec8dd88ea02b47bb9262a",
+    "preview_sha256": "4592e5e43156e5e12afd2a663e012644658adf99a48e561145cbfd922525347f"
+  },
+  {
+    "symbol_key": "envelope.fill",
+    "apple_symbol": "envelope",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\通讯\\envelope.svg",
+    "source_sha256": "0ea08fc79c0822239c6edccd98d757763c21371a3cec220042594d3fc1b04508",
+    "preview_sha256": "6dac14ab3d98287e5b8805ccb47ca5fbd3987ccb7b7bf013ef5dbc748d0138d6"
+  },
+  {
+    "symbol_key": "exclamationmark.circle.fill",
+    "apple_symbol": "exclamationmark",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\多色\\exclamationmark.svg",
+    "source_sha256": "91d929a26e574767bf3ad6af9cd2bb553462bdfad107e3d47325f52413faea74",
+    "preview_sha256": "400e678792b6babca46e93dca8568422719d0dd2abf2400a619110aa355b8eaa"
+  },
+  {
+    "symbol_key": "figure.walk",
+    "apple_symbol": "figure.walk",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\交通\\figure.walk.svg",
+    "source_sha256": "886f96255cbbd9f4df77ea41e3d20ddc39c03dcc6cf42a2bf77143c9b5eab965",
+    "preview_sha256": "147aa6663b1c90c74434da588292664cd3b86cbdb1586f8bd1ebf11d0b46cea2"
+  },
+  {
+    "symbol_key": "flashlight.on.fill",
+    "apple_symbol": "flashlight.on.fill",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\flashlight.on.fill.svg",
+    "source_sha256": "37c9b42b327eedd7a25f325ddb715047dbd2ee93060fc0696d8c794c72551925",
+    "preview_sha256": "986d6f98c92a0b073ec14ef81cac5cc7e6a33403d6a4cc718410c56b64cd5748"
+  },
+  {
+    "symbol_key": "folder.fill",
+    "apple_symbol": "folder",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\folder.svg",
+    "source_sha256": "a22ce656a45ae4d3947b0e00f613a9f94270f759dbbf134708b2c4b4eadd9ad8",
+    "preview_sha256": "c7a75a61c52300b63784b1fcea5dcfa536279ae1b363c4ace3ddaeeca71620fb"
+  },
+  {
+    "symbol_key": "forward.fill",
+    "apple_symbol": "forward",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\媒体\\forward.svg",
+    "source_sha256": "37f5ac86038af83cb023446936898d49c9746418d2771e371387bd8bafcb08c8",
+    "preview_sha256": "e48f865a8aa525e07e97482b3e46e3c2b81b234e5f2f3e667e528b050da49db0"
+  },
+  {
+    "symbol_key": "gearshape.fill",
+    "apple_symbol": "gearshape",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\gearshape.svg",
+    "source_sha256": "7ba0e0b67f2bd841c65b36e361407a479da0eca8a4c1e1f57e81926dfd3ddcba",
+    "preview_sha256": "7f386866d76ece5a4672822d60b552b28f7a3c9c46ec351e60bcc30f50de252e"
+  },
+  {
+    "symbol_key": "hand.point.up.left.fill",
+    "apple_symbol": "hand.point.up.left",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\人\\hand.point.up.left.svg",
+    "source_sha256": "91192c6a0186ac86985502eff9057941fc5458003798b4464eacb2f2e6926c33",
+    "preview_sha256": "afca4d00f526aef73a7b6496bdf03a3f921deddb4898d3b94369d0cb3b4b56d5"
+  },
+  {
+    "symbol_key": "hand.tap",
+    "apple_symbol": "hand.tap",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\人\\hand.tap.svg",
+    "source_sha256": "2310712235821cc27a66850c65e23203fb1fef7f7863afd3dfa846736f4a51a7",
+    "preview_sha256": "9bcfd83589ebffa5d6ba4ca8ee65735728148c8daa6dd0f1b5953e06116dd8d8"
+  },
+  {
+    "symbol_key": "house.fill",
+    "apple_symbol": "house",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\家庭\\house.svg",
+    "source_sha256": "372dfcbe2c9aab291971c4ba8bb975606513ae896a9b587590a5936553760bae",
+    "preview_sha256": "6c1bc93e0bfc4806f0c719dce0e5de56c1473b7d422db1ada24e8994a7ee4263"
+  },
+  {
+    "symbol_key": "info.circle",
+    "apple_symbol": "info",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\多色\\info.svg",
+    "source_sha256": "fd8a51795489e8f06db9a187e426746645c094e4ebc162939653324dd7b65dbb",
+    "preview_sha256": "aaaf58dc56c1340713c1a2b0cacfd9a91ec462834f9601f31ea05b6ef2788be0"
+  },
+  {
+    "symbol_key": "iphone.gen3",
+    "apple_symbol": "iphone.gen3",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\设备\\iphone.gen3.svg",
+    "source_sha256": "af7dcede3323c8c18cd5f84134cbe1a16c34081f3843baee06130bc20c74eb3b",
+    "preview_sha256": "cd0bc1f638ed244688a2967bc08fed682b12ebb180cab69c0a05438d27b02e51"
+  },
+  {
+    "symbol_key": "keyboard",
+    "apple_symbol": "keyboard",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\设备\\keyboard.svg",
+    "source_sha256": "5d42e3a7b011e709fec9820546bd732e4e28af297cfe906e8e077df5c4f33a2d",
+    "preview_sha256": "c3019d1c5b9eb3e60ecddb153e0176c92c8b4692cb7ea0c413237d8e8a559b9e"
+  },
+  {
+    "symbol_key": "lightbulb.fill",
+    "apple_symbol": "lightbulb",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\家庭\\lightbulb.svg",
+    "source_sha256": "e4546cb25bba3fa211cf1a5b1c31b7888270ad9678be806eb967588f9201b90a",
+    "preview_sha256": "7ef1414d3bf4ecc0759be86b83d01e057f50112efd84b191fb06a5710ca8a3b0"
+  },
+  {
+    "symbol_key": "lock.fill",
+    "apple_symbol": "lock",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\lock.svg",
+    "source_sha256": "5f52ed0f68dc29407da03a1a8e626d478a06b348964e3cfdf9b0ee4255b703c8",
+    "preview_sha256": "802aac2f4b90d87489af6c7e1c1eb465db5be4350ed2e1a5537e601693df2d9c"
+  },
+  {
+    "symbol_key": "magnifyingglass",
+    "apple_symbol": "magnifyingglass",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\magnifyingglass.svg",
+    "source_sha256": "ae3f270bee6366af709c702d74d7a92e08e0fce7cc23f8d4c6a4ac543e728f78",
+    "preview_sha256": "fda194530ddb24ce29fcbe833cd1e6a683a83e4aa8666a92a51e09e87ebdcefb"
+  },
+  {
+    "symbol_key": "map.fill",
+    "apple_symbol": "map",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\地图\\map.svg",
+    "source_sha256": "97c7c878eb67a183d05c4c51840826f373df691445c26fbd174a455e528f2cf9",
+    "preview_sha256": "4614d1c5bd8bc2f9d0c0de1e3daa59e475c3b5ebdbdc6a38c57450d4e9b77792"
+  },
+  {
+    "symbol_key": "message.fill",
+    "apple_symbol": "message",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\通讯\\message.svg",
+    "source_sha256": "966faf703e03d83750e6a6a5dc923c906655a589aaf497ba3591396166ea3b09",
+    "preview_sha256": "1d0a61d0a2108e8ff632c79de13c3754bfe45d24add24430ced47fdae95e05e8"
+  },
+  {
+    "symbol_key": "minus",
+    "apple_symbol": "minus",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\数学\\minus.svg",
+    "source_sha256": "4a4271df0ed00d0024a0d4acc86b3091d563b9c76f2c3cc6530981e392dc5a9b",
+    "preview_sha256": "f7c23755b71ced5bdb5b2f2cce4776b679573a0da128f095de8e85151d4e8319"
+  },
+  {
+    "symbol_key": "moon.fill",
+    "apple_symbol": "moon",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\天气\\moon.svg",
+    "source_sha256": "959757f8d9fcf9e9ad058a5664ffca1442c043ed8071f6e521ac566272bd5287",
+    "preview_sha256": "e4952103bbcdd7d9bae63e593343c80ac3cb686f3b16db8313acce33262935e2"
+  },
+  {
+    "symbol_key": "music.note",
+    "apple_symbol": "music.note.list",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\绘制\\music.note.list.svg",
+    "source_sha256": "33e8256ba257f8a130f7899ac398577c720503d51ff8880c0f3e6131f36b1cdd",
+    "preview_sha256": "e9d0e30a19a6001ebc2c54b5242320559a63edae9b46d47adbc47d8ffb51a675"
+  },
+  {
+    "symbol_key": "network",
+    "apple_symbol": "network",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\连接状态\\network.svg",
+    "source_sha256": "83c1259b4e11732bf30569dee20bbdbc2d05d92be618e3035575abaca1cba822",
+    "preview_sha256": "ee4776a8b3ee2099ec8e3126eaa4408b21d7c1200a5bf52835f4362c5f9cf2de"
+  },
+  {
+    "symbol_key": "nosign",
+    "apple_symbol": "nosign",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\隐私与安全性\\nosign.svg",
+    "source_sha256": "a7216c1b85ae71f1b75e1fbb08b8f6a89257ebe49547e0f3d78611789679f183",
+    "preview_sha256": "767f0b26f40c8175105fcfd1ccdd5c016c57946497889534632bac246dc6acd0"
+  },
+  {
+    "symbol_key": "pause.fill",
+    "apple_symbol": "pause",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\媒体\\pause.svg",
+    "source_sha256": "448fa5a9dd19abe37d63386438a1a94259f3defc750cd1b6f3774422f319aa43",
+    "preview_sha256": "16caa53cf22d15e9d1b19203e270087b305cd72fb226b84293422ccb6be27968"
+  },
+  {
+    "symbol_key": "pencil",
+    "apple_symbol": "pencil",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\pencil.svg",
+    "source_sha256": "4534c6770ccb40ac3e904778421761811c18dc47f881f6419ff277e9bcdbbaa7",
+    "preview_sha256": "ca17e403d2ae6254eab21ad0cfee48a96f8fb5109fe66932e5f72c28c784d5a4"
+  },
+  {
+    "symbol_key": "photo.on.rectangle",
+    "apple_symbol": "photo.on.rectangle",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\相机与照片\\photo.on.rectangle.svg",
+    "source_sha256": "e71b763f782518882d8971b288ec24f20ae3b792ea4350e76bc8575a97050f83",
+    "preview_sha256": "9ba91868b0d9dae739b16990eff7078442e64e7cad68fae211f2c14a35ca300d"
+  },
+  {
+    "symbol_key": "play.fill",
+    "apple_symbol": "play",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\媒体\\play.svg",
+    "source_sha256": "4b8ad4e4c3c877b244bbd403ad0899cc86bd3cfd5a7be8f318b9e0b39145c55f",
+    "preview_sha256": "35351146b2c6dc0e892063fbc1c99f143bcd2285175b99fcb1ef5e16d5153882"
+  },
+  {
+    "symbol_key": "plus",
+    "apple_symbol": "plus",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\数学\\plus.svg",
+    "source_sha256": "31ae177815280ed61f807a48b729c4924b9ac533738548d323067885289a5d39",
+    "preview_sha256": "cc0b48be5e51b8f8b6b09dace716b57ae3138fde357fd10daf6819171d5143c8"
+  },
+  {
+    "symbol_key": "power",
+    "apple_symbol": "power",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\绘制\\power.svg",
+    "source_sha256": "29d734ae48543360e5267ae0b2621f1fb4de5bee4550af418c6304f12dcbd12a",
+    "preview_sha256": "59f16485c26b6dbab8c90f55988c43f073f368ffd5b9fab726e1f57ae1f36216"
+  },
+  {
+    "symbol_key": "qrcode",
+    "apple_symbol": "viewfinder",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\形状\\viewfinder.svg",
+    "source_sha256": "361373af88d9a811977c8dbd4a9de37613cc3e21546772529b6483ba22b6dfd9",
+    "preview_sha256": "a83805c8cb7087ab16a4594f352ff25355622d7b2eaae1254bd13dec4cac671e"
+  },
+  {
+    "symbol_key": "rectangle.compress.vertical",
+    "apple_symbol": "rectangle",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\形状\\rectangle.svg",
+    "source_sha256": "937a8daeb47c54d53477e522a7c36ee9f0ba950bdbc8d2c42094ff01a3a6b237",
+    "preview_sha256": "6a752021337e716544036f6d2c524619d0c28363b97539781f9c8cd4cad22dfa"
+  },
+  {
+    "symbol_key": "rectangle.portrait.and.arrow.right",
+    "apple_symbol": "rectangle.portrait.and.arrow.right",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\绘制\\rectangle.portrait.and.arrow.right.svg",
+    "source_sha256": "e876927ea2a263eb968ad4bb8dd4cb9b6659cc183e9a6926b63833850db5ea82",
+    "preview_sha256": "d667cde9b5b22bc3b20379c129d66998942ac6b2b7344f22c73698e66f50667f"
+  },
+  {
+    "symbol_key": "rectangle.stack.fill",
+    "apple_symbol": "rectangle.stack",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\相机与照片\\rectangle.stack.svg",
+    "source_sha256": "856c9d77ff1482fd762a76de2cbfb53dc225a5bd0d74ab487abc0d35fac64252",
+    "preview_sha256": "d31fe2e23b09ae93a2a4ba70e918c830591ce55718460bd52c2fe6b0256464cc"
+  },
+  {
+    "symbol_key": "safari",
+    "apple_symbol": "network",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\连接状态\\network.svg",
+    "source_sha256": "83c1259b4e11732bf30569dee20bbdbc2d05d92be618e3035575abaca1cba822",
+    "preview_sha256": "ee4776a8b3ee2099ec8e3126eaa4408b21d7c1200a5bf52835f4362c5f9cf2de"
+  },
+  {
+    "symbol_key": "sensor",
+    "apple_symbol": "sensor",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\可变\\sensor.svg",
+    "source_sha256": "91bcbbc648622d78f609ff0547032635661be2339cc03edf6229e6a0f2d2487a",
+    "preview_sha256": "e1183f42a235ae67235299216b432430de73a42aeb8ff34e50f184cac14d970d"
+  },
+  {
+    "symbol_key": "sidebar.left",
+    "apple_symbol": "rectangle.on.rectangle.button.angledtop.vertical.left",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\游戏\\rectangle.on.rectangle.button.angledtop.vertical.left.svg",
+    "source_sha256": "1dec9600939c32dc6a6ad613a08711573005e823458122aceac05420a8abb187",
+    "preview_sha256": "949748935f4d23550e39201f69b989836ea9183a14bd8be7e4000347b9865c88"
+  },
+  {
+    "symbol_key": "slider.horizontal.3",
+    "apple_symbol": "slider.horizontal.3",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\编辑\\slider.horizontal.3.svg",
+    "source_sha256": "7af5ee8b850967819b26e5e24080924017ae5f505fb7168144b3bc3256bc96f1",
+    "preview_sha256": "58de7b8ef4aaeaca871b96a4331e6186d8030844e74f7fd19916e389e3d45623"
+  },
+  {
+    "symbol_key": "speaker.slash.fill",
+    "apple_symbol": "speaker.zzz",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\speaker.zzz.svg",
+    "source_sha256": "99d2e585ad10e41b5f46bc7d0b87cafb6edd2b1a69fc6317e676f1b237ebe418",
+    "preview_sha256": "78cd28af766b9a54b5f0becf3858d99336c6408a5c14e9652fd8314a55ec935c"
+  },
+  {
+    "symbol_key": "speaker.wave.2.fill",
+    "apple_symbol": "speaker.wave.2",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\可变\\speaker.wave.2.svg",
+    "source_sha256": "56b634f050153fcf17ab404090f076e5b87753efe7bb9ac3b946ef74275f7523",
+    "preview_sha256": "21585ef233b890cd903aaf8eede3b9d96079f4ab3d9357bfa02deb244b89e1e8"
+  },
+  {
+    "symbol_key": "square.and.arrow.up",
+    "apple_symbol": "square.and.arrow.up",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\绘制\\square.and.arrow.up.svg",
+    "source_sha256": "8f28adeba17e4b7f74212163843eff51d3e25beecef3aebfa976c5739891a351",
+    "preview_sha256": "c649268f82f8b29a28f6799da5c491716b3db711515aeef40ed9afd65567f590"
+  },
+  {
+    "symbol_key": "square.grid.2x2.fill",
+    "apple_symbol": "apps.iphone",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\设备\\apps.iphone.svg",
+    "source_sha256": "39244605d7366e7f91a7fc866e3a207e3116ca45671c4b0f7ff3d0300acd3190",
+    "preview_sha256": "9da34d0f2d730f6707464bd216d078552ccb7f246f35812f5a871b2522636a6f"
+  },
+  {
+    "symbol_key": "square.on.square",
+    "apple_symbol": "rectangle.on.rectangle",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\游戏\\rectangle.on.rectangle.svg",
+    "source_sha256": "0784205bc90772b8054eeeb80271acd814ec2fad29435ee9bed129d9a6a40866",
+    "preview_sha256": "53c27f76cabdd7cdfb3d356de68ba1e0c095c1a2ffc5cb0a7b4603d5ed7e29e9"
+  },
+  {
+    "symbol_key": "sun.max.fill",
+    "apple_symbol": "sun.max",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\天气\\sun.max.svg",
+    "source_sha256": "0decede76999ffc795196d9c9f8f713da0e31949c7509fded3f13320516d88b1",
+    "preview_sha256": "58e94bf7f014e65bc540cd01a948e96edaf1e962bbededbf3822f9d6917b06ea"
+  },
+  {
+    "symbol_key": "terminal",
+    "apple_symbol": "apple.terminal",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\多色\\apple.terminal.svg",
+    "source_sha256": "11fb3ee59f9746fa76c1510b038d322acbccb2fd2e5488aa99201b3f41fff20f",
+    "preview_sha256": "69ef3726ca0281df1a989a6222040bfd33490a72f7051459751e49d4eea2875e"
+  },
+  {
+    "symbol_key": "thermometer.medium",
+    "apple_symbol": "thermometer.medium",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\可变\\thermometer.medium.svg",
+    "source_sha256": "a39e7a00e8bbe7f760eec9ababd70de13cdb6a55464e95f1cf0c87cb248714bc",
+    "preview_sha256": "feb52b225ebf26167572beb69d9d5ae73a9e570bf341290209e092c552eda081"
+  },
+  {
+    "symbol_key": "trash",
+    "apple_symbol": "trash",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\物体与工具\\trash.svg",
+    "source_sha256": "4614ef7bc826d5e22285a38cb4de5c9cada0b5ee863b0d61b6710ce651cc2634",
+    "preview_sha256": "8294df6000dea244fdb7f80cfb735a4269ad77211d409a6d48648ccbbb73e92e"
+  },
+  {
+    "symbol_key": "viewfinder",
+    "apple_symbol": "viewfinder",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\形状\\viewfinder.svg",
+    "source_sha256": "361373af88d9a811977c8dbd4a9de37613cc3e21546772529b6483ba22b6dfd9",
+    "preview_sha256": "a83805c8cb7087ab16a4594f352ff25355622d7b2eaae1254bd13dec4cac671e"
+  },
+  {
+    "symbol_key": "waveform",
+    "apple_symbol": "waveform",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\可变\\waveform.svg",
+    "source_sha256": "9e45014813a570864690dc6c1fd3f0cdf3fe3d66ff0e8d16d1c2d068f3d135d9",
+    "preview_sha256": "38e286eb857b3e17c41ebbc328a02f5aa8f4b6629f5e1e0ac410f71c855c73f6"
+  },
+  {
+    "symbol_key": "wifi",
+    "apple_symbol": "wifi",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\可变\\wifi.svg",
+    "source_sha256": "1340fbe230b76c0d181fd23b484cac920ddfa73b32107910c82c096cdff55b32",
+    "preview_sha256": "400d8ebf6fd43a7d9f37f00ac4fccceb34ddd588bd89298cbf6941fc6d54d469"
+  },
+  {
+    "symbol_key": "xmark",
+    "apple_symbol": "xmark",
+    "source": "C:\\Users\\14692\\Desktop\\anjian\\SF Symbols\\游戏\\xmark.svg",
+    "source_sha256": "c04e85c66fb5f3c13ee11d3c5805703579545a75edd13398e93b8772d4914f9a",
+    "preview_sha256": "c68f0499bca893fc5cc6712ed71c81d80a84e79de718a241a05e2b4e120a5268"
+  }
+]

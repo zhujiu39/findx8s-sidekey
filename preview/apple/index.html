@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN" data-appearance="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'">
+  <title>侧键自定义 · v1.2.0-test.2 · Apple 交互预览</title>
+  <script src="appearance.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="preview-bar">
+    <span class="preview-label"><i></i><strong>交互预览</strong><span>v1.2.0-test.2</span></span>
+    <div class="preview-controls">
+      <label class="scenario-label"><span>示例状态</span><select id="demo-scenario" aria-label="切换预览状态"><option value="normal">设备在线</option><option value="offline">米家设备离线</option><option value="unknown">状态未知</option><option value="surfing-missing">Surfing 未安装</option><option value="quota-empty">订阅未提供用量</option><option value="quota-error">订阅读取失败</option><option value="service-off">服务未启动</option><option value="takeover-error">接管异常</option><option value="timeout">动作超时</option><option value="torch-unavailable">手电筒不可用</option></select></label>
+      <button id="demo-options" class="icon-button" aria-label="预览选项" data-symbol="slider.horizontal.3"></button>
+      <button id="theme-toggle" class="icon-button" aria-label="切换深浅色" data-symbol="circle.lefthalf.filled"></button>
+    </div>
+  </div>
+  <main class="webui">
+    <aside class="navigation-column">
+      <div class="brand"><span class="brand-icon" data-symbol="hand.tap"></span><div><strong>侧键</strong><small>Find X8s</small></div></div>
+      <nav class="page-tabs" role="tablist" aria-label="主导航">
+        <button id="tab-gestures" type="button" role="tab" aria-controls="page-gestures" aria-selected="true" data-page="gestures" data-symbol="hand.tap"><span>手势</span></button>
+        <button id="tab-menu" type="button" role="tab" aria-controls="page-menu" aria-selected="false" tabindex="-1" data-page="menu" data-symbol="sidebar.left"><span>快捷栏</span></button>
+        <button id="tab-mijia" type="button" role="tab" aria-controls="page-mijia" aria-selected="false" tabindex="-1" data-page="mijia" data-symbol="house.fill"><span>米家</span></button>
+        <button id="tab-settings" type="button" role="tab" aria-controls="page-settings" aria-selected="false" tabindex="-1" data-page="settings" data-symbol="gearshape.fill"><span>设置</span></button>
+      </nav>
+      <div class="navigation-footer"><span class="small-device" data-symbol="iphone.gen3"></span><div><strong>Find X8s</strong><small>v1.2.0-test.2</small></div><span class="connection-dot"></span></div>
+    </aside>
+    <div class="content-region">
+      <header class="app-header"><div><p class="eyebrow" id="page-eyebrow">侧键自定义</p><h1 id="page-title">一按，即达。</h1><p id="page-description">把顺手的操作，交给侧边的那颗按键。</p></div><button id="refresh" class="icon-button" type="button" aria-label="刷新状态" data-symbol="arrow.clockwise"></button></header>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <section id="page-gestures" class="page" role="tabpanel" aria-labelledby="tab-gestures">
+        <section class="power-card" aria-label="侧键接管">
+          <span class="colored-icon blue" data-symbol="hand.tap"></span><div class="power-copy"><h2>启用侧键自定义</h2><span id="status" class="status"><i></i><span>正在读取…</span></span></div>
+          <label class="switch"><input id="enabled" type="checkbox" role="switch" aria-label="启用侧边键接管"><span></span></label>
+        </section>
+        <div class="section-heading"><h2>三种按法，随你定义</h2><span>轻触以编辑</span></div>
+        <section id="gestures" class="gesture-list" aria-label="手势配置"></section>
+        <p class="section-footnote">启用双击后，短按会等待双击间隔结束再执行。</p>
+        <section class="shortcut-summary">
+          <div class="section-heading"><div><span class="colored-icon small blue" data-symbol="sidebar.left"></span><h2>你的快捷栏</h2></div><button id="edit-shortcuts" class="text-button" type="button">编辑 <span data-symbol="chevron.right"></span></button></div>
+          <p class="card-description">应用、家里的设备，还有实时网络状态。</p>
+          <div id="shortcut-apps" class="shortcut-apps" aria-label="快捷栏应用"></div>
+          <p id="shortcut-empty" class="hint">添加第一个应用或快捷操作。</p>
+          <div class="shortcut-bottom"><span id="shortcut-count">正在读取…</span><button id="preview-shortcuts" class="secondary" type="button" data-symbol="play.fill">打开预览</button></div>
+        </section>
+        <label class="feedback-row" for="haptic"><span class="feedback-copy"><span class="colored-icon small purple" data-symbol="waveform"></span><span>触感反馈<small>识别手势时轻轻震动</small></span></span><span class="switch"><input id="haptic" type="checkbox" role="switch" checked><span></span></span></label>
+      </section>
+
+      <section id="page-menu" class="page menu-editor" role="tabpanel" aria-labelledby="tab-menu" hidden>
+        <div class="menu-intro"><span id="menu-count">正在读取…</span><button id="preview-menu" class="secondary" type="button" data-symbol="play.fill">打开预览</button></div>
+        <div class="section-heading"><h2>快捷项目</h2><span>按显示顺序排列</span></div>
+        <div id="menu-empty" class="menu-empty"><span data-symbol="plus"></span><strong>让常用操作，触手可及。</strong><p>添加应用、设备或一个快捷开关。</p></div>
+        <div id="menu-items"></div>
+        <div class="add-actions"><button id="add-menu-switch" type="button" data-symbol="plus">快捷操作</button><button id="add-surfing" type="button" data-symbol="network">Surfing 卡片</button><button id="choose-menu-apps" type="button" data-symbol="app.fill">选择应用</button></div>
+        <p class="section-footnote">应用通过 ColorOS 小窗打开。点击开关时，快捷栏保持展开。</p>
+        <details class="settings-group layout-settings" open><summary><span data-symbol="slider.horizontal.3">布局</span><span data-symbol="chevron.down"></span></summary><div class="settings-body">
+          <label class="direction-row" for="menu-side"><span>弹出方向</span><select id="menu-side"><option value="left">左侧</option><option value="right">右侧</option></select></label>
+          <label class="range-label" for="menu-width">面板宽度 <output id="menu-width-output">244 dp</output></label><input id="menu-width" type="range" min="120" max="360" step="1" value="244"><div class="range-ends"><span>120 dp</span><span>360 dp</span></div>
+          <label class="range-label" for="menu-gap">应用间距 <output id="menu-gap-output">12 dp</output></label><input id="menu-gap" type="range" min="0" max="32" step="1" value="12"><div class="range-ends"><span>紧凑</span><span>宽松</span></div>
+          <label class="range-label" for="menu-position">面板中心位置 <output id="menu-position-output">50%</output></label><input id="menu-position" type="range" min="10" max="90" step="1" value="50"><div class="range-ends"><span>顶部</span><span>底部</span></div>
+        </div></details>
+        <p class="section-footnote">将任一手势设为“弹出快捷菜单”，解锁后按侧键即可使用。</p>
+      </section>
+
+      <section id="page-mijia" class="page" role="tabpanel" aria-labelledby="tab-mijia" hidden>
+        <section class="mijia-account-card" aria-label="米家账号"><div class="mijia-account-top"><span class="colored-icon orange" data-symbol="house.fill"></span><div><strong id="mijia-account">正在读取示例账号…</strong><small id="mijia-count">家庭与设备</small></div><span class="mijia-connection-dot"></span></div><button id="mijia-login" class="text-button" type="button">账号管理</button></section>
+        <div class="home-toolbar"><label id="mijia-home-row" class="mijia-home-row" hidden><span>家庭</span><select id="mijia-home" aria-label="选择米家家庭"></select></label><button id="mijia-refresh" class="icon-button" type="button" aria-label="刷新米家设备" data-symbol="arrow.clockwise"></button></div>
+        <p id="mijia-message" role="status" hidden></p>
+        <div class="mijia-section-heading"><h2>手动场景</h2><small>把整个家，交给一个动作</small></div><div id="mijia-scenes" class="mijia-scenes"></div>
+        <div class="mijia-section-heading"><h2>设备</h2><small>按房间查看</small></div><div id="mijia-devices" class="mijia-devices"></div>
+        <section id="mijia-bindings-section" class="mijia-bindings-section" hidden><div class="mijia-section-heading"><h2>已配置的项目</h2><small>读数与控制动作</small></div><div id="mijia-bindings"></div></section>
+        <div class="mijia-last-card"><span data-symbol="clock.fill">最近执行</span><p id="mijia-last" role="status">暂无执行记录</p></div>
+        <p class="section-footnote">添加到快捷栏后，保存设置即可使用。读数卡在展开时获取云端上报值；离线状态会单独标明。</p>
+      </section>
+
+      <section id="page-settings" class="page" role="tabpanel" aria-labelledby="tab-settings" hidden>
+        <fieldset class="appearance-group"><legend>外观</legend><div class="appearance-options"><label><input type="radio" name="appearance" value="light"><span class="theme-tile theme-light"><i></i><b></b><b></b></span><span>浅色</span></label><label><input type="radio" name="appearance" value="dark"><span class="theme-tile theme-dark"><i></i><b></b><b></b></span><span>深色</span></label><label><input type="radio" name="appearance" value="system" checked><span class="theme-tile theme-system"><i></i><b></b><b></b></span><span>跟随系统</span></label></div><p id="appearance-note" class="hint" role="status">外观立即生效，并在本浏览器中记住。</p></fieldset>
+        <section class="settings-group"><div class="group-heading"><span class="colored-icon small purple" data-symbol="hand.tap"></span><h2>找到顺手的节奏</h2></div><div class="settings-body"><label class="range-label" for="long-ms">长按触发时间 <output id="long-output">600 ms</output></label><input id="long-ms" type="range" min="250" max="2000" step="10" value="600"><div class="range-ends"><span>灵敏</span><span>从容</span></div><label class="range-label" for="double-ms">双击最大间隔 <output id="double-output">280 ms</output></label><input id="double-ms" type="range" min="150" max="600" step="10" value="280"><div class="range-ends"><span>紧凑</span><span>宽松</span></div><p class="hint">短按会等待双击间隔。长按与双击阈值保留模块原有范围。</p></div></section>
+        <label class="feedback-row"><span class="feedback-copy"><span class="colored-icon small blue" data-symbol="circle.lefthalf.filled"></span><span>减少动态效果<small>同时遵循系统辅助功能设置</small></span></span><span class="switch"><input id="reduce-motion" type="checkbox" role="switch"><span></span></span></label>
+        <details class="diagnostics"><summary><span data-symbol="waveform">运行状态与日志</span><span data-symbol="chevron.down"></span></summary><div class="diagnostics-body"><dl><dt>监听服务</dt><dd id="service-info">—</dd><dt>最近手势</dt><dd id="last-event">—</dd><dt>累计识别</dt><dd id="event-count">—</dd><dt>输入设备</dt><dd id="device-info">—</dd><dt>动作结果</dt><dd id="result-info">—</dd><dt>系统手电筒</dt><dd id="torch-info">—</dd></dl><div class="tools"><button id="start-service" class="secondary" data-symbol="play.fill">启动监听服务</button><button id="reload-apps" class="secondary" data-symbol="arrow.clockwise">刷新应用列表</button><button id="prepare-menu" class="secondary" data-symbol="gearshape.fill">修复快捷菜单</button><button id="export-logs" class="secondary" data-symbol="square.and.arrow.up">导出完整日志</button><button id="copy-logs" class="secondary" data-symbol="doc.on.doc">复制全部日志</button></div><pre id="logs">正在读取示例日志…</pre></div></details>
+        <div class="about"><span data-symbol="hand.tap"></span><strong>侧键自定义</strong><p>Find X8s · v1.2.0-test.2</p><small>界面设计预览 · 示例数据</small></div>
+      </section>
+    </div>
+    <aside class="live-preview" aria-label="快捷栏实时预览"><div class="live-heading"><span>随手预览</span><span class="live-badge">示例数据</span></div><div class="device-frame"><div class="device-status"><strong>9:41</strong><span data-symbol="wifi"></span><span data-symbol="battery.100"></span></div><div class="device-wallpaper"><span class="wallpaper-time">09:41</span><span class="wallpaper-date">星期四，9 月 24 日</span><div class="wallpaper-caption">常用的一切，<br>就在手边。</div></div><div id="live-menu" class="side-panel"></div><div class="device-home-indicator"></div></div><p>调整快捷栏，预览会同步更新。</p><button id="expand-preview" class="text-button" type="button" data-symbol="play.fill">打开交互预览</button></aside>
+  </main>
+  <div class="save-bar"><div class="save-status"><span data-symbol="checkmark.circle.fill"></span><div><strong id="save-state">正在加载配置</strong><small>仅保存到本浏览器的预览空间</small></div></div><button id="save" class="primary" disabled>保存设置</button></div>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="menu-preview" class="menu-preview" aria-label="快捷栏交互预览"><div class="preview-context"><span>快捷栏 · 示例数据</span><button id="close-preview" class="icon-button" aria-label="关闭预览" data-symbol="xmark"></button></div><div id="menu-preview-panel" class="side-panel"></div><div id="app-window" class="app-window" hidden><header><strong id="app-window-name">应用小窗</strong><button id="close-app-window" class="icon-button" aria-label="关闭应用小窗" data-symbol="xmark"></button></header><div id="app-window-icon"></div><h2>ColorOS 小窗</h2><p>这是应用启动后的视觉示意。</p><small>网页预览不会打开手机应用</small></div></dialog>
+  <dialog id="mijia-dialog" class="mijia-dialog" aria-labelledby="mijia-dialog-title"><header><h2 id="mijia-dialog-title">米家</h2><button id="mijia-dialog-close" class="icon-button" type="button" aria-label="关闭米家窗口" data-symbol="xmark"></button></header><div id="mijia-dialog-body"></div><p id="mijia-dialog-message" role="status"></p></dialog>
+  <dialog id="log-copy-fallback" class="log-copy-dialog" aria-labelledby="log-copy-title"><h2 id="log-copy-title">复制示例日志</h2><p>选择下方文本后复制。</p><textarea id="log-copy-text" readonly aria-label="全部调试日志" spellcheck="false"></textarea><form method="dialog"><button class="secondary">完成</button></form></dialog>
+  <dialog id="preview-options" aria-labelledby="preview-options-title"><header><h2 id="preview-options-title">预览选项</h2><form method="dialog"><button class="icon-button" aria-label="关闭预览选项" data-symbol="xmark"></button></form></header><div class="options-body"><p>当前使用虚构账号、设备与网络数据。修改只保存在本浏览器。</p><button id="demo-reset" class="option-row" data-symbol="arrow.clockwise">重新载入示例配置</button><button id="demo-empty" class="option-row" data-symbol="plus">体验首次安装</button><a class="option-row" href="功能覆盖与设计说明.md" target="_blank" data-symbol="info.circle">查看功能覆盖与设计说明</a></div></dialog>
+  <script type="module" src="preview-ui.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

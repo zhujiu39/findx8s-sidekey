@@ -1,0 +1,30 @@
+{
+  "version": "v1.2.0-test.2",
+  "versionCode": 115,
+  "source_head": "4697ac9e4e212b345b9007dab25af55233b720c5",
+  "source_worktree": "C:\\Users\\14692\\.codex\\worktrees\\findx8s-sidekey-publish\\anjian",
+  "built_at": "2026-09-24T15:14:12",
+  "validation": "syntax-and-package-only",
+  "source_files": {
+    "module/webroot/app-catalog.js": "6499d13368eaddff3b592c0b830d1f62c98ce22adfdbf3bb8cb796ec4d6bcb9b",
+    "module/webroot/app-icons.js": "0d211f32415ef9251f5252ff5eb5d4bbfcea7bd4b4016bba7f8c790dee68b566",
+    "module/webroot/app-picker.js": "6ec1784b088ea2fbec8f67b76492dffdcce9c8dfff237962e5642fe3d24f291f",
+    "module/webroot/app-selection.js": "c25b64b85f0f2b7043858b2a57ddeee4a77f4ca4d19679e521686126c1ed65eb",
+    "module/webroot/app.js": "e1428f85a6af3093e4a90a08b9916a314223683cebc77afe27c318cd65e5b16b",
+    "module/webroot/appearance.js": "73952675c5d8e822b3979dfb069b3180adcc1f041b78d6dd80610620c30750b4",
+    "module/webroot/bridge.js": "46281af743f64a0366666ce1878cca126f4e76b456f2b9dba0aeb338bf2436ac",
+    "module/webroot/clipboard.js": "31a7d979f22f0ff7e836fc92f2e66e67d3743316334b43999c46f6c61289b6eb",
+    "module/webroot/index.html": "a413d3b3510825e6597a44706347e6adf9d3fba3ce2cf2f080a8cbec0d763ed2",
+    "module/webroot/log-export.js": "031b85cf9c02c110fcd3f753de5202d4ce89aaf2d7dd5e62a08e8ede89d0c0f1",
+    "module/webroot/menu-editor.js": "a5525b86d380d9b8da371fe0b3dd68227593cce5f22cd31273959c374b276417",
+    "module/webroot/menu-layout.css": "621376aacb5fbfb92f3417aea2d5e38c90041aa7685ed16cbac912613260206e",
+    "module/webroot/mijia-api.js": "2b81c4b2c25a6fbcebac1f4ab2ed44e84e4edb1091d72d203250ec6dc04496fe",
+    "module/webroot/mijia-model.js": "14a3feca4bd45db5553eeb3bf6fe31175d03574d1bce66f18a2a19f123930bf7",
+    "module/webroot/mijia.css": "e6f82f73be21647fa68ffc66e7a343dae22d338c215c035467fa69a0178a0acf",
+    "module/webroot/mijia.js": "f68f9c809bae58eda27cb498b7f7e0aa8541e48c7005f516a526d3333a744cb4",
+    "module/webroot/model.js": "f855e527fbbbcffba9c20dafc2ac4ab7bf7beae251838eca35a25de8cb0c2e5a",
+    "module/webroot/navigation.js": "a216f80070f8d503a962e9559147a03532e74013a4ac4404c4c84df4b7a00875",
+    "module/webroot/style.css": "e7d9fcd1991814b946d930d59e7aa41ac4c39f2d589db1f04fedb26e5865aef6",
+    "module/webroot/webui.css": "1051ac3612c174b561936b72e04bc74321d1a162267709a6b26e65166edf7893"
+  }
+}

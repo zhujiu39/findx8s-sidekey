@@ -1,0 +1,96 @@
+export const actions = [
+  ['menu', '弹出快捷菜单'], ['none', '不执行动作'], ['home', '回到桌面'], ['back', '返回上一页'],
+  ['recents', '最近任务'], ['notifications', '展开通知栏'], ['quick_settings', '展开快捷设置'],
+  ['screenshot', '截屏'], ['screen_off', '息屏'], ['play_pause', '播放 / 暂停'],
+  ['next', '下一首'], ['previous', '上一首'], ['volume_up', '增大音量'],
+  ['volume_down', '减小音量'], ['mute', '切换媒体静音'], ['camera', '打开相机'],
+  ['torch', '切换手电筒（系统最高亮度）'],
+  ['mijia', '执行米家动作'],
+  ['surfing', 'Surfing 代理与流量'],
+  ['app_freeform', '启动应用（ColorOS 小窗）'], ['app', '启动应用'], ['keycode', '发送 Android 按键'], ['shell', '自定义 Shell 命令'],
+];
+export const gestureIds = ['single', 'double', 'long'];
+export const surfingTextDefaults = Object.freeze({up:'↑ 上传速率',down:'↓ 下载速率',upload:'↑ 上传流量',download:'↓ 下载流量',
+  note:'本次核心统计',quota:'订阅流量',used:'已用',total:'总额'});
+export const surfingFields = Object.freeze([['up','上传速率',1],['down','下载速率',2],['upload','上传流量',4],['download','下载流量',8],['quota','订阅用量（已用 / 总额）',16]]);
+export function surfingText(item) { return {...surfingTextDefaults,...item.surfing_text}; }
+export function surfingMask(item) { return item.surfing_fields ?? 31; }
+export const defaultConfig = () => ({enabled: false, haptic: true, long_ms: 600, double_ms: 280,
+  actions: gestureIds.map(() => ({type: 'none', argument: ''})), menu_side: 'left', menu_position: 35, menu_width: 196, menu_gap: 12, menu: []});
+
+export function validate(config) {
+  if (typeof config.enabled !== 'boolean') throw new Error('接管开关无效');
+  if (typeof config.haptic !== 'boolean') throw new Error('震动反馈开关无效');
+  if (!Number.isInteger(config.long_ms) || config.long_ms < 250 || config.long_ms > 2000)
+    throw new Error('长按时间应在 250～2000 毫秒之间');
+  if (!Number.isInteger(config.double_ms) || config.double_ms < 150 || config.double_ms > 600)
+    throw new Error('双击间隔应在 150～600 毫秒之间');
+  if (!Array.isArray(config.actions) || config.actions.length !== 3) throw new Error('手势配置不完整');
+  if (config.actions.some(action => action.type === 'surfing')) throw new Error('Surfing 卡片请添加到快捷栏');
+  if (!['left', 'right'].includes(config.menu_side)) throw new Error('请选择菜单弹出方向');
+  if (!Number.isInteger(config.menu_position) || config.menu_position < 10 || config.menu_position > 90)
+    throw new Error('菜单高度应在 10%～90% 之间');
+  for (const [key, fallback, minimum, maximum, name] of [
+    ['menu_width', 196, 120, 360, '快捷栏宽度'], ['menu_gap', 12, 0, 32, '应用间距']]) {
+    const value = config[key] === undefined ? fallback : config[key];
+    if (!Number.isInteger(value) || value < minimum || value > maximum)
+      throw new Error(`${name}应在 ${minimum}～${maximum} dp 之间`);
+  }
+  if (!Array.isArray(config.menu) || config.menu.length > 2060) throw new Error('菜单数据超出应用目录范围，请刷新应用列表');
+  const bytes = text => new TextEncoder().encode(text).length;
+  const slots = new Set();
+  for (const [index, item] of config.menu.entries()) {
+    const slot = item.slot ?? index;
+    if (!Number.isInteger(slot) || slot < 0 || slot >= 2060 || slots.has(slot)) throw new Error('菜单顺序无效或重复');
+    slots.add(slot);
+    if (typeof item.name !== 'string' || !item.name.trim() || item.name.includes('\0') || bytes(item.name) > 96)
+      throw new Error('菜单名称不能为空，最多 96 个 UTF-8 字节');
+    if (typeof item.icon !== 'string' || item.icon.includes('\0') || bytes(item.icon) > 24)
+      throw new Error('菜单图标最多 24 个 UTF-8 字节，可填写 emoji');
+    if (item.type === 'menu') throw new Error('菜单内不能再次打开菜单');
+    if (item.type === 'surfing') {
+      const mask = surfingMask(item);
+      if (!Number.isInteger(mask) || mask < 0 || mask > 31) throw new Error('Surfing 显示项目无效');
+      if (item.surfing_text !== undefined && (!item.surfing_text || typeof item.surfing_text !== 'object' || Array.isArray(item.surfing_text)))
+        throw new Error('Surfing 文案格式无效');
+      for (const [key, label] of Object.entries(surfingText(item))) {
+        if (!Object.hasOwn(surfingTextDefaults,key) || typeof label !== 'string' || /[\u0000-\u001f\u007f]/u.test(label) || bytes(label) > 60)
+          throw new Error('Surfing 每项文案最多 60 个 UTF-8 字节，不能包含换行或控制字符');
+      }
+    }
+  }
+  for (const action of [...config.actions, ...config.menu]) {
+    if (!actions.some(([id]) => id === action.type)) throw new Error('不支持的动作');
+    if (typeof action.argument !== 'string' || action.argument.includes('\0') || new TextEncoder().encode(action.argument).length > 512)
+      throw new Error('动作参数最多为 512 个 UTF-8 字节，不能包含空字符');
+    if (['app','app_freeform'].includes(action.type) && !/^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+$/.test(action.argument))
+      throw new Error('请从手机应用列表选择应用');
+    if (action.type === 'keycode' && (!/^\d+$/.test(action.argument) || Number(action.argument) < 1 || Number(action.argument) > 2047))
+      throw new Error('Android 按键码应为 1～2047 的整数');
+    if (action.type === 'shell' && !action.argument.trim()) throw new Error('请输入要执行的 Shell 命令');
+    if (action.type === 'mijia' && !/^[a-f0-9]{32}$/.test(action.argument)) throw new Error('请在米家页选择设备或场景并添加绑定');
+    if (!['app', 'app_freeform', 'keycode', 'shell', 'mijia'].includes(action.type) && action.argument !== '') throw new Error('该动作不需要参数');
+  }
+  return config;
+}
+export function hex(text) {
+  return Array.from(new TextEncoder().encode(text), value => value.toString(16).padStart(2, '0')).join('');
+}
+export function serialize(config) {
+  validate(config);
+  const lines = ['version=1', `enabled=${Number(config.enabled)}`, `haptic=${Number(config.haptic)}`, `long_ms=${config.long_ms}`, `double_ms=${config.double_ms}`];
+  gestureIds.forEach((id, i) => lines.push(`${id}=${config.actions[i].type}`));
+  gestureIds.forEach((id, i) => lines.push(`${id}_arg=${hex(config.actions[i].argument)}`));
+  lines.push(`menu_count=${config.menu.length}`, `menu_side=${config.menu_side}`, `menu_position=${config.menu_position}`);
+  lines.push(`menu_width=${config.menu_width ?? 196}`, `menu_gap=${config.menu_gap ?? 12}`);
+  config.menu.forEach((item, i) => {
+    lines.push(`menu_${i}_name=${hex(item.name)}`, `menu_${i}_icon=${hex(item.icon)}`,
+      `menu_${i}_slot=${item.slot ?? i}`, `menu_${i}_action=${item.type}`, `menu_${i}_arg=${hex(item.argument)}`);
+    if (item.type === 'surfing') {
+      lines.push(`menu_${i}_surfing_fields=${surfingMask(item)}`);
+      for (const [key, label] of Object.entries(surfingText(item))) lines.push(`menu_${i}_surfing_${key}=${hex(label)}`);
+    }
+  });
+  return lines.join('\n') + '\n';
+}
+export function quote(text) { return "'" + String(text).replaceAll("'", "'\\''") + "'"; }
