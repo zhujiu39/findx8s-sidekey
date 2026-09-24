@@ -4,8 +4,12 @@ import {menuAppName} from './app-catalog.js';
 import {isApp, applyAppSelection} from './app-selection.js';
 import {appIcon, releaseAppIcons} from './app-icons.js';
 import {chooseMijia, mijiaBindingLabel, mijiaBindingIsReading, editReadingLabels} from './mijia.js';
+import {symbol, actionSymbols} from './symbols.js';
+import {decorateActionSelect} from './action-picker.js';
+import {openMenuPreview, renderLiveMenu} from './side-panel.js';
 const $ = id => document.getElementById(id);
 let entries = [], onChange = () => {}, isBusy = false;
+let expandedItem;
 const element = (tag, className, text) => {
   const node = document.createElement(tag); node.className = className;
   if (text !== undefined) node.textContent = text;
@@ -43,6 +47,7 @@ function controls(item, group) {
   for (const [text, delta, disabled] of [['↑',-1,index === 0],['↓',1,index === group.length - 1],['移除',0,false]]) {
     const button = element('button','secondary',text); button.type='button'; button.disabled=isBusy || disabled; button.dataset.unavailable=String(disabled);
     button.setAttribute('aria-label', (text === '↑' ? '上移' : text === '↓' ? '下移' : '移除') + ' ' + item.name);
+    button.replaceChildren(symbol(delta === -1 ? 'arrow.up' : delta === 1 ? 'arrow.down' : 'trash'));
     button.addEventListener('click',()=>{
       const position=entries.indexOf(item);
       if (!delta) entries.splice(position,1);
@@ -60,12 +65,19 @@ function render() {
   $('menu-empty').hidden=apps.length + configured.length !== 0;
   $('menu-count').textContent=apps.length + ' 个应用 · ' + configured.length + ' 个快捷项';
   switches.forEach((item,index)=>{
-    const card=element('article','menu-item');
+    const section=element('details','menu-item'); section.open=expandedItem===item || item.type==='none';
+    section.addEventListener('toggle',()=>{if(section.open)expandedItem=item;else if(expandedItem===item)expandedItem=undefined;});
     const reading=item.type==='mijia' && mijiaBindingIsReading(item.argument);
+    const summary=element('summary','menu-item-summary'), mark=element('span','colored-icon small '+(item.type==='mijia'?'orange':item.type==='surfing'?'purple':'blue'));
+    mark.append(symbol(reading?'thermometer.medium':actionSymbols[item.type]));
+    const copy=element('span','item-copy'), title=element('strong','',item.name);
+    copy.append(title,element('small','',reading?'只读数据':item.type==='surfing'?'代理开关、速率与用量':actions.find(([type])=>type===item.type)?.[1] || '选择操作'));
+    summary.append(mark,copy,symbol('chevron.right'));
+    const card=element('div','menu-item-detail'); section.append(summary,card);
     const heading=element('div','menu-item-heading'); heading.append(element('strong','',(reading ? '读数卡片 ' : '快捷开关 ')+(index+1)),controls(item,switches)); card.append(heading);
-    const name=element('input',''); name.value=item.name; name.addEventListener('input',()=>{item.name=name.value;onChange();}); card.append(field('显示名称',name));
+    const name=element('input',''); name.value=item.name; name.addEventListener('input',()=>{item.name=name.value;title.textContent=item.name;onChange();}); card.append(field('显示名称',name));
     const action=element('select',''); actions.filter(([id])=>!['menu','app','app_freeform'].includes(id)).forEach(([id,label])=>action.add(new Option(label,id)));
-    action.value=item.type; card.append(field('项目类型',action));
+    action.value=item.type; card.append(field('项目类型',decorateActionSelect(action)));
     if (item.type==='surfing') surfingEditor(item,card);
     if (item.type==='mijia') {
       const choice=element('button','secondary',mijiaBindingLabel(item.argument));choice.type='button';
@@ -80,7 +92,7 @@ function render() {
     const parameterField=field('动作参数',parameter); parameterField.hidden=!['shell','keycode'].includes(item.type); card.append(parameterField);
     action.addEventListener('change',()=>{item.type=action.value;item.argument='';if(item.type==='surfing' && item.name==='新开关')item.name='Surfing 代理';changed();});
     if (item.type==='none') card.append(element('p','hint','未设置动作，快捷栏中不显示。'));
-    parameter.addEventListener('input',()=>{item.argument=parameter.value;onChange();}); host.append(card);
+    parameter.addEventListener('input',()=>{item.argument=parameter.value;onChange();}); host.append(section);
   });
   if (apps.length) host.append(element('h3','selected-app-title','已选应用'));
   apps.forEach(item=>{
@@ -90,6 +102,7 @@ function render() {
     host.append(row);
   });
   menuBusy(isBusy);
+  renderLiveMenu(readMenu());
 }
 function renderSummary(apps, switches) {
   const host=$('shortcut-apps'); releaseAppIcons(host); host.replaceChildren();
@@ -102,7 +115,7 @@ function renderSummary(apps, switches) {
   $('shortcut-empty').hidden=apps.length+switches.length!==0;
 }
 export function initMenuEditor(change) {
-  onChange=change;
+  onChange=()=>{change();renderLiveMenu(readMenu());};
   document.addEventListener('sidekey-mijia-bindings',()=>{
     $('menu-items').querySelectorAll('[data-mijia-binding]').forEach(item=>{
       item.textContent=mijiaBindingLabel(item.dataset.mijiaBinding);
@@ -111,7 +124,10 @@ export function initMenuEditor(change) {
       heading.textContent=heading.textContent.replace(/^(?:读数卡片|快捷开关)/,reading?'读数卡片':'快捷开关');
       card.querySelector('[data-reading-hint]').hidden=!reading;
       card.querySelector('[data-reading-editor]').hidden=!reading;
+      card.querySelector('.item-copy small').textContent=reading?'只读数据':'设备或场景动作';
+      card.querySelector('.menu-item-summary .colored-icon').replaceChildren(symbol(reading?'thermometer.medium':'house.fill'));
     });
+    renderLiveMenu(readMenu());
   });
   $('choose-menu-apps').addEventListener('click',()=>{
     if (isBusy) return;
@@ -128,9 +144,7 @@ export function initMenuEditor(change) {
   });
   ['menu-side','menu-position','menu-width','menu-gap'].forEach(id=>$(id).addEventListener('input',onChange));
   $('preview-menu').addEventListener('click',preview);
-  $('menu-preview').addEventListener('click',event=>{if(event.target===$('menu-preview'))dismiss();});
-  $('close-preview').addEventListener('click',dismiss);
-  document.addEventListener('keydown',event=>{if(event.key==='Escape')dismiss();});
+  $('expand-preview').addEventListener('click',preview);
   document.addEventListener('sidekey-apps-updated',()=>{
     entries.forEach(item=>{if(isApp(item)){const app=appCatalog.lookup(item.argument);if(app)item.name=menuAppName(app.label);item.icon='';}});
     render();onChange();
@@ -153,61 +167,11 @@ export function menuBusy(value) {
   $('add-surfing').disabled=value || entries.length>=2060 || entries.some(item=>item.type==='surfing');
   $('preview-menu').disabled=value || !entries.some(item=>item.type!=='none');
   $('preview-shortcuts').disabled=$('preview-menu').disabled;
+  $('expand-preview').disabled=$('preview-menu').disabled;
   $('menu-position-output').value=$('menu-position').value+'%';
   $('menu-width-output').value=$('menu-width').value+' dp';
   $('menu-gap-output').value=$('menu-gap').value+' dp';
   $('menu-items').querySelectorAll('input,select,textarea').forEach(node=>node.disabled=value);
   $('menu-items').querySelectorAll('button').forEach(node=>node.disabled=value || node.dataset.unavailable==='true');
 }
-let lastFocus,dismissTimer;
-function positionPreview() {
-  const overlay=$('menu-preview'),panel=$('menu-preview-panel');if(overlay.hidden)return;
-  const style=getComputedStyle(overlay),top=parseFloat(style.paddingTop)||0,bottom=parseFloat(style.paddingBottom)||0;
-  const height=overlay.clientHeight-top-bottom,half=panel.offsetHeight/2;
-  panel.style.top=(top+Math.max(half+12,Math.min(height-half-12,height*Number($('menu-position').value)/100)))+'px';
-}
-window.addEventListener('resize',positionPreview);window.visualViewport?.addEventListener('resize',positionPreview);
-function preview() {
-  if (!entries.some(item=>item.type!=='none')) return;
-  const overlay=$('menu-preview');lastFocus=document.activeElement;clearTimeout(dismissTimer);
-  overlay.classList.toggle('from-right',$('menu-side').value==='right');
-  overlay.style.setProperty('--sidebar-width',$('menu-width').value+'px');
-  overlay.style.setProperty('--app-gap',$('menu-gap').value+'px');
-  releaseAppIcons($('menu-preview-items'));$('menu-preview-items').replaceChildren();$('menu-preview-switches').replaceChildren();
-  const switches=entries.filter(item=>!isApp(item)&&item.type!=='none');
-  for(const item of switches) {
-    const row=element('button','sidebar-switch');row.type='button';
-    const reading=item.type==='mijia' && mijiaBindingIsReading(item.argument);
-    if (item.type==='surfing') {
-      row.classList.add('surfing-preview');
-      const heading=element('span','surfing-preview-heading');heading.append(element('span','',item.name),element('span','menu-switch-glyph','⏻'));row.append(heading);
-      row.append(element('small','surfing-preview-status','状态在手机中显示'));
-      const labels=surfingText(item), mask=surfingMask(item), grid=element('span','surfing-preview-grid');
-      for(const [key,,bit] of surfingFields.slice(0,4)) {
-        if (!(mask & bit)) continue;
-        const metric=element('span','');if(labels[key])metric.append(element('small','',labels[key]));
-        metric.append(element('strong','','—'));grid.append(metric);
-      }
-      if(mask & 15) { row.append(grid);if(labels.note)row.append(element('small','surfing-preview-status',labels.note)); }
-      if(mask & 16) {
-        const quota=element('span','surfing-preview-quota');
-        if(labels.quota)quota.append(element('strong','',labels.quota));
-        for(const key of ['used','total'])quota.append(element('span','',(labels[key] ? labels[key]+'：' : '')+'—'));
-        row.append(quota);
-      }
-    } else row.append(element('span','',item.name),element('span','menu-switch-glyph',reading?'读数':item.type==='torch'?'—':'›'));
-    $('menu-preview-switches').append(row);
-  }
-  const apps=entries.filter(isApp);
-  apps.forEach(item=>{
-    const app=appCatalog.lookup(item.argument),label=app?.label||item.name;
-    const row=element('button','sidebar-app');row.type='button';row.append(appIcon(item.argument,label,'menu-real-icon'),element('span','menu-tile-label',label));
-    row.addEventListener('click',dismiss);$('menu-preview-items').append(row);
-  });
-  overlay.hidden=false;positionPreview();document.querySelector('main').inert=true;document.querySelector('.save-bar').inert=true;
-  requestAnimationFrame(()=>requestAnimationFrame(()=>overlay.classList.add('visible')));$('close-preview').focus();
-}
-function dismiss() {
-  const overlay=$('menu-preview');if(overlay.hidden)return;clearTimeout(dismissTimer);overlay.classList.remove('visible');
-  dismissTimer=setTimeout(()=>{overlay.hidden=true;document.querySelector('main').inert=false;document.querySelector('.save-bar').inert=false;lastFocus?.focus();},200);
-}
+function preview() { openMenuPreview(readMenu()); }

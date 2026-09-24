@@ -1,0 +1,7 @@
+SF Symbols 图标来源说明
+
+界面图标取自用户提供的 Apple SF Symbols SVG 文件；Apple 保留其图形资源相关权利。这些资源不适用本项目业务代码的 MIT 许可。
+图标名称、来源文件与 SHA-256 见 webroot/assets/sources.json。网页使用 SVG 原始路径；原生菜单按相同路径转为 Android VectorDrawable，保持比例，仅适配颜色和容器。
+本模块未嵌入 SF Pro、PingFang 或其他 Apple 字体文件。文本使用运行设备的系统字体；已安装应用的品牌图标由 Android 提供。
+设计参考：https://developer.apple.com/cn/design/human-interface-guidelines/getting-started
+SF Symbols：https://developer.apple.com/sf-symbols/

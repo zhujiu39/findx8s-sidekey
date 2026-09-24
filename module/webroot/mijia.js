@@ -1,3 +1,4 @@
+import {symbol} from './symbols.js';
 import {mijiaRequest} from './mijia-api.js';
 import {bindingName, makePropertyAction, makeReadingAction, readingProperties, propertyValue, stateLabel} from './mijia-model.js';
 import {available} from './bridge.js';
@@ -13,6 +14,7 @@ let attach = () => {}, loginTimer, resultTimer, loginPanel, lastFocus;
 let loginRenderKey = '', loginPollId = 0;
 export const mijiaBindingLabel = id => bindings.find(item => item.id === id)?.name || '米家动作（请到米家页检查）';
 export const mijiaBindingIsReading = id => bindings.find(item => item.id === id)?.kind === 'read';
+function iconChevron() { const el=node('span','mijia-chevron');el.append(symbol('chevron.right'));return el; }
 function message(text, error = false) {
   $('mijia-message').textContent = text; $('mijia-message').hidden = !text;
   $('mijia-message').classList.toggle('error', error);
@@ -24,14 +26,7 @@ function button(text, run, cls = 'secondary') {
 function textBlock(title, text) {
   const div = node('div', 'mijia-empty'); div.append(node('strong', '', title), node('p', 'hint', text)); return div;
 }
-function icon(kind) {
-  const paths = {scene:'m13 2-8 12h7l-1 8 8-12h-7z', device:'M5 7h14v14H5zM8 3h8M8 11h8M8 15h4',
-    lamp:'M9 18h6M10 21h4M8 13a6 6 0 1 1 8 0l-1 3H9z',
-    plug:'M8 3v5M16 3v5M6 8h12v4a6 6 0 0 1-12 0zM12 18v4'};
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
-  const path = document.createElementNS(svg.namespaceURI, 'path'); path.setAttribute('d', paths[kind] || paths.device); svg.append(path); return svg;
-}
+function icon(kind) {return symbol({scene:'bolt.fill',device:'sensor',lamp:'lightbulb.fill',plug:'power'}[kind] || 'sensor');}
 async function task(work) {
   if (busy) return;
   busy = true; $('page-mijia').setAttribute('aria-busy', 'true'); message('正在处理…');
@@ -67,7 +62,7 @@ async function loadHome() {
       const item = button('', () => showScene(scene), 'mijia-scene');
       const mark = node('span','mijia-scene-icon'), copy = node('span','mijia-scene-copy');
       mark.append(icon('scene')); copy.append(node('strong','',scene.name),node('small','','加入快捷菜单'));
-      item.append(mark,copy,node('span','mijia-chevron','›')); scenes.append(item);
+      item.append(mark,copy,iconChevron()); scenes.append(item);
     });
     const devices = $('mijia-devices'); devices.replaceChildren();
     if (!data.devices.length) devices.append(textBlock('这个家还没有设备', '请先在米家 App 添加设备，或切换家庭。'));
@@ -84,7 +79,7 @@ async function loadHome() {
         const item = button('', () => task(() => showDevice(device)), 'mijia-device');
         const badge = node('span', 'mijia-device-icon'), copy = node('span','mijia-device-copy');
         badge.append(icon(/light|lamp/.test(device.model) ? 'lamp' : /plug|outlet/.test(device.model) ? 'plug' : 'device'));
-        copy.append(node('strong','',device.name),node('small','',device.model || '选择要加入的设备动作'));
+        copy.append(node('strong','',device.name),node('small','','查看读数与控制'));
         item.append(badge,copy,node('span',device.online ? 'mijia-device-state' : 'mijia-device-state offline',device.online ? '在线' : '离线'));
         room.append(item);
       });
@@ -275,7 +270,7 @@ function renderBindings() {
   const host = $('mijia-bindings'); host.replaceChildren();
   $('mijia-bindings-section').hidden = !bindings.length;
   bindings.forEach(entry => {
-    const row = node('div','mijia-binding'); row.append(node('strong','',entry.name), button('管理 ›', () => {
+    const row = node('div','mijia-binding'); row.append(node('strong','',entry.name), button('管理', () => {
       const body = openDialog(entry.name);
       if (entry.kind === 'read') body.append(button('编辑读数文案',()=>editReadingLabels(entry.id),'primary'));
       body.append(button('再次加入快捷菜单', () => {

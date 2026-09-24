@@ -6,6 +6,8 @@ import {exportLogFile} from './log-export.js';
 import {appCatalog, createAppChoice} from './app-picker.js';
 import {initNavigation} from './navigation.js';
 import {initMijia, chooseMijia, mijiaBindingLabel} from './mijia.js';
+import {symbol} from './symbols.js';
+import {decorateActionSelect} from './action-picker.js';
 const $ = id => document.getElementById(id);
 let saved = defaultConfig(), loaded = false, busy = false, refreshBusy = false;
 let toastTimer;
@@ -24,6 +26,9 @@ function buildCards() {
     const card = document.createElement('article'); card.className = 'gesture-card';
     card.innerHTML = `<button type="button" class="gesture-open" id="edit-${id}" aria-expanded="false" aria-controls="editor-${id}"><span class="gesture-number" aria-hidden="true">0${index+1}</span><span class="gesture-copy"><span class="gesture-name">${titles[index]}</span><strong class="gesture-value" id="summary-${id}"></strong></span><span class="gesture-arrow" aria-hidden="true">›</span></button><div class="gesture-body" id="editor-${id}" hidden><div class="gesture-edit-heading"><span>${descriptions[index]}</span><button class="test" id="test-${id}" type="button" aria-label="执行${titles[index]}动作">执行 ↗</button></div><div class="selector"><select id="action-${id}" aria-label="${titles[index]}动作"></select></div><div class="argument" id="argument-${id}" hidden><label for="value-${id}"></label><input id="value-${id}" autocomplete="off" spellcheck="false"><textarea id="shell-${id}" aria-label="${titles[index]} Shell 命令" spellcheck="false" hidden></textarea><p></p></div></div>`;
     $('gestures').append(card);
+    card.querySelector('.gesture-number').replaceChildren(symbol(['hand.tap','hand.tap','hand.point.up.left.fill'][index]));
+    card.querySelector('.gesture-arrow').replaceChildren(symbol('chevron.right'));
+    card.querySelector('.test').replaceChildren(document.createTextNode('执行'),symbol('play.fill'));
     $(`edit-${id}`).addEventListener('click', () => {
       const opening = $(`editor-${id}`).hidden;
       gestureIds.forEach(other => {
@@ -44,6 +49,7 @@ function buildCards() {
     $(`argument-${id}`).append(mijiaChoice);
     const select = $(`action-${id}`);
     actions.filter(([value]) => value !== 'surfing').forEach(([value, name]) => select.add(new Option(name, value)));
+    decorateActionSelect(select);
     select.addEventListener('change', () => { $(`value-${id}`).value = ''; $(`shell-${id}`).value = ''; updateArgument(id); updateDirty(); });
     $(`value-${id}`).addEventListener('input', updateDirty);
     $(`shell-${id}`).addEventListener('input', updateDirty);
@@ -65,6 +71,7 @@ function updateArgument(id) {
   input.placeholder = '例如 3（主页）';
   shell.placeholder = '例如：input keyevent 3';
   block.querySelector('p').textContent = type === 'mijia' ? '执行结果可在米家页面查看。' : isApp ? '' : type === 'keycode' ? '填写 Android KeyEvent 编码，范围 1～2047。' : '以 Root 执行，最长 10 秒；动作结束时清理后台进程。';
+  $(`action-${id}`).updateChoice?.();
 }
 function formConfig() {
   return {enabled: $('enabled').checked, haptic: $('haptic').checked, long_ms: Number($('long-ms').value), double_ms: Number($('double-ms').value),
@@ -88,8 +95,9 @@ function updateDirty() {
   updateActionSummaries();
   $('long-output').value = `${$('long-ms').value} ms`; $('double-output').value = `${$('double-ms').value} ms`;
   menuBusy(busy);
-  $('save').disabled = busy || !loaded;
+  $('save').disabled = busy || !loaded || !dirty();
   $('save-state').textContent = busy ? '正在保存…' : !loaded ? '配置未加载' : dirty() ? '有未保存的修改' : '设置已同步';
+  document.querySelector('.save-bar').classList.toggle('has-changes',loaded&&dirty());
   gestureIds.forEach((id, i) => { $(`test-${id}`).disabled = busy || !loaded || dirty() || saved.actions[i].type === 'none' || !available(); });
   document.querySelectorAll('main input:not([name="appearance"]), main select, main textarea, .app-choice, #refresh, #start-service, #reload-apps').forEach(element => {
     if (!element.closest('#page-mijia')) element.disabled = busy;
@@ -191,7 +199,7 @@ $('export-logs').addEventListener('click', async () => {
     });
     toast(result.message || (result.state === 'saved' ? '完整日志已保存' : '已取消导出日志'));
   } catch (error) { toast(error.message); }
-  finally { button.disabled = false; button.textContent = '导出完整日志'; }
+  finally { button.disabled = false; button.replaceChildren(symbol('square.and.arrow.up'), document.createTextNode('导出完整日志')); }
 });
 $('copy-logs').addEventListener('click', async () => {
   const button = $('copy-logs'); button.disabled = true; button.textContent = '正在收集日志…';
@@ -203,7 +211,7 @@ $('copy-logs').addEventListener('click', async () => {
       $('log-copy-text').focus(); $('log-copy-text').select();
     }
   } catch (error) { toast(`日志读取失败：${error.message}`); }
-  finally { button.disabled = false; button.textContent = '复制全部日志'; }
+  finally { button.disabled = false; button.replaceChildren(symbol('doc.on.doc'), document.createTextNode('复制全部日志')); }
 });
 $('log-copy-fallback').addEventListener('close', () => { $('log-copy-text').value = ''; });
 $('prepare-menu').addEventListener('click', async () => {
@@ -218,7 +226,7 @@ $('start-service').addEventListener('click', async () => {
 });
 if (available()) refresh(true).then(async () => {
   try { await appCatalog.get(); document.dispatchEvent(new Event('sidekey-apps-updated')); }
-  catch (error) { notice(`应用信息暂未加载：${error.message}，可点击“勾选应用”重试。`); }
+  catch (error) { notice(`应用信息暂未加载：${error.message}，可点击“选择应用”重试。`); }
 });
 else {
   fill(defaultConfig()); notice('界面预览：请从 KernelSU 管理器打开模块 WebUI，以保存和应用设置。');

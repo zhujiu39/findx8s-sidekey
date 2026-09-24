@@ -1,5 +1,11 @@
 # 第三方组件
 
+## 界面图标
+
+导航、动作、控制及缺失图标占位采用用户提供的 Apple SF Symbols。WebUI SVG 来源与哈希见 `module/webroot/assets/sources.json`；原生 VectorDrawable 由 `docs/tools/sync_apple_symbols.py` 按同一路径生成，保持图形比例。图形资源的权利归原权利人，不适用业务代码 MIT 许可。来源说明随模块置于 `module/LICENSES/SF-Symbols-notice.txt`。
+
+界面信息层级、分组、排版与动效参考 [Apple 人机界面指南](https://developer.apple.com/cn/design/human-interface-guidelines/getting-started)。模块未嵌入 Apple 字体，中文及拉丁文本使用设备系统字体；应用身份图标由 Android 系统读取。
+
 ## 米家适配
 
 米家独立服务 `module/lib/mijia.jar`：GPL-3.0-or-later，适配自 Do1e/mijia-api 4.2.1（提交 `353363f79ea6f368461dc77c6de22d6f85623990`）。源码、修改范围与复现方法见 `mijia/README.md`，完整对应源码同时附在模块的 `lib/mijia-source.zip`。许可文本为 `module/LICENSES/mijia-GPL-3.0.txt`。其 RC4 签名适配保留上游 micloud/Sammy Svensson MIT 版权声明，见 `module/LICENSES/micloud-MIT.txt`。本服务独立于 MIT 监听器、菜单和 WebUI 运行，以本地 JSON IPC 交互。

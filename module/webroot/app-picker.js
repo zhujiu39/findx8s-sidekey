@@ -1,3 +1,4 @@
+import {symbol} from './symbols.js';
 import {api, available} from './bridge.js';
 import {AppCatalogStore, filterApps} from './app-catalog.js';
 import {appIcon, resetAppIcons, releaseAppIcons} from './app-icons.js';
@@ -42,7 +43,7 @@ function render() {
       });
       row.dataset.packageName = app.packageName; row.append(checkbox);
     } else {
-      if (app.packageName === chosen) { row.classList.add('selected'); row.append(node('span', 'app-check', '✓')); }
+      if (app.packageName === chosen) { row.classList.add('selected'); const check=node('span','app-check');check.append(symbol('checkmark'));row.append(check); }
       row.addEventListener('click', () => { const callback = selection; dialog.close(); callback?.(app); });
     }
     fragment.append(row);
@@ -79,7 +80,7 @@ function init() {
   if (dialog) return;
   dialog = node('dialog', 'app-picker'); dialog.setAttribute('aria-labelledby', 'app-picker-title');
   const heading = node('div', 'app-picker-heading'); title = node('h2', '', '选择应用'); title.id = 'app-picker-title';
-  const close = node('button', 'icon-button', '×'); close.type = 'button'; close.setAttribute('aria-label', '关闭应用选择');
+  const close = node('button', 'icon-button', '×'); close.replaceChildren(symbol('xmark'));close.type = 'button'; close.setAttribute('aria-label', '关闭应用选择');
   close.addEventListener('click', () => dialog.close()); heading.append(title, close);
   const toolbar = node('div', 'app-picker-toolbar'); search = node('input', 'app-search');
   search.type = 'search'; search.placeholder = '搜索应用名称'; search.setAttribute('aria-label', '搜索应用名称或包名');
@@ -107,7 +108,7 @@ function chooseApp(packageName, callback) {
 }
 export function chooseApps(apps, callback) {
   init(); if (dialog.open) return;
-  multiple = true; footer.hidden = false; title.textContent = '勾选菜单应用';
+  multiple = true; footer.hidden = false; title.textContent = '选择快捷栏应用';
   picked = new Map(apps.map(app => [app.packageName, {...app}])); selection = callback; search.value = '';
   dialog.showModal(); load(false);
 }
@@ -122,6 +123,7 @@ export function createAppChoice(readPackage, onSelect, label = '选择应用') {
   }
   button.addEventListener('click', () => chooseApp(readPackage(), app => { onSelect(app); update(); }));
   // 事件委托只更新仍在页面中的控件，避免重建菜单卡片后保留旧元素。
+  button.querySelector('.app-choice-arrow').replaceChildren(symbol('chevron.right'));
   button.refreshAppChoice = update; update(); return button;
 }
 document.addEventListener('sidekey-apps-updated', () => {

@@ -1,17 +1,18 @@
 (() => {
-  const key = 'findx8s-sidekey.webui-theme';
-  const themes = {mono: '按键，自定义。', graphite: '侧键控制台'};
-  const normalize = value => Object.hasOwn(themes, value) ? value : 'mono';
-  let current = 'mono';
+  const key = 'findx8s-sidekey.appearance';
+  const system = matchMedia('(prefers-color-scheme: dark)');
+  const normalize = value => ['light', 'dark', 'system'].includes(value) ? value : 'system';
+  let current = 'system';
   try { current = normalize(localStorage.getItem(key)); } catch {}
   // 在样式表加载前恢复外观，避免再次打开时闪现默认样式。
-  document.documentElement.dataset.theme = current;
+  const applyTheme = () => { document.documentElement.dataset.appearance = current === 'system' ? (system.matches ? 'dark' : 'light') : current; };
+  applyTheme();
+  system.addEventListener('change', applyTheme);
   document.addEventListener('DOMContentLoaded', () => {
     const choices = [...document.querySelectorAll('input[name="appearance"]')];
     function apply(value) {
       current = normalize(value);
-      document.documentElement.dataset.theme = current;
-      document.getElementById('page-title').textContent = themes[current];
+      applyTheme();
       choices.forEach(input => { input.checked = input.value === current; });
     }
     apply(current);
@@ -21,9 +22,9 @@
       const note = document.getElementById('appearance-note');
       try {
         localStorage.setItem(key, current);
-        note.textContent = '样式已记住，深浅色跟随系统。';
+        note.textContent = '外观已记住，立即生效。';
       } catch {
-        note.textContent = '样式已切换，当前环境无法记住选择。';
+        note.textContent = '外观已切换，当前环境无法记住选择。';
       }
     }));
     window.addEventListener('storage', event => {

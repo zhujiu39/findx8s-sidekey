@@ -1,3 +1,4 @@
+import {symbol} from './symbols.js';
 import {api} from './bridge.js';
 
 export function normalizeIcons(data, user, requested) {
@@ -52,7 +53,7 @@ const observer = typeof IntersectionObserver === 'undefined' ? null : new Inters
 }, {rootMargin: '100px'});
 export function appIcon(packageName, label, className = 'app-image') {
   const wrapper = document.createElement('span'); wrapper.className = className;
-  wrapper.textContent = [...label][0] || '◇'; wrapper.setAttribute('aria-hidden', 'true');
+  wrapper.append(symbol('app.fill')); wrapper.setAttribute('aria-hidden', 'true');
   wrapper.loadAppIcon = () => getIcon(packageName, source => {
     if (!source) return;
     const image = document.createElement('img'); image.src = source; image.alt = ''; image.decoding = 'async';
