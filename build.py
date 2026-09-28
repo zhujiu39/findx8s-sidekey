@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.2.0-test.6'
-VERSION_CODE = 119
+VERSION = '1.2.0-test.7'
+VERSION_CODE = 120
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -265,7 +265,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_快捷栏配置统一与深浅色背景')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_应用图标与紧凑开关菜单')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -296,15 +296,17 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '本版统一手势、快捷栏配置、米家和设置四页的视觉样式。'
-        '浅色模式使用纯白背景，深色模式使用深色背景；保留浅色、深色、跟随系统的即时切换和本机记忆。'
-        '去掉上一版装饰壁纸，卡片、文字、导航、弹窗和保存条随外观适配，继续使用已有 SF Symbols。'
-        '快捷栏配置按概览、添加项目、菜单内容和菜单布局组织；保留应用选择、排序、米家读数文案、Surfing 文案和全部布局参数。'
-        '双击侧键弹出的原生快捷菜单外观、交互与系统深色响应保持不变；配置格式、签名和业务接口不变。\n\n'
+        '本版修改应用选择页的图标加载路径：独立滚动列表按可见行请求，首屏、搜索、滚动、刷新和尺寸变化均可触发。'
+        '系统样式图标转 PNG 失败时，读取同一应用自身资源并保留失败阶段；仍失败时在列表显示原因。图标恢复情况待真机复测。'
+        '原生快捷菜单改为左侧标题、右侧开关的紧凑单行布局，不再重复显示在线、离线和已开启／已关闭文字。'
+        'Surfing 关闭、切换中或状态未确认时隐藏全部统计区；确认开启后才显示勾选的速率、累计流量、订阅与说明。'
+        '保留不可用状态的图标、禁用逻辑、操作失败反馈与无障碍说明；读数卡片继续说明云端上报来源。'
+        'WebUI 布局预览同步紧凑排列，Surfing 可切换开启后的布局示意，不执行实际操作。'
+        '浅色纯白、深色深底及跟随系统保持；配置格式、APK 签名、米家和 Surfing 后端接口不变。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'
-        'Java 编译保留 AppCatalog 使用已过时 API 的原有提示，本版未修改该接口；编译、DEX 和签名正常完成。'
+        'Java 编译仍有 AppCatalog 使用已过时 API 的提示；编译、DEX 和签名正常完成。'
         + ('本次运行自动测试。' if args.test else '按项目要求，本次未运行自动测试或界面测试；真机反馈见验证记录。') +
         '本次 UI 与触控尚未实机验证；真机步骤见“本版变化与真机实测.md”。'
         'Surfing 统计需已安装并配置 Surfing 与 SurfingTile 6.0.0 的本机 HTTP API。'

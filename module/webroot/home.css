@@ -249,6 +249,9 @@ body[data-page=mijia] .app-header{display:none}
 .home-interface .app-picker-toolbar input{font-size:16px;min-height:48px;border-radius:15px;background:var(--surface-secondary)}
 .home-interface .app-picker-toolbar .secondary{font-size:13px;border-radius:22px;white-space:nowrap}
 .home-interface .app-picker-status{font-size:12px;margin:12px 22px}
+.home-interface .app-picker[open]{display:flex;flex-direction:column;height:min(720px,91dvh);overflow:hidden}
+.home-interface .app-picker>:not(.app-results){flex-shrink:0}
+.home-interface .app-picker .app-results{position:relative;flex:1 1 0;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;margin-bottom:0;scrollbar-gutter:stable}
 .home-interface .app-result{min-height:74px;padding:15px 18px;border-radius:16px}
 .home-interface .app-result-text strong{font-size:16px;line-height:1.5}
 .home-interface .app-result-text small{font-size:11px;line-height:1.5}

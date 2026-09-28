@@ -59,7 +59,7 @@ public final class MenuActivity extends Activity {
         volatile boolean pendingMijia;
         volatile int mijiaRevision;
         boolean mijiaOperating;
-        boolean hasSurfing, surfingSelecting;
+        boolean hasSurfing, surfingSelecting, surfingAwaitingResult;
         volatile int surfingRevision;
         volatile SurfingState surfing = SurfingState.unknown();
         int itemCount;
@@ -214,7 +214,7 @@ public final class MenuActivity extends Activity {
                 if (index < switches.size()) {
                     SwitchRow row = recycled instanceof SwitchRow ? (SwitchRow)recycled : new SwitchRow();
                     row.bind(switches.get(index));
-                    row.setPadding(0, 0, 0, index < getCount() - 1 ? dp(8) : 0);
+                    row.setPadding(0, 0, 0, index < getCount() - 1 ? dp(6) : 0);
                     return row;
                 }
                 AppRow row = recycled instanceof AppRow ? (AppRow)recycled : new AppRow();
@@ -247,7 +247,7 @@ public final class MenuActivity extends Activity {
         final boolean mijia = "mijia".equals(type);
         final boolean surfing = "surfing".equals(type);
         if (surfing && (current.surfingSelecting || !current.surfing.canToggle())) return;
-        if (surfing) { current.surfingSelecting = true; current.surfingRevision++; updateSwitches(); }
+        if (surfing) { current.surfingSelecting = true; current.surfingAwaitingResult = true; current.surfingRevision++; updateSwitches(); }
         if (mijia && (current.mijiaOperating || !MijiaSwitchState.enabled(
                 MijiaSwitchState.at(current.mijiaStates, index, current.pendingMijia)))) return;
         if (mijia) {
@@ -266,6 +266,7 @@ public final class MenuActivity extends Activity {
                 selecting = false;
                 if (surfing) current.surfingSelecting = false;
                 if (!accepted) {
+                    if (surfing) current.surfingAwaitingResult = false;
                     Toast.makeText(getApplicationContext(), "快捷开关请求未确认，请查看运行日志", Toast.LENGTH_SHORT).show();
                 }
                 if ("torch".equals(type)) current.torchState = -1;
@@ -343,6 +344,16 @@ public final class MenuActivity extends Activity {
 
     private void updateSwitches() {
         if (scroll == null) return;
+        Session current = session;
+        if (current != null && current.surfingAwaitingResult && !current.surfingSelecting) {
+            SurfingState result = current.surfing;
+            boolean finished = !result.busy && (result.result != 0 ||
+                !("starting".equals(result.state) || "stopping".equals(result.state) || "unknown".equals(result.state)));
+            if (finished) {
+                current.surfingAwaitingResult = false;
+                if (result.result != 0) Toast.makeText(this, "Surfing 操作未完成，请查看运行日志", Toast.LENGTH_SHORT).show();
+            }
+        }
         for (int i = 0; i < scroll.getChildCount(); i++)
             if (scroll.getChildAt(i) instanceof SwitchRow) ((SwitchRow)scroll.getChildAt(i)).updateState();
     }
@@ -360,39 +371,38 @@ public final class MenuActivity extends Activity {
         SwitchRow() {
             super(MenuActivity.this); setOrientation(VERTICAL);
             card = new LinearLayout(MenuActivity.this); card.setOrientation(VERTICAL);
-            card.setPadding(dp(12), dp(12), dp(12), dp(12)); card.setBackground(background(tileTop, 18));
+            int horizontal = dp(widthDp < 160 ? 8 : 10);
+            card.setPadding(horizontal, dp(8), horizontal, dp(8)); card.setBackground(background(tileTop, 16));
             pressFeedback(card);
             LinearLayout header = new LinearLayout(MenuActivity.this); header.setGravity(Gravity.CENTER_VERTICAL);
-            boolean narrow = widthDp < 180;
-            if (narrow) header.setOrientation(LinearLayout.VERTICAL);
+            header.setOrientation(LinearLayout.HORIZONTAL);
             mark = new ImageView(MenuActivity.this); mark.setScaleType(ImageView.ScaleType.FIT_CENTER);
             mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(dp(18), dp(22)); iconSize.rightMargin = dp(8);
             header.addView(mark, iconSize); mark.setVisibility(widthDp < 220 ? View.GONE : View.VISIBLE);
-            name = text("", 13, foreground); name.setMaxLines(2); name.setEllipsize(TextUtils.TruncateAt.END);
+            name = text("", 13, foreground); name.setSingleLine(); name.setEllipsize(TextUtils.TruncateAt.END);
             name.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
             LinearLayout labels = new LinearLayout(MenuActivity.this); labels.setOrientation(VERTICAL);
             labels.addView(name, new LinearLayout.LayoutParams(-1, -2));
             status = text("", 10, muted); status.setMaxLines(2); status.setEllipsize(TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams statusSize = new LinearLayout.LayoutParams(-1, -2); statusSize.topMargin = dp(4);
-            labels.addView(status, statusSize);
-            header.addView(labels, narrow ? new LinearLayout.LayoutParams(-1, -2) : new LinearLayout.LayoutParams(0, -2, 1));
+            labels.addView(status, statusSize); status.setVisibility(View.GONE);
+            header.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
             control = new SwitchGlyph();
             LinearLayout.LayoutParams controlSize = new LinearLayout.LayoutParams(dp(32), dp(32));
-            if (narrow) { controlSize.topMargin = dp(8); controlSize.gravity = Gravity.END; }
-            else controlSize.leftMargin = dp(8);
-            header.addView(control, controlSize); header.setMinimumHeight(dp(36)); card.addView(header, new LinearLayout.LayoutParams(-1, -2));
+            controlSize.leftMargin = dp(6);
+            header.addView(control, controlSize); header.setMinimumHeight(dp(32)); card.addView(header, new LinearLayout.LayoutParams(-1, -2));
             readings = new ReadingContent(MenuActivity.this, muted, widthDp); readings.setVisibility(View.GONE);
             card.addView(readings, new LinearLayout.LayoutParams(-1, -2));
             trafficPanel = new SurfingContent(MenuActivity.this, foreground, muted, accent, widthDp);
             card.addView(trafficPanel, new LinearLayout.LayoutParams(-1, -2));
-            card.setMinimumHeight(dp(60)); addView(card, new LinearLayout.LayoutParams(-1, -2));
+            card.setMinimumHeight(dp(48)); addView(card, new LinearLayout.LayoutParams(-1, -2));
         }
         void bind(JSONObject item) {
             card.setScaleX(1); card.setScaleY(1);
             type = item.optString("type"); name.setText(item.optString("name")); control.stateful = "torch".equals(type);
             mijia = "mijia".equals(type); index = item.optInt("index", -1);
-            surfing = "surfing".equals(type); trafficPanel.setVisibility(surfing ? View.VISIBLE : View.GONE);
+            surfing = "surfing".equals(type); trafficPanel.setVisibility(View.GONE);
             if (surfing) trafficPanel.bind(item);
             markColor = mijia ? Color.rgb(235, 145, 38) : surfing ? Color.rgb(157, 101, 226) : accent;
             SfSymbols.apply(mark, SfSymbols.action(type), markColor);
@@ -410,17 +420,18 @@ public final class MenuActivity extends Activity {
             if (displayOnly) readings.update(reading == null || reading.isEmpty() ? "暂无数据" : reading, value == 's' || value == 'q' ? muted : foreground);
             control.power = mijia && MijiaSwitchState.power(value); control.powerState = value;
             control.state = session == null ? -1 : session.torchState;
-            status.setVisibility(View.VISIBLE);
+            status.setVisibility(displayOnly ? View.VISIBLE : View.GONE);
             if (mijia) {
                 String description = session != null && session.mijiaOperating && value == '~' ? "执行并刷新中" : MijiaSwitchState.description(value);
-                status.setText(value == '~' && session != null && session.mijiaOperating ? "操作中…" :
-                    value == '1' ? "已开启 · 在线" : value == '0' ? "已关闭 · 在线" : MijiaSwitchState.status(value));
-                card.setContentDescription(name.getText() + "，" + status.getText() + "，" + description + (displayOnly ? "，" + readings.value() : ""));
+                status.setText(displayOnly ? value == 'r' ? "云端上报" : "最近上报 · 待确认" : "");
+                card.setContentDescription(name.getText() + "，" + description + (displayOnly ? "，" + readings.value() : ""));
                 card.setStateDescription(description);
+                card.setTooltipText(name.getText() + "，" + description);
             } else {
                 String description = control.stateful ? control.state == 1 ? "已开启" : control.state == 0 ? "已关闭" : "状态未确认" : "轻触执行";
-                status.setText(description); card.setStateDescription(description);
+                status.setText(""); card.setStateDescription(description);
                 card.setContentDescription(name.getText() + "，" + description);
+                card.setTooltipText(name.getText() + "，" + description);
             }
             boolean waiting = mijia && session != null && session.mijiaOperating;
             card.setEnabled(!waiting && (!mijia || MijiaSwitchState.enabled(value)));
@@ -432,11 +443,16 @@ public final class MenuActivity extends Activity {
             boolean submitting = session != null && session.surfingSelecting;
             readings.setVisibility(View.GONE); control.setVisibility(View.VISIBLE);
             control.power = true; control.powerState = submitting ? '~' : value.power();
-            status.setVisibility(View.VISIBLE); status.setText(submitting ? "切换中…" : value.status());
-            trafficPanel.update(value);
-            StringBuilder description = new StringBuilder(name.getText()).append('，').append(status.getText());
-            description.append(trafficPanel.description());
-            card.setContentDescription(description.toString()); card.setStateDescription(status.getText());
+            status.setVisibility(View.GONE); status.setText("");
+            // 只有确认开启时显示统计，关闭、切换中或状态未知均不占位、不朗读旧数据。
+            boolean showDetails = !submitting && value.power() == '1';
+            trafficPanel.setVisibility(showDetails ? View.VISIBLE : View.GONE);
+            if (showDetails) trafficPanel.update(value);
+            String state = submitting ? "切换中…" : value.status();
+            StringBuilder description = new StringBuilder(name.getText()).append('，').append(state);
+            if (showDetails) description.append(trafficPanel.description());
+            card.setContentDescription(description.toString()); card.setStateDescription(state);
+            card.setTooltipText(name.getText() + "，" + state);
             card.setEnabled(!submitting && value.canToggle()); card.setAlpha(1f); control.render();
         }
     }
@@ -453,7 +469,7 @@ public final class MenuActivity extends Activity {
             char value = power ? powerState : stateful ? state == 1 ? '1' : state == 0 ? '0' : '?' : 'a';
             boolean on = value == '1'; int fill = on ? green : powerOff;
             if (lastBackground != fill) { setBackground(background(fill, 16)); lastBackground = fill; }
-            String icon = value == '1' || value == '0' || value == 'u' ? "power" : value == '~' ? "arrow.clockwise" : value == 'a' || value == 'n' ? "chevron.right" : "minus";
+            String icon = value == '1' || value == '0' ? "power" : value == '~' ? "arrow.clockwise" : value == 'a' || value == 'n' ? "chevron.right" : "minus";
             SfSymbols.apply(this, icon, on ? Color.WHITE : powerInk);
         }
     }

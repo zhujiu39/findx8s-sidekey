@@ -59,15 +59,16 @@ public final class AppCatalog {
                 String packageName = info.activityInfo.packageName;
                 if (iconsOnly) {
                     if (!wanted.contains(packageName) || !readIcons.add(packageName)) continue;
-                    JSONObject item = new JSONObject(); item.put("packageName", packageName);
-                    try { item.put("icon", icon(packages.getApplicationIcon(info.activityInfo.applicationInfo))); }
-                    catch (RuntimeException error) { item.put("icon", ""); }
-                    icons.put(item); continue;
+                    icons.put(readIcon(packages, info)); continue;
                 }
                 CharSequence label;
                 try { label = packages.getApplicationLabel(info.activityInfo.applicationInfo); }
                 catch (RuntimeException error) { label = info.activityInfo.packageName; labelFallbacks++; }
                 model.add(info.activityInfo.packageName, label);
+            }
+            if (iconsOnly) for (String packageName : wanted) if (!readIcons.contains(packageName)) {
+                icons.put(new JSONObject().put("packageName", packageName).put("icon", "")
+                    .put("error", "应用不在当前用户的启动列表中，请刷新应用列表"));
             }
             if (user != (Integer)currentUser.invoke(null)) throw new IllegalStateException("Android 用户已切换，请重新读取应用列表");
             JSONArray apps = new JSONArray();
@@ -90,12 +91,35 @@ public final class AppCatalog {
         }
     }
 
+    private static JSONObject readIcon(PackageManager packages, ResolveInfo info) throws org.json.JSONException {
+        android.content.pm.ApplicationInfo app = info.activityInfo.applicationInfo;
+        JSONObject item = new JSONObject().put("packageName", info.activityInfo.packageName);
+        try {
+            return item.put("icon", icon(packages.getApplicationIcon(app))).put("source", "system");
+        } catch (RuntimeException systemError) {
+            // 部分系统样式图标无法在无界面的软件 Canvas 绘制；改读同一应用资源，并保留原失败阶段。
+            String cause = systemError.getClass().getSimpleName();
+            item.put("systemIconError", cause);
+            try {
+                int resource = app.icon != 0 ? app.icon : info.getIconResource();
+                if (resource == 0) throw new android.content.res.Resources.NotFoundException("应用未声明图标资源");
+                Drawable original = packages.getResourcesForApplication(app).getDrawable(resource, null);
+                return item.put("icon", icon(original)).put("source", "application-resource");
+            } catch (PackageManager.NameNotFoundException | RuntimeException resourceError) {
+                String failure = "系统图标 " + cause + "；应用资源 " + resourceError.getClass().getSimpleName();
+                return item.put("icon", "").put("error", failure.substring(0, Math.min(160, failure.length())));
+            }
+        }
+    }
+
     private static String icon(Drawable drawable) {
+        if (drawable == null) throw new IllegalStateException("系统返回空图标");
         Bitmap bitmap = Bitmap.createBitmap(72, 72, Bitmap.Config.ARGB_8888);
         try {
             drawable.setBounds(0, 0, 72, 72); drawable.draw(new Canvas(bitmap));
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes) || bytes.size() > 32768) return "";
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes) || bytes.size() > 32768)
+                throw new IllegalStateException("PNG 图标压缩失败或超出大小限制");
             return "data:image/png;base64," + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP);
         } finally { bitmap.recycle(); }
     }

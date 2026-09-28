@@ -1,18 +1,33 @@
 import {symbol} from './symbols.js';
 import {api, available} from './bridge.js';
 import {AppCatalogStore, filterApps} from './app-catalog.js';
-import {appIcon, resetAppIcons, releaseAppIcons} from './app-icons.js';
+import {appIcon, resetAppIcons, releaseAppIcons, requestAppIcons} from './app-icons.js';
 
 export const appCatalog = new AppCatalogStore(async () => {
   const data = await api('apps'); resetAppIcons(data.user); return data;
 });
 let dialog, search, status, list, refreshButton, selection, chosen, catalog, footer, applyButton, counter, title;
 let multiple = false, generation = 0;
+let iconFrame = 0;
 let picked = new Map();
 function node(tag, className, text) {
   const result = document.createElement(tag); result.className = className;
   if (text !== undefined) result.textContent = text;
   return result;
+}
+function loadVisibleIcons() {
+  if (!dialog?.open || !catalog || document.hidden || !list.clientHeight) return;
+  const top = list.scrollTop, bottom = top + list.clientHeight;
+  for (const row of list.children) {
+    const rowTop = row.offsetTop, height = row.offsetHeight;
+    // 提前读取上下各一行，滚动时图标能够随列表出现；不批量读取整个手机应用库。
+    if (rowTop > bottom + height) break;
+    if (rowTop + height >= top - height) requestAppIcons(row);
+  }
+}
+function scheduleIcons() {
+  if (iconFrame || !dialog?.open) return;
+  iconFrame = requestAnimationFrame(() => { iconFrame = 0; loadVisibleIcons(); });
 }
 function render() {
   releaseAppIcons(list); list.replaceChildren();
@@ -31,7 +46,7 @@ function render() {
     const text = node('span', 'app-result-text');
     text.append(node('strong', '', app.label), node('small', '', app.packageName));
     if (!catalog.apps.some(current => current.packageName === app.packageName)) text.append(node('small', '', '当前列表中不可用，可取消勾选'));
-    row.append(appIcon(app.packageName, app.label), text);
+    row.append(appIcon(app.packageName, app.label, 'app-image', true), text);
     row.setAttribute('aria-label', `选择 ${app.label}（${app.packageName}）`);
     if (multiple) {
       const checkbox = node('input', 'app-checkbox'); checkbox.type = 'checkbox';
@@ -50,6 +65,7 @@ function render() {
   });
   list.append(fragment);
   updateSelection();
+  loadVisibleIcons(); scheduleIcons();
 }
 function updateSelection() {
   if (!multiple) return;
@@ -61,7 +77,7 @@ function updateSelection() {
   });
 }
 async function load(force) {
-  const ticket = ++generation; catalog = null; releaseAppIcons(list); list.replaceChildren(); updateSelection();
+  const ticket = ++generation; catalog = null; releaseAppIcons(list); list.replaceChildren(); list.scrollTop = 0; updateSelection();
   status.textContent = '正在读取手机应用…'; refreshButton.disabled = true;
   try {
     if (!available()) throw new Error('请从手机 KernelSU 打开 WebUI，读取当前手机的应用。');
@@ -84,18 +100,25 @@ function init() {
   close.addEventListener('click', () => dialog.close()); heading.append(title, close);
   const toolbar = node('div', 'app-picker-toolbar'); search = node('input', 'app-search');
   search.type = 'search'; search.placeholder = '搜索应用名称'; search.setAttribute('aria-label', '搜索应用名称或包名');
-  search.autocomplete = 'off'; search.addEventListener('input', render);
+  search.autocomplete = 'off'; search.addEventListener('input', () => { list.scrollTop = 0; render(); });
   refreshButton = node('button', 'secondary', '刷新'); refreshButton.type = 'button'; refreshButton.addEventListener('click', () => load(true));
   toolbar.append(search, refreshButton);
   status = node('p', 'app-picker-status'); status.setAttribute('role', 'status');
   list = node('div', 'app-results');
+  list.addEventListener('scroll', scheduleIcons, {passive: true});
   footer = node('div', 'app-picker-footer'); counter = node('span', '');
   applyButton = node('button', 'primary', '使用所选应用'); applyButton.type = 'button';
   applyButton.addEventListener('click', () => { const callback = selection, apps = [...picked.values()]; dialog.close(); callback?.(apps); });
   footer.append(counter, applyButton);
   dialog.append(heading, toolbar, status, list, footer); document.body.append(dialog);
+  new ResizeObserver(scheduleIcons).observe(list);
+  dialog.addEventListener('animationend', scheduleIcons);
+  document.addEventListener('sidekey-icons-reset', scheduleIcons);
+  document.addEventListener('visibilitychange', scheduleIcons);
+  window.addEventListener('resize', scheduleIcons);
   dialog.addEventListener('close', () => {
     if (dialog.open) return;
+    cancelAnimationFrame(iconFrame); iconFrame = 0;
     generation++; selection = null; releaseAppIcons(list); list.replaceChildren();
   });
   document.addEventListener('sidekey-icons-failed', event => {

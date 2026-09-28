@@ -10,12 +10,14 @@ const el = (tag, cls = '', text) => {
   return node;
 };
 let draft, dialogConfig, lastFocus, closeTimer;
+let previewSurfingOn = false;
 
-function control(item) {
-  const row = el('div', 'panel-control');
+function control(item, interactive = false) {
+  const row = el(interactive ? 'button' : 'div', 'panel-control');
+  if (interactive) row.type = 'button';
   const name = el('span', 'panel-name');
   const stateful = ['torch', 'mijia', 'surfing'].includes(item.type);
-  name.append(el('strong', '', item.name), el('small', '', stateful ? '状态在真实菜单中读取' : '轻触执行'));
+  name.append(el('strong', '', item.name)); name.title = item.name;
   const indicator = el('span', 'power-button');
   indicator.append(symbol(stateful ? 'power' : 'chevron.right'));
   row.append(symbol(actionSymbols[item.type] || 'app.fill'), name, indicator);
@@ -30,7 +32,14 @@ function reading(item) {
   return card;
 }
 function surfing(item) {
-  const card = el('article', 'panel-card surfing-card'); card.append(control(item));
+  const card = el('article', 'panel-card surfing-card'), header = control(item, true);
+  const details = el('div', 'surfing-preview-details'); card.append(header, details);
+  header.setAttribute('aria-label', item.name + '，切换开启后的布局预览，不执行实际操作');
+  header.title = '仅切换布局预览，不执行实际操作';
+  header.addEventListener('click', () => {
+    previewSurfingOn = !previewSurfingOn;
+    document.querySelectorAll('.surfing-card').forEach(updatePreviewSurfing);
+  });
   const labels = surfingText(item), mask = surfingMask(item), grid = el('div', 'traffic-grid');
   for (const [key, , bit] of surfingFields.slice(0, 4)) {
     if (!(mask & bit)) continue;
@@ -39,17 +48,24 @@ function surfing(item) {
     cell.append(el('strong', '', '—')); grid.append(cell);
   }
   if (mask & 15) {
-    card.append(grid);
-    if (labels.note) card.append(el('p', 'traffic-note', labels.note));
+    details.append(grid);
+    if (labels.note) details.append(el('p', 'traffic-note', labels.note));
   }
   if (mask & 16) {
     const quota = el('section', 'subscription');
     if (labels.quota) quota.append(el('h4', '', labels.quota));
     quota.append(el('p', '', (labels.used ? labels.used + '：' : '') + '—'));
     quota.append(el('p', '', (labels.total ? labels.total + '：' : '') + '—'));
-    card.append(quota);
+    details.append(quota);
   }
+  updatePreviewSurfing(card);
   return card;
+}
+function updatePreviewSurfing(card) {
+  const header = card.querySelector('.panel-control');
+  header.classList.toggle('is-on', previewSurfingOn);
+  header.setAttribute('aria-pressed', String(previewSurfingOn));
+  card.querySelector('.surfing-preview-details').hidden = !previewSurfingOn;
 }
 function render(host, config, modal = false) {
   if (!host || !config) return;
@@ -95,6 +111,7 @@ export function renderLiveMenu(config) {
 export function openMenuPreview(config) {
   if (!config?.menu.some(item => item.type !== 'none')) return;
   clearTimeout(closeTimer); $('menu-preview').classList.remove('is-closing');
+  previewSurfingOn = false;
   dialogConfig = structuredClone(config); lastFocus = document.activeElement;
   if (!$('menu-preview').open) $('menu-preview').showModal();
   render($('menu-preview-panel'), dialogConfig, true); $('close-preview').focus();

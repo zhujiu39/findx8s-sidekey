@@ -6,7 +6,8 @@ export function normalizeIcons(data, user, requested) {
     throw new Error('应用图标响应异常，请刷新应用列表');
   const result = new Map(requested.map(name => [name, '']));
   for (const item of data.icons) {
-    if (!result.has(item.packageName) || typeof item.icon !== 'string' || item.icon.length > 43714 ||
+    if (!item || !result.has(item.packageName) || typeof item.icon !== 'string' || item.icon.length > 43714 ||
+        (item.error !== undefined && (typeof item.error !== 'string' || item.error.length > 160)) ||
         (item.icon && !/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(item.icon)))
       throw new Error('应用图标格式无效');
     result.set(item.packageName, item.icon);
@@ -31,6 +32,7 @@ export function resetAppIcons(nextUser) {
     record.cancel?.(); record.cancel = null; record.token++; record.state = 'idle';
     record.element.replaceChildren(symbol('app.fill'));
   }
+  document.dispatchEvent(new Event('sidekey-icons-reset'));
   schedule();
 }
 async function pump() {
@@ -44,7 +46,8 @@ async function pump() {
       batch.forEach(([, job]) => job.running = true);
       try {
         const names = batch.map(([name]) => name);
-        const icons = normalizeIcons(await api('app-icons', `${currentUser}:${names.join(',')}`), currentUser, names);
+        const response = await api('app-icons', `${currentUser}:${names.join(',')}`);
+        const icons = normalizeIcons(response, currentUser, names);
         if (ticket !== epoch) continue;
         let missing = false;
         batch.forEach(([name, job]) => {
@@ -56,7 +59,7 @@ async function pump() {
           } else missing = true;
           job.callbacks.forEach(callback => callback(icon));
         });
-        if (missing) failure('系统未返回部分应用的图标');
+        if (missing) failure(response.icons.find(item => !item.icon && item.error)?.error || '系统未返回部分应用的图标');
       } catch (error) {
         if (ticket !== epoch) continue;
         batch.forEach(([name, job]) => {
@@ -106,7 +109,7 @@ function schedule() {
     for (const record of [...targets]) {
       const element = record.element;
       if (!element.isConnected) { release(record); continue; }
-      if (record.state !== 'idle' || !element.getClientRects().length) continue;
+      if (record.managed || record.state !== 'idle' || !element.getClientRects().length) continue;
       const dialog = element.closest('dialog');
       if (dialog && !dialog.open) continue;
       const rect = element.getBoundingClientRect();
@@ -121,15 +124,22 @@ if (typeof document !== 'undefined') {
   document.addEventListener('sidekey-page', schedule);
   document.addEventListener('sidekey-apps-updated', schedule);
   document.addEventListener('visibilitychange', schedule);
+  document.addEventListener('animationend', schedule);
   window.addEventListener('resize', schedule);
 }
-export function appIcon(packageName, label, className = 'app-image') {
+export function appIcon(packageName, label, className = 'app-image', managed = false) {
   const wrapper = document.createElement('span'); wrapper.className = className;
   wrapper.append(symbol('app.fill')); wrapper.setAttribute('aria-hidden', 'true');
   wrapper.dataset.appIcon = '';
-  const record = {element: wrapper, packageName, state: 'idle', token: 0, cancel: null};
+  const record = {element: wrapper, packageName, managed, state: 'idle', token: 0, cancel: null};
   records.set(wrapper, record); targets.add(record); schedule();
   return wrapper;
+}
+// 对话框使用自身滚动坐标决定可见行，显式请求图标，避免顶层动画影响整页可见性判断。
+export function requestAppIcons(container) {
+  container.querySelectorAll('[data-app-icon]').forEach(node => {
+    const record = records.get(node); if (record) load(record);
+  });
 }
 export function releaseAppIcons(container) {
   container.querySelectorAll('[data-app-icon]').forEach(node => {
