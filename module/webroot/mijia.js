@@ -141,9 +141,8 @@ function valueInput(property, state) {
   input.setAttribute('aria-label', property.name); return input;
 }
 function readingLabelEditor(property, value) {
-  const compact = document.body.dataset.page !== 'menu';
-  const field = node(compact ? 'details' : 'div','mijia-reading-label'), label = node('label','mijia-field','数值前文案');
-  if (compact) { const heading = node('summary','','自定义读数文案'); heading.append(symbol('chevron.down')); field.append(heading); }
+  const field = node('details','mijia-reading-label'), label = node('label','mijia-field','数值前文案');
+  const heading = node('summary','','自定义读数文案'); heading.append(symbol('chevron.down')); field.append(heading);
   const input = node('input'); input.type='text'; input.maxLength=60;
   input.value=property.label ?? property.displayName ?? property.name;
   input.placeholder='留空只显示数值';

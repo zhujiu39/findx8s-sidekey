@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.2.0-test.5'
-VERSION_CODE = 118
+VERSION = '1.2.0-test.6'
+VERSION_CODE = 119
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -250,7 +250,7 @@ def main():
                 'LICENSES/sidekey-LICENSE.txt', 'lib/mijia.jar', 'lib/mijia-source.zip', 'scripts/mijia.sh',
                 'webroot/mijia.js', 'webroot/clipboard.js', 'webroot/log-export.js', 'scripts/logs.sh', 'scripts/surfing.sh', 'LICENSES/mijia-GPL-3.0.txt', 'LICENSES/micloud-MIT.txt',
                 'webroot/shell.js', 'webroot/symbols.js', 'webroot/side-panel.js', 'webroot/action-picker.js', 'webroot/assets/symbols.js', 'webroot/assets/sources.json', 'LICENSES/SF-Symbols-notice.txt',
-                'webroot/home.css', 'webroot/home-view.js', 'webroot/home-wallpaper.svg'}
+                'webroot/home.css', 'webroot/home-view.js'}
     if not required.issubset({path.relative_to(MODULE).as_posix() for path in files}):
         raise RuntimeError('模块文件不完整')
     for path in files:
@@ -265,7 +265,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_家庭风格WebUI重排')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_快捷栏配置统一与深浅色背景')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -296,11 +296,11 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '本版参考 Apple 家庭 App 重排手势、米家和设置页面。'
-        '使用原创柔焦壁纸、半透明分类与导航、两列设备卡片、房间分组和底部详情面板；继续使用已有 SF Symbols。'
-        '米家增加类别、房间和名称筛选，设备详情先展示真实读数，再展开读数卡配置、控制动作和自定义文案。'
-        '手势首页改为动作卡片，点按后配置；有未保存修改时显示保存条。'
-        '按用户要求，快捷栏编辑页、布局预览和原生快捷栏 UI 保持不变。配置格式、签名和业务接口不变。\n\n'
+        '本版统一手势、快捷栏配置、米家和设置四页的视觉样式。'
+        '浅色模式使用纯白背景，深色模式使用深色背景；保留浅色、深色、跟随系统的即时切换和本机记忆。'
+        '去掉上一版装饰壁纸，卡片、文字、导航、弹窗和保存条随外观适配，继续使用已有 SF Symbols。'
+        '快捷栏配置按概览、添加项目、菜单内容和菜单布局组织；保留应用选择、排序、米家读数文案、Surfing 文案和全部布局参数。'
+        '双击侧键弹出的原生快捷菜单外观、交互与系统深色响应保持不变；配置格式、签名和业务接口不变。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'

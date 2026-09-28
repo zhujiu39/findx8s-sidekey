@@ -62,7 +62,7 @@ function render() {
   const apps=entries.filter(isApp), switches=entries.filter(item=>!isApp(item));
   const configured=switches.filter(item=>item.type!=='none');
   renderSummary(apps,configured);
-  $('menu-empty').hidden=apps.length + configured.length !== 0;
+  $('menu-empty').hidden=entries.length !== 0;
   $('menu-count').textContent=apps.length + ' 个应用 · ' + configured.length + ' 个快捷项';
   switches.forEach((item,index)=>{
     const section=element('details','menu-item'); section.open=expandedItem===item || item.type==='none';
@@ -143,9 +143,14 @@ export function initMenuEditor(change) {
     if (isBusy || entries.length>=2060) return;
     entries.push({name:'新开关',icon:'',type:'none',argument:''}); changed();
   });
+  $('add-menu-mijia').addEventListener('click',()=>{
+    if (isBusy || entries.length>=2060) return;
+    chooseMijia(addMijiaEntry,true);
+  });
   $('add-surfing').addEventListener('click',()=>{
     if (isBusy || entries.length>=2060 || entries.some(item=>item.type==='surfing')) return;
-    entries.push({name:'Surfing 代理',icon:'',type:'surfing',argument:''}); changed();
+    const item={name:'Surfing 代理',icon:'',type:'surfing',argument:''};
+    entries.push(item); expandedItem=item; changed();
   });
   ['menu-side','menu-position','menu-width','menu-gap'].forEach(id=>$(id).addEventListener('input',onChange));
   $('preview-menu').addEventListener('click',preview);
@@ -169,6 +174,7 @@ export function readMenu() { return {menu_side:$('menu-side').value,menu_positio
   menu_width:Number($('menu-width').value),menu_gap:Number($('menu-gap').value),menu:structuredClone(entries)}; }
 export function menuBusy(value) {
   isBusy=value;$('choose-menu-apps').disabled=value;
+  $('add-menu-mijia').disabled=value || entries.length>=2060;
   $('add-menu-switch').disabled=value || entries.length>=2060;
   $('add-surfing').disabled=value || entries.length>=2060 || entries.some(item=>item.type==='surfing');
   $('preview-menu').disabled=value || !entries.some(item=>item.type!=='none');

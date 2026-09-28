@@ -4,13 +4,12 @@ const $ = id => document.getElementById(id);
 hydrateSymbols();
 const pages = {
   gestures: ['Find X8s', '侧键', '短按、双击与长按'],
-  menu: ['快捷栏', '常用的，都在手边。', '把应用与控制放在一起，按自己的习惯排列。'],
+  menu: ['侧键自定义', '快捷栏', '应用、设备与常用操作'],
   mijia: ['米家', '我的家', '家庭与设备'],
   settings: ['侧键自定义', '设置', '外观、按键与运行状态']
 };
 document.addEventListener('sidekey-page', event => {
   document.body.dataset.page = event.detail;
-  document.body.classList.toggle('home-interface', event.detail !== 'menu');
   const [eyebrow, title, description] = pages[event.detail] || pages.gestures;
   $('page-eyebrow').textContent = eyebrow;
   $('page-title').textContent = title;
