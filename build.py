@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.2.0-test.8'
-VERSION_CODE = 121
+VERSION = '1.2.0-test.9'
+VERSION_CODE = 122
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -265,7 +265,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_恢复图标加载与WebUI紧凑开关')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_KernelSU原生图标与逐项诊断')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -296,14 +296,13 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '本版对照旧版图标实现，恢复最多 16 张一批的系统 PNG 读取与直接插入图片的显示方式。'
-        '应用选择器生成列表后直接请求首批图标，不依赖列表高度、滚动坐标或动画结束；后续图标保留观察器与滚动加载。'
-        '快捷栏已选应用同步使用主动加载，保留用户隔离、缓存、取消过期请求及失败提示；实际恢复情况待真机复测。'
-        '补齐 WebUI 紧凑布局：接管、触感、减少动态效果与 Surfing 显示项均为左标题、右开关。'
-        '米家设备改为紧凑横排，移除常驻在线／离线文字；布尔属性在标题右侧以颜色和图标显示读回状态。'
-        '保留异常提示、无障碍说明与读数时效说明；米家详情仍用于配置动作，不新增即时控制。'
-        '原生菜单沿用 test.7 的同行开关与 Surfing 仅开启时显示详情的逻辑。'
-        '浅色纯白、深色深底及跟随系统保持；配置格式、APK 签名、Android 图标读取及米家和 Surfing 后端接口不变。\n\n'
+        '本版接入 KernelSU 官方 ksu://icon 本机图标接口：检测到 listPackages 且 Android 用户为 0 时优先由管理器提供图片。'
+        '同步放行网页图片策略中的 ksu://icon，直接用 img 显示，不通过 fetch 或跨域 Canvas。'
+        '接口不可用、图标失败或等待超过 8 秒时，对该应用使用原来的 Root PNG 路径；其他用户仍明确按用户读取。'
+        'Root 路径每批两张，批量请求失败时拆成单应用各重试一次；失败保留包名和原因，不无限重试。'
+        '选择器新增复制图标诊断按钮，记录接口支持情况、包名、请求来源、响应及图片显示阶段；不包含图片数据或账号凭据。'
+        '应用首屏、搜索、滚动与已选应用沿用主动加载。'
+        '本版未变更紧凑开关布局、Surfing 显示条件、深浅色外观、原生菜单实现、配置格式或签名证书。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'

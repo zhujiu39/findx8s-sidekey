@@ -1,7 +1,8 @@
 import {symbol} from './symbols.js';
 import {api, available} from './bridge.js';
 import {AppCatalogStore, filterApps} from './app-catalog.js';
-import {appIcon, resetAppIcons, releaseAppIcons, requestAppIcons} from './app-icons.js';
+import {appIcon, resetAppIcons, releaseAppIcons, requestAppIcons, appIconDiagnostics} from './app-icons.js';
+import {copyText} from './clipboard.js';
 
 export const appCatalog = new AppCatalogStore(async () => {
   const data = await api('apps'); resetAppIcons(data.user); return data;
@@ -89,12 +90,26 @@ function init() {
   refreshButton = node('button', 'secondary', '刷新'); refreshButton.type = 'button'; refreshButton.addEventListener('click', () => load(true));
   toolbar.append(search, refreshButton);
   status = node('p', 'app-picker-status'); status.setAttribute('role', 'status');
+  const statusRow = node('div','app-picker-status-row');
+  const diagnostics = node('button','icon-button'); diagnostics.type = 'button';
+  diagnostics.setAttribute('aria-label','复制图标诊断'); diagnostics.title = '复制图标诊断';
+  diagnostics.append(symbol('doc.on.doc'));
+  diagnostics.addEventListener('click', async () => {
+    const text = appIconDiagnostics(), ticket = generation;
+    try { await copyText(text); if (dialog.open && ticket === generation) status.textContent = '图标诊断已复制'; }
+    catch {
+      if (!dialog.open || ticket !== generation) return;
+      const input = document.getElementById('log-copy-text'); input.value = text;
+      document.getElementById('log-copy-fallback').showModal(); input.focus(); input.select();
+    }
+  });
+  statusRow.append(status,diagnostics);
   list = node('div', 'app-results');
   footer = node('div', 'app-picker-footer'); counter = node('span', '');
   applyButton = node('button', 'primary', '使用所选应用'); applyButton.type = 'button';
   applyButton.addEventListener('click', () => { const callback = selection, apps = [...picked.values()]; dialog.close(); callback?.(apps); });
   footer.append(counter, applyButton);
-  dialog.append(heading, toolbar, status, list, footer); document.body.append(dialog);
+  dialog.append(heading, toolbar, statusRow, list, footer); document.body.append(dialog);
   document.addEventListener('sidekey-icons-reset', () => { if (dialog.open) requestAppIcons(list); });
   dialog.addEventListener('close', () => {
     if (dialog.open) return;
