@@ -2,7 +2,7 @@ import {actions, surfingFields, surfingTextDefaults, surfingText, surfingMask} f
 import {appCatalog, chooseApps} from './app-picker.js';
 import {menuAppName} from './app-catalog.js';
 import {isApp, applyAppSelection} from './app-selection.js';
-import {appIcon, releaseAppIcons} from './app-icons.js';
+import {appIcon, releaseAppIcons, requestAppIcons} from './app-icons.js';
 import {chooseMijia, mijiaBindingLabel, mijiaBindingIsReading, editReadingLabels} from './mijia.js';
 import {symbol, actionSymbols} from './symbols.js';
 import {decorateActionSelect} from './action-picker.js';
@@ -26,8 +26,9 @@ function surfingEditor(item, card) {
     inputs.get('used').hidden=inputs.get('total').hidden=!(mask & 16);
   }
   for (const [key, title, bit] of surfingFields) {
-    const check=element('input','');check.type='checkbox';check.checked=Boolean(surfingMask(item) & bit);
-    const label=element('label','surfing-option');label.append(check,element('span','',title));options.append(label);
+    const check=element('input','');check.type='checkbox';check.setAttribute('role','switch');check.checked=Boolean(surfingMask(item) & bit);
+    const toggle=element('span','switch');toggle.append(check,element('span',''));
+    const label=element('label','surfing-option');label.append(element('span','',title),toggle);options.append(label);
     check.addEventListener('change',()=>{item.surfing_fields=check.checked ? surfingMask(item)|bit : surfingMask(item)&~bit;sync();onChange();});
   }
   const titles={up:'上传速率文案',down:'下载速率文案',upload:'上传流量文案',download:'下载流量文案',note:'统计说明',quota:'订阅标题',used:'已用流量文案',total:'总流量文案'};
@@ -102,6 +103,7 @@ function render() {
     host.append(row);
   });
   menuBusy(isBusy);
+  requestAppIcons(host);
   renderLiveMenu(readMenu());
 }
 function renderSummary(apps, switches) {
@@ -111,6 +113,7 @@ function renderSummary(apps, switches) {
     const icon=appIcon(item.argument,label); icon.title=label; host.append(icon);
   });
   if (apps.length>6) host.append(element('span','shortcut-more','+'+(apps.length-6)));
+  requestAppIcons(host);
   $('shortcut-count').textContent=apps.length+' 个应用 · '+switches.length+' 个快捷项';
   $('shortcut-empty').hidden=apps.length+switches.length!==0;
 }

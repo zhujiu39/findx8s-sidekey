@@ -33,9 +33,10 @@ body[data-page=mijia] .app-header{display:none}
 #page-gestures>.section-heading{color:var(--home-ink);margin:27px 2px 13px}
 #page-gestures>.section-heading h2{font-size:22px;letter-spacing:-.4px}
 #page-gestures>.section-heading>span,#page-gestures>.section-footnote{color:var(--home-muted);font-size:12px}
-.home-interface .power-card{padding:17px 19px;border:1px solid var(--home-line);border-radius:24px;background:var(--surface);color:var(--home-ink);gap:13px}
-.home-interface .power-card .colored-icon{background:var(--soft);color:var(--accent);align-self:center;border-radius:50%;width:42px;height:42px}
-.home-interface .power-copy h2{font-size:16px;font-weight:600}
+.home-interface .power-card{min-height:58px;padding:10px 15px;border:1px solid var(--home-line);border-radius:18px;background:var(--surface);color:var(--home-ink);gap:11px}
+.home-interface .power-card .colored-icon{background:var(--soft);color:var(--accent);align-self:center;border-radius:50%;width:32px;height:32px}
+.home-interface .power-card .colored-icon .sf-symbol{width:19px;height:21px}
+.home-interface .power-copy h2{font-size:15px;font-weight:600;line-height:1.5}
 .home-interface .status{color:var(--muted);font-size:12px;margin-top:5px}
 .home-interface .status.error{color:var(--danger)}
 .home-interface .status.active i{background:var(--green)}
@@ -59,7 +60,9 @@ body[data-page=mijia] .app-header{display:none}
 .home-interface .gesture-arrow{display:none}
 .home-interface .gesture-cue{position:absolute;right:17px;top:19px;color:var(--home-muted);font-size:12px;font-weight:650}
 .home-interface .is-unassigned .gesture-cue{color:var(--home-muted)}
-.home-interface #page-gestures>.feedback-row{background:var(--home-tile);color:var(--home-ink);border:1px solid var(--line);border-radius:24px;padding:18px 20px}
+.home-interface :is(#page-gestures,#page-settings)>.feedback-row{background:var(--home-tile);color:var(--home-ink);border:1px solid var(--line);border-radius:18px;padding:10px 15px;min-height:58px;margin-top:12px;gap:12px}
+.home-interface .feedback-copy{min-width:0;flex:1;gap:11px;font-size:15px}
+.home-interface .feedback-copy>.colored-icon{width:32px;height:32px;flex:none}
 .home-interface #page-gestures>.feedback-row .feedback-copy small{color:var(--home-muted)}
 .home-interface .shortcut-summary{border:1px solid var(--line);border-radius:24px}
 
@@ -86,8 +89,8 @@ body[data-page=mijia] .app-header{display:none}
 .menu-add-plus{position:absolute;top:20px;right:18px;color:var(--muted)}
 .menu-add-plus .sf-symbol{width:14px;height:14px}
 .home-interface .menu-item{background:var(--surface);border:1px solid var(--line);border-radius:24px;margin-top:12px}
-.home-interface .menu-item-summary{padding:18px;gap:13px;min-height:80px}
-.home-interface .menu-item-summary .colored-icon{width:40px;height:40px;border-radius:13px;flex:none}
+.home-interface .menu-item-summary{padding:11px 15px;gap:11px;min-height:60px}
+.home-interface .menu-item-summary .colored-icon{width:32px;height:32px;border-radius:10px;flex:none}
 .home-interface .menu-item-summary .colored-icon .sf-symbol{width:22px;height:22px}
 .home-interface .menu-item-summary .item-copy strong{font-size:16px}
 .home-interface .menu-item-summary .item-copy small{font-size:12px;line-height:1.5;margin-top:4px}
@@ -102,7 +105,8 @@ body[data-page=mijia] .app-header{display:none}
 .home-interface .menu-item-detail>.secondary{min-height:44px;border-radius:22px;font-size:13px;margin-top:8px;max-width:100%;overflow-wrap:anywhere;text-align:left}
 .home-interface .menu-item-detail>.hint{font-size:12px}
 .home-interface .surfing-options legend{font-size:15px;margin-bottom:4px}
-.home-interface .surfing-option{font-size:14px;min-height:48px;padding:13px 0;line-height:1.6}
+.home-interface .surfing-option{justify-content:space-between;font-size:14px;min-height:48px;padding:8px 0;line-height:1.5;gap:16px}
+.home-interface .surfing-option>span:first-child{flex:1;min-width:0}
 .home-interface .surfing-text-fields .menu-field{margin:9px 0}
 .home-interface .selected-app-title{font-size:19px;font-weight:650;margin:26px 2px 12px}
 .home-interface .selected-app-row{padding:14px 16px;border:1px solid var(--line);border-radius:21px;margin-bottom:10px;gap:8px;flex-wrap:wrap}
@@ -179,15 +183,16 @@ body[data-page=mijia] .app-header{display:none}
 .home-clear-filter{color:var(--home-ink);background:var(--soft);border-radius:15px;min-height:44px;padding:10px 15px;font-size:13px;margin:12px 0 0}
 .home-room{margin-top:24px}
 .home-room-heading{color:var(--home-ink);font-size:19px;font-weight:650;letter-spacing:-.3px;line-height:1.4;margin:0 1px 11px;overflow-wrap:anywhere}
-.home-device-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.home-device{display:flex;align-items:center;gap:12px;min-height:90px;width:100%;padding:17px 15px;border-radius:23px;background:var(--home-tile);color:var(--home-ink);text-align:left;border:1px solid var(--line)}
-.home-device-symbol{flex:none;display:grid;place-items:center;width:36px;height:40px;color:var(--home-orange)}
-.home-device-symbol .sf-symbol{width:27px;height:30px}
+.home-device-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.home-device{display:flex;align-items:center;gap:11px;min-height:58px;width:100%;padding:10px 14px;border-radius:18px;background:var(--home-tile);color:var(--home-ink);text-align:left;border:1px solid var(--line)}
+.home-device-symbol{flex:none;display:grid;place-items:center;width:28px;height:32px;color:var(--home-orange)}
+.home-device-symbol .sf-symbol{width:23px;height:25px}
 .home-device[data-category=climate] .home-device-symbol{color:var(--home-teal)}
 .home-device[data-category=lights] .home-device-symbol{color:var(--home-yellow)}
 .home-device[data-category=security] .home-device-symbol{color:var(--home-mint)}
 .home-device[data-category=power] .home-device-symbol{color:var(--accent)}
-.home-device-copy{min-width:0}
+.home-device-copy{min-width:0;flex:1}
+.home-device-arrow{width:11px;height:13px;flex:none;color:var(--muted)}
 .home-device-copy strong{display:block;font-size:15px;line-height:1.4;font-weight:650;overflow-wrap:anywhere}
 .home-device-copy small{display:block;font-size:12px;line-height:1.5;color:var(--home-muted);margin-top:5px}
 .home-device.is-offline{background:var(--home-glass);color:var(--muted);border:1px solid var(--home-line)}
@@ -306,6 +311,11 @@ body[data-page=mijia] .app-header{display:none}
 .mijia-property>summary small{display:block;line-height:1.5;margin-top:4px}
 .mijia-property>summary>.sf-symbol{width:12px;height:12px;color:var(--muted);transition:transform .2s}
 .mijia-property[open]>summary>.sf-symbol{transform:rotate(180deg)}
+.mijia-boolean-property>summary{min-height:54px;padding:10px 14px;gap:10px}
+.mijia-boolean-property>summary>span:first-child{min-width:0;flex:1}
+.mijia-property-power{display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:50%;background:var(--surface-secondary);color:var(--muted)}
+.mijia-property-power .sf-symbol{width:14px;height:14px}
+.mijia-property-power.is-on{background:var(--green);color:#fff}
 .mijia-property-content{padding:0 18px 18px}
 .home-interface #mijia-dialog .mijia-reading-choice{min-height:62px}
 .home-interface #mijia-dialog .mijia-reading-choice strong{font-size:14px}
@@ -343,10 +353,8 @@ body[data-page=mijia] .app-header{display:none}
   .home-topline{margin-top:-2px;margin-bottom:13px}
   .home-categories{margin-inline:-20px;padding-left:20px;padding-right:20px}
   .home-category{min-width:104px;padding:10px 15px;min-height:57px;border:1px solid transparent}
-  .home-device-grid,.home-scenes{gap:10px}
-  .home-device{flex-direction:column;align-items:flex-start;justify-content:space-between;min-height:148px;padding:17px;gap:15px;border-radius:23px;border:1px solid var(--line)}
-  .home-device-symbol{height:32px;width:32px}
-  .home-device-symbol .sf-symbol{width:25px;height:28px}
+  .home-scenes{gap:10px}
+  .home-device-grid{grid-template-columns:1fr;gap:8px}
   .home-device-copy strong{font-size:15px}
   .home-device-copy small{font-size:12px}
   .home-scene{padding:14px 12px;gap:9px;min-height:81px;border-radius:22px;background:var(--surface)}

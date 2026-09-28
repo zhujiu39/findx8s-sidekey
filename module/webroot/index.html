@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'">
-  <title>侧键自定义 · v1.2.0-test.7</title>
+  <title>侧键自定义 · v1.2.0-test.8</title>
   <script src="appearance.js"></script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="home.css">
@@ -20,7 +20,7 @@
         <button id="tab-mijia" type="button" role="tab" aria-controls="page-mijia" aria-selected="false" tabindex="-1" data-page="mijia" data-symbol="house.fill"><span>米家</span></button>
         <button id="tab-settings" type="button" role="tab" aria-controls="page-settings" aria-selected="false" tabindex="-1" data-page="settings" data-symbol="gearshape.fill"><span>设置</span></button>
       </nav>
-      <div class="navigation-footer"><span class="small-device" data-symbol="iphone.gen3"></span><div><strong>Find X8s</strong><small>v1.2.0-test.7</small></div></div>
+      <div class="navigation-footer"><span class="small-device" data-symbol="iphone.gen3"></span><div><strong>Find X8s</strong><small>v1.2.0-test.8</small></div></div>
     </aside>
     <div class="content-region">
       <header class="app-header"><div><p class="eyebrow" id="page-eyebrow">Find X8s</p><h1 id="page-title">侧键</h1><p id="page-description">短按、双击与长按</p></div><button id="refresh" class="icon-button" type="button" aria-label="刷新状态" data-symbol="arrow.clockwise"></button></header>
@@ -41,7 +41,7 @@
           <p id="shortcut-empty" class="hint">添加第一个应用或快捷操作。</p>
           <div class="shortcut-bottom"><span id="shortcut-count">正在读取…</span><button id="preview-shortcuts" class="secondary" type="button" data-symbol="play.fill">布局预览</button></div>
         </section>
-        <label class="feedback-row" for="haptic"><span class="feedback-copy"><span class="colored-icon small purple" data-symbol="waveform"></span><span>触感反馈<small>识别手势时轻轻震动</small></span></span><span class="switch"><input id="haptic" type="checkbox" role="switch" checked><span></span></span></label>
+        <label class="feedback-row" for="haptic"><span class="feedback-copy"><span class="colored-icon small purple" data-symbol="waveform"></span><span>触感反馈<small class="visually-hidden">识别手势时轻轻震动</small></span></span><span class="switch"><input id="haptic" type="checkbox" role="switch" checked><span></span></span></label>
       </section>
 
       <section id="page-menu" class="page menu-editor" role="tabpanel" aria-labelledby="tab-menu" hidden>
@@ -89,9 +89,9 @@
       <section id="page-settings" class="page" role="tabpanel" aria-labelledby="tab-settings" hidden>
         <fieldset class="appearance-group"><legend>外观</legend><div class="appearance-options"><label><input type="radio" name="appearance" value="light"><span class="theme-tile theme-light"><i></i><b></b><b></b></span><span>浅色</span></label><label><input type="radio" name="appearance" value="dark"><span class="theme-tile theme-dark"><i></i><b></b><b></b></span><span>深色</span></label><label><input type="radio" name="appearance" value="system" checked><span class="theme-tile theme-system"><i></i><b></b><b></b></span><span>跟随系统</span></label></div><p id="appearance-note" class="hint" role="status">外观立即生效，并在本机 WebUI 中记住。</p></fieldset>
         <section class="settings-group"><div class="group-heading"><span class="colored-icon small purple" data-symbol="hand.tap"></span><h2>按键节奏</h2></div><div class="settings-body"><label class="range-label" for="long-ms">长按触发时间 <output id="long-output">600 ms</output></label><input id="long-ms" type="range" min="250" max="2000" step="10" value="600"><div class="range-ends"><span>灵敏</span><span>从容</span></div><label class="range-label" for="double-ms">双击最大间隔 <output id="double-output">280 ms</output></label><input id="double-ms" type="range" min="150" max="600" step="10" value="280"><div class="range-ends"><span>紧凑</span><span>宽松</span></div><p class="hint">短按会等待双击间隔。可按你的习惯调整。</p></div></section>
-        <label class="feedback-row"><span class="feedback-copy"><span class="colored-icon small blue" data-symbol="circle.lefthalf.filled"></span><span>减少动态效果<small>WebUI 动效，同时遵循系统偏好</small></span></span><span class="switch"><input id="reduce-motion" type="checkbox" role="switch"><span></span></span></label>
+        <label class="feedback-row"><span class="feedback-copy"><span class="colored-icon small blue" data-symbol="circle.lefthalf.filled"></span><span>减少动态效果<small class="visually-hidden">WebUI 动效，同时遵循系统偏好</small></span></span><span class="switch"><input id="reduce-motion" type="checkbox" role="switch"><span></span></span></label>
         <details class="diagnostics"><summary><span data-symbol="waveform">运行状态与日志</span><span data-symbol="chevron.down"></span></summary><div class="diagnostics-body"><dl><dt>监听服务</dt><dd id="service-info">—</dd><dt>最近手势</dt><dd id="last-event">—</dd><dt>累计识别</dt><dd id="event-count">—</dd><dt>输入设备</dt><dd id="device-info">—</dd><dt>动作结果</dt><dd id="result-info">—</dd><dt>系统手电筒</dt><dd id="torch-info">—</dd></dl><div class="tools"><button id="start-service" class="secondary" data-symbol="play.fill">启动监听服务</button><button id="reload-apps" class="secondary" data-symbol="arrow.clockwise">刷新应用列表</button><button id="prepare-menu" class="secondary" data-symbol="gearshape.fill">修复快捷菜单</button><button id="export-logs" class="secondary" data-symbol="square.and.arrow.up">导出完整日志</button><button id="copy-logs" class="secondary" data-symbol="doc.on.doc">复制全部日志</button></div><pre id="logs">正在读取日志…</pre></div></details>
-        <div class="about"><span data-symbol="hand.tap"></span><strong>侧键自定义</strong><p>Find X8s · v1.2.0-test.7</p><small>为你的侧键，安排更多可能。</small></div>
+        <div class="about"><span data-symbol="hand.tap"></span><strong>侧键自定义</strong><p>Find X8s · v1.2.0-test.8</p><small>为你的侧键，安排更多可能。</small></div>
       </section>
     </div>
     <aside class="live-preview" aria-label="快捷栏布局预览"><div class="live-heading"><span>随手预览</span><span class="live-badge">布局示意</span></div><div class="device-frame"><div class="device-status"><strong>9:41</strong><span data-symbol="wifi"></span><span data-symbol="battery.100"></span></div><div class="device-wallpaper"><span class="wallpaper-time">09:41</span><span class="wallpaper-date">星期四，9 月 24 日</span><div class="wallpaper-caption">常用的一切，<br>就在手边。</div></div><div id="live-menu" class="side-panel"></div><div class="device-home-indicator"></div></div><p>布局随修改更新。保存后，按侧键使用。</p><button id="expand-preview" class="text-button" type="button" data-symbol="play.fill">打开布局预览</button></aside>

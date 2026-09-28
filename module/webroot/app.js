@@ -139,6 +139,7 @@ function runtime(data) {
   else if (r.grabbed && data.config.enabled) { label = '侧键已接管'; status.classList.add('active'); }
   else if (data.config.enabled) label = '正在连接按键…';
   status.querySelector('span').textContent = label;
+  status.hidden = !status.classList.contains('error') && !(data.config.enabled && !r.grabbed);
   $('service-info').textContent = data.running ? '运行中' : '未运行';
   $('last-event').textContent = titles[gestureIds.indexOf(r.last_gesture)] || '尚未识别';
   $('event-count').textContent = String(r.count || 0);

@@ -201,7 +201,7 @@ async function loadDevice(body, device) {
   device = data.device || device; body.replaceChildren();
   const hero = node('div','home-device-detail'), mark = node('span','home-detail-icon'), copy = node('div','home-detail-copy');
   mark.append(symbol(deviceSymbol(device)));
-  copy.append(node('strong','',device.name),node('p','',`${device.room || '未分组'} · ${device.online ? '在线' : '离线'}`));
+  copy.append(node('strong','',device.name),node('p','',device.room || '未分组'));
   hero.append(mark,copy); body.append(hero);
   const readings = data.spec.properties.filter(property => property.reading);
   if (readings.length) {
@@ -252,8 +252,19 @@ async function loadDevice(body, device) {
   data.spec.properties.forEach(property => {
     if (!property.write && !property.setpoint) return;
     const state = data.states.find(item => item.siid === property.siid && item.piid === property.piid);
-    const control = propertyGroup(property.displayName || property.name, `${property.service} · ${property.read || property.notify ? stateLabel(property,state) : '只写属性'}`), card = control.content;
-    card.append(node('p','mijia-value',property.read || property.notify ? stateLabel(property,state) : '只写属性'));
+    const boolean = property.format === 'bool';
+    const control = propertyGroup(property.displayName || property.name, boolean ? '' : property.service), card = control.content;
+    if (boolean) {
+      const known = device.online && state?.code === 0 && typeof state.value === 'boolean';
+      const mark = node('span',`mijia-property-power${known && state.value ? ' is-on' : ''}`);
+      mark.append(symbol(known ? 'power' : 'minus'));
+      const label = known ? state.value ? '已开启' : '已关闭' : '状态未确认';
+      mark.setAttribute('role','img'); mark.setAttribute('aria-label',label); mark.title = label;
+      const heading = control.group.querySelector('summary');
+      heading.insertBefore(mark,heading.lastElementChild);
+      control.group.classList.add('mijia-boolean-property');
+      if (property.service) card.append(node('p','hint',property.service));
+    } else card.append(node('p','mijia-value',property.read || property.notify ? stateLabel(property,state) : '只写属性'));
     if (property.setpoint) card.append(node('p','hint','这是设定值，不是设备当前测量温度。'));
     if (!property.write) { body.append(control.group); return; }
     if (property.format === 'bool' && !property.values?.length) {

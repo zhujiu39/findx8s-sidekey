@@ -15,10 +15,15 @@ export function normalizeIcons(data, user, requested) {
   return result;
 }
 
-// 两张图标的 PNG/JSON 回包小于 96 KiB，避免一次传送 16 张图片造成桥接压力。
-const batchSize = 2;
+// 沿用旧版的分批查询；一次最多 16 张，每张 PNG 上限 32 KiB。
+const batchSize = 16;
 let user = -1, epoch = 0, running = false, frame = 0;
 const cache = new Map(), pending = new Map(), targets = new Set(), records = new WeakMap();
+const observer = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(items => {
+  for (const item of items) if (item.isIntersecting) {
+    const record = records.get(item.target); if (record) load(record);
+  }
+}, {rootMargin: '100px'});
 function failure(message) {
   document.dispatchEvent(new CustomEvent('sidekey-icons-failed', {detail: {message}}));
 }
@@ -31,6 +36,7 @@ export function resetAppIcons(nextUser) {
     if (!record.element.isConnected) { release(record); continue; }
     record.cancel?.(); record.cancel = null; record.token++; record.state = 'idle';
     record.element.replaceChildren(symbol('app.fill'));
+    observer?.unobserve(record.element); observer?.observe(record.element);
   }
   document.dispatchEvent(new Event('sidekey-icons-reset'));
   schedule();
@@ -82,6 +88,7 @@ function getIcon(name, callback) {
 }
 function load(record) {
   if (record.state !== 'idle' || user < 0 || !record.element.isConnected) return;
+  observer?.unobserve(record.element);
   record.state = 'loading'; const ticket = epoch, token = ++record.token;
   const current = () => ticket === epoch && token === record.token && record.element.isConnected;
   record.cancel = getIcon(record.packageName, source => {
@@ -90,16 +97,21 @@ function load(record) {
     const image = document.createElement('img'); image.alt = ''; image.decoding = 'async';
     image.onload = () => {
       if (!current()) return;
-      record.state = 'loaded'; record.element.replaceChildren(image);
+      record.state = 'loaded';
     };
     image.onerror = () => {
       if (!current()) return;
-      cache.delete(record.packageName); record.state = 'failed'; failure('WebView 无法显示系统返回的 PNG 图标');
+      cache.delete(record.packageName); record.state = 'failed';
+      record.element.replaceChildren(symbol('app.fill'));
+      failure('WebView 无法显示系统返回的 PNG 图标');
     };
+    // 与旧版一致，直接把真实图片放入列表；加载事件只负责状态和失败处理。
+    record.element.replaceChildren(image);
     image.src = source;
   });
 }
 function release(record) {
+  observer?.unobserve(record.element);
   record.cancel?.(); record.token++; record.state = 'released'; targets.delete(record);
 }
 function schedule() {
@@ -109,7 +121,7 @@ function schedule() {
     for (const record of [...targets]) {
       const element = record.element;
       if (!element.isConnected) { release(record); continue; }
-      if (record.managed || record.state !== 'idle' || !element.getClientRects().length) continue;
+      if (record.state !== 'idle' || !element.getClientRects().length) continue;
       const dialog = element.closest('dialog');
       if (dialog && !dialog.open) continue;
       const rect = element.getBoundingClientRect();
@@ -127,17 +139,17 @@ if (typeof document !== 'undefined') {
   document.addEventListener('animationend', schedule);
   window.addEventListener('resize', schedule);
 }
-export function appIcon(packageName, label, className = 'app-image', managed = false) {
+export function appIcon(packageName, label, className = 'app-image') {
   const wrapper = document.createElement('span'); wrapper.className = className;
   wrapper.append(symbol('app.fill')); wrapper.setAttribute('aria-hidden', 'true');
   wrapper.dataset.appIcon = '';
-  const record = {element: wrapper, packageName, managed, state: 'idle', token: 0, cancel: null};
-  records.set(wrapper, record); targets.add(record); schedule();
+  const record = {element: wrapper, packageName, state: 'idle', token: 0, cancel: null};
+  records.set(wrapper, record); targets.add(record); observer?.observe(wrapper); schedule();
   return wrapper;
 }
-// 对话框使用自身滚动坐标决定可见行，显式请求图标，避免顶层动画影响整页可见性判断。
-export function requestAppIcons(container) {
-  container.querySelectorAll('[data-app-icon]').forEach(node => {
+// 首批图标在列表插入后直接读取，不依赖弹窗高度、动画、滚动坐标或观察器回调。
+export function requestAppIcons(container, limit = batchSize) {
+  [...container.querySelectorAll('[data-app-icon]')].slice(0, limit).forEach(node => {
     const record = records.get(node); if (record) load(record);
   });
 }

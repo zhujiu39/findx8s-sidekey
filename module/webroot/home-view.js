@@ -93,8 +93,8 @@ export function createHomeView({openDevice, openScene, openAccount}) {
         tile.dataset.category = deviceCategory(device).id;
         const mark = node('span','home-device-symbol'); mark.append(symbol(deviceSymbol(device)));
         const copy = node('span','home-device-copy');
-        copy.append(node('strong','',device.name),node('small','',device.online ? '在线 · 查看设备' : '离线 · 查看详情'));
-        tile.append(mark,copy);
+        copy.append(node('strong','',device.name));
+        tile.append(mark,copy,symbol('chevron.right','home-device-arrow'));
         tile.setAttribute('aria-label', `${device.name}，${name}，${device.online ? '在线' : '离线'}，查看读数和控制动作`);
         tile.addEventListener('click', () => openDevice(device)); grid.append(tile);
       });
@@ -105,8 +105,7 @@ export function createHomeView({openDevice, openScene, openAccount}) {
         node('p','',devices.length ? '换一个分类、房间，或清除搜索。' : '在米家 App 添加设备后，点击右上角刷新。'));
       host.append(info);
     }
-    const online = devices.filter(device => device.online).length;
-    $('mijia-count').textContent = `${devices.length} 台设备 · ${online} 台在线${devices.length - online ? ` · ${devices.length - online} 台离线` : ''}`;
+    $('mijia-count').textContent = `${devices.length} 台设备 · ${scenes.length} 个场景`;
   }
   roomSelect.addEventListener('change', () => { room = roomSelect.value; render(); });
   search.addEventListener('input', () => { query = search.value.trim().toLocaleLowerCase(); render(); });
