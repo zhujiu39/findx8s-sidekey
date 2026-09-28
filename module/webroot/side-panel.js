@@ -75,9 +75,6 @@ function render(host, config, modal = false) {
   host.classList.toggle('compact', config.menu_width < 195);
   host.style.setProperty('--sidebar-width', config.menu_width + 'px');
   host.style.setProperty('--app-gap', config.menu_gap + 'px');
-  const grip = el('button', 'panel-grip');
-  grip.setAttribute('aria-label', modal ? '收起布局预览' : '打开布局预览');
-  grip.addEventListener('click', () => modal ? closeMenu() : openMenuPreview(draft)); host.append(grip);
   const entries = config.menu.filter(item => item.type !== 'none');
   if (!entries.length) { host.append(el('p', 'empty-panel', '添加项目后，它们会出现在这里。')); return; }
   const visible = entries.slice(0, 64), stack = el('div', 'panel-stack'); host.append(stack);
