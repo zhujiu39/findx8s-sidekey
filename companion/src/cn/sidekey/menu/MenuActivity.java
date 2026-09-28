@@ -48,7 +48,8 @@ public final class MenuActivity extends Activity {
     private boolean closing, dispatched, entered, selecting;
     private int selection = -1, position, widthDp, appGapDp;
     private boolean right;
-    private int foreground, muted, surface, tileTop, stroke, accent, tileOn, tileOff, tilePending, tileUnknown, warning;
+    private int foreground, muted, surface, tileTop, stroke, accent, tileOn, tilePending, tileUnknown;
+    private int tileBorder, stateBorder, onInk, onMuted, pendingInk, warning;
     private JSONArray currentItems;
 
     private static final class Session {
@@ -153,11 +154,14 @@ public final class MenuActivity extends Activity {
         tileTop = Color.parseColor(dark ? "#363639" : "#FFFFFF");
         stroke = Color.parseColor(dark ? "#24FFFFFF" : "#20FFFFFF");
         accent = Color.parseColor(dark ? "#409CFF" : "#007AFF");
-        tileOn = Color.parseColor(dark ? "#244C31" : "#DDF6E4");
-        tileOff = Color.parseColor(dark ? "#2C2C2E" : "#EFEFF2");
-        tilePending = Color.parseColor(dark ? "#213C58" : "#E8F2FF");
-        tileUnknown = Color.parseColor(dark ? "#4B3B20" : "#FFF4DF");
-        warning = Color.parseColor(dark ? "#FFD580" : "#8A5900");
+        tileOn = Color.parseColor(dark ? "#30D158" : "#34C759");
+        tilePending = Color.parseColor(dark ? "#0A84FF" : "#0066CC");
+        tileUnknown = Color.parseColor(dark ? "#FF9F0A" : "#FF9500");
+        tileBorder = Color.parseColor(dark ? "#5C5C62" : "#D7D7DC");
+        stateBorder = Color.parseColor(dark ? "#33FFFFFF" : "#26000000");
+        onInk = Color.parseColor("#092711"); onMuted = Color.parseColor("#164822");
+        pendingInk = Color.parseColor(dark ? "#001B36" : "#FFFFFF");
+        warning = Color.parseColor("#402300");
         panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(dp(14), dp(12), dp(14), dp(16));
         GradientDrawable backdrop = background(surface, 26); backdrop.setStroke(dp(1), stroke);
@@ -376,6 +380,7 @@ public final class MenuActivity extends Activity {
             card = new LinearLayout(MenuActivity.this); card.setOrientation(VERTICAL);
             int horizontal = dp(widthDp < 160 ? 6 : 10);
             card.setPadding(horizontal, dp(8), horizontal, dp(8)); card.setBackground(background(tileTop, 16));
+            card.setElevation(dp(1)); card.setClipToOutline(true);
             pressFeedback(card);
             LinearLayout header = new LinearLayout(MenuActivity.this); header.setGravity(Gravity.CENTER_VERTICAL);
             header.setOrientation(LinearLayout.HORIZONTAL);
@@ -395,7 +400,7 @@ public final class MenuActivity extends Activity {
             header.setMinimumHeight(dp(32)); card.addView(header, new LinearLayout.LayoutParams(-1, -2));
             readings = new ReadingContent(MenuActivity.this, muted); readings.setVisibility(View.GONE);
             card.addView(readings, new LinearLayout.LayoutParams(-1, -2));
-            trafficPanel = new SurfingContent(MenuActivity.this, foreground, muted, accent, widthDp);
+            trafficPanel = new SurfingContent(MenuActivity.this, onInk, onMuted, onInk, widthDp);
             card.addView(trafficPanel, new LinearLayout.LayoutParams(-1, -2));
             card.setMinimumHeight(dp(48)); addView(card, new LinearLayout.LayoutParams(-1, -2));
         }
@@ -438,7 +443,6 @@ public final class MenuActivity extends Activity {
             }
             boolean waiting = mijia && session != null && session.mijiaOperating;
             card.setEnabled(!torchPending && !waiting && (!mijia || MijiaSwitchState.enabled(value)));
-            card.setAlpha(mijia && !displayOnly && !MijiaSwitchState.enabled(value) ? 0.60f : 1f);
             renderCard(appearance, displayOnly);
         }
         void updateSurfing() {
@@ -459,14 +463,22 @@ public final class MenuActivity extends Activity {
             renderCard(submitting ? '~' : value.power(), false);
         }
         void renderCard(char value, boolean displayOnly) {
-            boolean pending = value == '~', unknown = value == '?' || value == 'u' || value == 'o';
-            int fill = value == '1' ? tileOn : value == '0' ? tileOff : pending ? tilePending : unknown ? tileUnknown : tileTop;
-            if (lastFill != fill) { card.setBackground(background(fill, 16)); lastFill = fill; }
-            card.setActivated(value == '1');
+            boolean on = value == '1', pending = value == '~', unknown = value == '?' || value == 'u' || value == 'o';
+            boolean colored = on || pending || unknown;
+            int fill = on ? tileOn : pending ? tilePending : unknown ? tileUnknown : tileTop;
+            if (lastFill != fill) {
+                GradientDrawable frame = background(fill, 16);
+                frame.setStroke(dp(1), colored ? stateBorder : tileBorder);
+                card.setBackground(frame); lastFill = fill;
+            }
+            int ink = on ? onInk : pending ? pendingInk : unknown ? warning : foreground;
+            name.setTextColor(ink); status.setTextColor(colored ? ink : muted);
+            // 所有状态保留完整底框，禁用通过原交互规则处理，不再淡化整卡背景。
+            card.setAlpha(1f); card.setActivated(on);
             // 只按读回状态着色；未知与切换中保留标记，不把它们当成关闭。
             String icon = pending ? "arrow.clockwise" : unknown ? "exclamationmark.circle.fill" :
                 displayOnly ? "thermometer.medium" : SfSymbols.action(type);
-            SfSymbols.apply(mark, icon, unknown ? warning : pending ? accent : markColor);
+            SfSymbols.apply(mark, icon, colored ? ink : markColor);
             mark.setVisibility(pending || unknown || widthDp >= 220 ? View.VISIBLE : View.GONE);
         }
     }
