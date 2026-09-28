@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.2.0-test.15'
-VERSION_CODE = 128
+VERSION = '1.2.0'
+VERSION_CODE = 129
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -265,7 +265,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_恢复四周等距留白')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_正式版_界面更新与Surfing')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -296,16 +296,17 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '修正 test.14 对顶部留白的错误处理：原生菜单上、右、下、左统一为 10 dp，第一张卡片与面板外框保留和侧边相同的距离。'
-        'WebUI 布局预览四周同步为 10 px。顶部横条及其原 44 dp 专属占位保持删除，正常边距保留。'
-        '沿用 test.14 的标题左对齐、代理统计与订阅用量同行、紧凑间距、整卡点击及指定配色，确认开启后才显示详情。'
-        '本次界面代码仅调整原生面板和预览容器两处内边距；其他变更为版本和交付说明。\n\n'
+        'v1.2.0 正式版以用户确认无误的 test.15 为基础，沿用相同 UI 和业务代码，仅统一正式版本、递增版本码并更新发布文档。'
+        '本版整合家庭式四页 WebUI、原生 SF Symbols 快捷菜单、应用图标读取与诊断修复、紧凑的米家与 Surfing 卡片。'
+        '原生菜单四周统一 10 dp 留白，标题左对齐，整卡点击，以指定绿色、蓝色和蜜黄色表达状态。'
+        '代理确认开启后展示速率、核心累计流量与订阅用量；名称和数值同行，自定义文案与缺失提示保留。'
+        'README 已按当前界面与功能重写，正式包、源码、安装升级、排障和完整致谢入口同步。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'
         'Java 编译仍有 AppCatalog 使用已过时 API 的提示；编译、DEX 和签名正常完成。'
         + ('本次运行自动测试。' if args.test else '按项目要求，本次未运行自动测试或界面测试；真机反馈见验证记录。') +
-        '本次 UI 与触控尚未实机验证；真机步骤见“本版变化与真机实测.md”。'
+        '用户已确认 test.15 无误并指定转为 v1.2.0 正式版；本次沿用已验收实现，重新构建并核对签名与交付内容。'
         'Surfing 统计需已安装并配置 Surfing 与 SurfingTile 6.0.0 的本机 HTTP API。'
         '实时速率和核心累计流量来自 mihomo；核心重启或重置统计后累计值清零。'
         '订阅用量来自本机 /providers/proxies 的订阅元数据，依赖服务商上报并随订阅更新；只读，不触发订阅下载。'

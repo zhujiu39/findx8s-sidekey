@@ -22,7 +22,7 @@ python build.py
 
 默认构建只编译 ARM64 监听程序、Java 服务及菜单 APK，并校验 ELF、DEX、APK 签名和 ZIP，不运行自动测试，由用户实机验证。每次新建独立的 `交付文件/时间_类型_版本_改动内容/`，正式版本使用 `release_`，带预发布后缀的版本使用 `test_`，内含安装包、源码与测试、使用说明、验证说明、构建日志及 SHA256。
 
-v1.2.0-test.3 的构建先核对 `module/webroot/assets/sources.json` 和 SVG 哈希，再转换为 Android 矢量资源并用 `node --check` 检查 WebUI JavaScript 语法；此步骤不执行页面或测试。矢量图标在 AAPT2 阶段随 APK 编译，不依赖开发机的 SF Symbols 原始目录。字体来自手机系统，无需安装额外字体。
+构建先核对 `module/webroot/assets/sources.json` 和 SVG 哈希，再转换为 Android 矢量资源并用 `node --check` 检查 WebUI JavaScript 语法；此步骤不执行页面或测试。矢量图标在 AAPT2 阶段随 APK 编译，不依赖开发机的 SF Symbols 原始目录。字体来自手机系统，无需安装额外字体。
 
 将交付目录中的 `release_oppo_sidekey_v<版本>.zip` 或 `test_oppo_sidekey_v<版本>.zip` 安装到 KernelSU。`源码与测试.zip` 用于审查与复现；模块内的 `lib/mijia-source.zip` 提供米家服务对应源码，无需单独安装。
 
