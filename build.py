@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.2.0-test.11'
-VERSION_CODE = 124
+VERSION = '1.2.0-test.12'
+VERSION_CODE = 125
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -265,7 +265,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_卡片底框与鲜明配色')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_参考图圆角与指定配色')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -296,12 +296,12 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '按用户提供的旧版卡片外观参考，强化原生快捷菜单的圆角实心底框，所有状态增加细边框和轻阴影。'
-        '关闭、普通动作和只读卡片浅色模式为白底，深色模式为深灰底；不再使用接近外层背景的关闭色或淡化整卡。'
-        '开启直接沿用原开关的绿色，浅色 #34C759、深色 #30D158；等待改为鲜明蓝色，未知或离线改为鲜明橙色。'
-        '标题、状态图标及 Surfing 文案、读数、进度条同步适配实色背景，WebUI 布局预览同步配色及底框。'
-        '保留 test.10 的整卡点击、五字标题空间、温湿度名称与数值同行、正常读数不显示“云端上报”。'
-        '原状态判断、禁用规则、图标读取与复制诊断、Surfing 显示条件、配置格式及签名证书继续沿用。\n\n'
+        '按用户参考图呈现圆润实心卡片：16 dp 圆角、至少 48 dp 高度、窄栏左右 8 dp 留白，浅色白卡置于 #F6F6F6 外层面板。'
+        '去除上一版的卡片描边及卡片投影，卡片背景与圆角保留，深色模式仍使用深色外层和深灰卡片。'
+        '开启绿色从用户色块逐像素读取为 #0DCD94，等待蓝色严格采用用户指定的 #66CCFF，未知或离线采用蜜黄 #F4C66A。'
+        '三个状态色在深浅色模式使用同一色值，标题、图标及 Surfing 文字和进度条配套使用深色前景。'
+        '用户已确认只参考形状、不恢复圆形按钮；继续整卡点击、五字标题及温湿度同行。'
+        'WebUI 布局预览同步；图标读取、状态判断、禁用规则、Surfing 显示条件、配置格式及签名证书继续沿用。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'

@@ -49,7 +49,7 @@ public final class MenuActivity extends Activity {
     private int selection = -1, position, widthDp, appGapDp;
     private boolean right;
     private int foreground, muted, surface, tileTop, stroke, accent, tileOn, tilePending, tileUnknown;
-    private int tileBorder, stateBorder, onInk, onMuted, pendingInk, warning;
+    private int onInk, onMuted, pendingInk, warning;
     private JSONArray currentItems;
 
     private static final class Session {
@@ -150,18 +150,16 @@ public final class MenuActivity extends Activity {
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         foreground = Color.parseColor(dark ? "#F5F5F7" : "#1D1D1F");
         muted = Color.parseColor(dark ? "#AEAEB2" : "#6E6E73");
-        surface = Color.parseColor(dark ? "#F2262629" : "#F2F5F5F7");
+        surface = Color.parseColor(dark ? "#252528" : "#F6F6F6");
         tileTop = Color.parseColor(dark ? "#363639" : "#FFFFFF");
         stroke = Color.parseColor(dark ? "#24FFFFFF" : "#20FFFFFF");
         accent = Color.parseColor(dark ? "#409CFF" : "#007AFF");
-        tileOn = Color.parseColor(dark ? "#30D158" : "#34C759");
-        tilePending = Color.parseColor(dark ? "#0A84FF" : "#0066CC");
-        tileUnknown = Color.parseColor(dark ? "#FF9F0A" : "#FF9500");
-        tileBorder = Color.parseColor(dark ? "#5C5C62" : "#D7D7DC");
-        stateBorder = Color.parseColor(dark ? "#33FFFFFF" : "#26000000");
-        onInk = Color.parseColor("#092711"); onMuted = Color.parseColor("#164822");
-        pendingInk = Color.parseColor(dark ? "#001B36" : "#FFFFFF");
-        warning = Color.parseColor("#402300");
+        tileOn = Color.parseColor("#0DCD94");
+        tilePending = Color.parseColor("#66CCFF");
+        tileUnknown = Color.parseColor("#F4C66A");
+        onInk = Color.parseColor("#123F35"); onMuted = Color.parseColor("#1C4A3F");
+        pendingInk = Color.parseColor("#173D52");
+        warning = Color.parseColor("#634814");
         panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(dp(14), dp(12), dp(14), dp(16));
         GradientDrawable backdrop = background(surface, 26); backdrop.setStroke(dp(1), stroke);
@@ -378,9 +376,9 @@ public final class MenuActivity extends Activity {
         SwitchRow() {
             super(MenuActivity.this); setOrientation(VERTICAL);
             card = new LinearLayout(MenuActivity.this); card.setOrientation(VERTICAL);
-            int horizontal = dp(widthDp < 160 ? 6 : 10);
+            int horizontal = dp(widthDp < 160 ? 8 : 10);
             card.setPadding(horizontal, dp(8), horizontal, dp(8)); card.setBackground(background(tileTop, 16));
-            card.setElevation(dp(1)); card.setClipToOutline(true);
+            card.setClipToOutline(true);
             pressFeedback(card);
             LinearLayout header = new LinearLayout(MenuActivity.this); header.setGravity(Gravity.CENTER_VERTICAL);
             header.setOrientation(LinearLayout.HORIZONTAL);
@@ -466,11 +464,7 @@ public final class MenuActivity extends Activity {
             boolean on = value == '1', pending = value == '~', unknown = value == '?' || value == 'u' || value == 'o';
             boolean colored = on || pending || unknown;
             int fill = on ? tileOn : pending ? tilePending : unknown ? tileUnknown : tileTop;
-            if (lastFill != fill) {
-                GradientDrawable frame = background(fill, 16);
-                frame.setStroke(dp(1), colored ? stateBorder : tileBorder);
-                card.setBackground(frame); lastFill = fill;
-            }
+            if (lastFill != fill) { card.setBackground(background(fill, 16)); lastFill = fill; }
             int ink = on ? onInk : pending ? pendingInk : unknown ? warning : foreground;
             name.setTextColor(ink); status.setTextColor(colored ? ink : muted);
             // 所有状态保留完整底框，禁用通过原交互规则处理，不再淡化整卡背景。
