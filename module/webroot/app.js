@@ -6,11 +6,11 @@ import {exportLogFile} from './log-export.js';
 import {appCatalog, createAppChoice} from './app-picker.js';
 import {initNavigation} from './navigation.js';
 import {initMijia, chooseMijia, mijiaBindingLabel} from './mijia.js';
-import {symbol} from './symbols.js';
+import {symbol, actionSymbols} from './symbols.js';
 import {decorateActionSelect} from './action-picker.js';
 const $ = id => document.getElementById(id);
 let saved = defaultConfig(), loaded = false, busy = false, refreshBusy = false;
-let toastTimer;
+let toastTimer, editedGesture = null;
 const titles = ['短按', '双击', '长按'];
 const descriptions = ['轻按一次，快速执行', '连续两次，另一个捷径', '按住片刻，触发专属动作'];
 const compactActions = {menu: '弹出快捷菜单', none: '不执行动作', torch: '切换手电筒',
@@ -22,6 +22,15 @@ function toast(text) {
 }
 function notice(text) { $('notice').textContent = text; $('notice').hidden = !text; }
 function buildCards() {
+  const detail = $('gesture-detail');
+  $('gesture-detail-close').addEventListener('click', () => detail.close());
+  $('gesture-detail-done').addEventListener('click', () => detail.close());
+  detail.addEventListener('close', () => {
+    if (!editedGesture) return;
+    const editor = $(`editor-${editedGesture}`), invoker = $(`edit-${editedGesture}`);
+    editor.hidden = true; $('gesture-editor-store').append(editor);
+    invoker.setAttribute('aria-expanded','false'); editedGesture = null; invoker.focus();
+  });
   gestureIds.forEach((id, index) => {
     const card = document.createElement('article'); card.className = 'gesture-card';
     card.innerHTML = `<button type="button" class="gesture-open" id="edit-${id}" aria-expanded="false" aria-controls="editor-${id}"><span class="gesture-number" aria-hidden="true">0${index+1}</span><span class="gesture-copy"><span class="gesture-name">${titles[index]}</span><strong class="gesture-value" id="summary-${id}"></strong></span><span class="gesture-arrow" aria-hidden="true">›</span></button><div class="gesture-body" id="editor-${id}" hidden><div class="gesture-edit-heading"><span>${descriptions[index]}</span><button class="test" id="test-${id}" type="button" aria-label="执行${titles[index]}动作">执行 ↗</button></div><div class="selector"><select id="action-${id}" aria-label="${titles[index]}动作"></select></div><div class="argument" id="argument-${id}" hidden><label for="value-${id}"></label><input id="value-${id}" autocomplete="off" spellcheck="false"><textarea id="shell-${id}" aria-label="${titles[index]} Shell 命令" spellcheck="false" hidden></textarea><p></p></div></div>`;
@@ -29,13 +38,16 @@ function buildCards() {
     card.querySelector('.gesture-number').replaceChildren(symbol(['hand.tap','hand.tap','hand.point.up.left.fill'][index]));
     card.querySelector('.gesture-arrow').replaceChildren(symbol('chevron.right'));
     card.querySelector('.test').replaceChildren(document.createTextNode('执行'),symbol('play.fill'));
+    const cue = document.createElement('span'); cue.className = 'gesture-cue';
+    cue.textContent = ['1×','2×','按住'][index]; cue.setAttribute('aria-hidden','true');
+    card.querySelector('.gesture-open').append(cue);
+    $('gesture-editor-store').append($(`editor-${id}`));
+    $(`edit-${id}`).setAttribute('aria-haspopup','dialog');
     $(`edit-${id}`).addEventListener('click', () => {
-      const opening = $(`editor-${id}`).hidden;
-      gestureIds.forEach(other => {
-        const expanded = opening && other === id;
-        $(`editor-${other}`).hidden = !expanded;
-        $(`edit-${other}`).setAttribute('aria-expanded', String(expanded));
-      });
+      editedGesture = id; $('gesture-detail-title').textContent = titles[index];
+      const editor = $(`editor-${id}`); editor.hidden = false;
+      $('gesture-detail-body').append(editor); $(`edit-${id}`).setAttribute('aria-expanded','true');
+      detail.showModal();
     });
     const appChoice = createAppChoice(() => $(`value-${id}`).value, app => {
       $(`value-${id}`).value = app.packageName; updateDirty();
@@ -87,6 +99,9 @@ function updateActionSummaries() {
       if (app) label = (type === 'app_freeform' ? '小窗 · ' : '') + app.label;
     }
     $(`summary-${id}`).textContent = label;
+    const card = $(`edit-${id}`); card.dataset.action = type;
+    card.classList.toggle('is-unassigned', type === 'none');
+    card.querySelector('.gesture-number').replaceChildren(symbol(actionSymbols[type] || 'hand.tap'));
     if (type === 'mijia') $(`summary-${id}`).textContent = mijiaBindingLabel($(`value-${id}`).value);
     $(`edit-${id}`).setAttribute('aria-label', `编辑${titles[index]}动作：${label}`);
   });
@@ -99,7 +114,7 @@ function updateDirty() {
   $('save-state').textContent = busy ? '正在保存…' : !loaded ? '配置未加载' : dirty() ? '有未保存的修改' : '设置已同步';
   document.querySelector('.save-bar').classList.toggle('has-changes',loaded&&dirty());
   gestureIds.forEach((id, i) => { $(`test-${id}`).disabled = busy || !loaded || dirty() || saved.actions[i].type === 'none' || !available(); });
-  document.querySelectorAll('main input:not([name="appearance"]), main select, main textarea, .app-choice, #refresh, #start-service, #reload-apps').forEach(element => {
+  document.querySelectorAll('main input:not([name="appearance"]), main select, main textarea, #gesture-detail input, #gesture-detail select, #gesture-detail textarea, .app-choice, #refresh, #start-service, #reload-apps').forEach(element => {
     if (!element.closest('#page-mijia')) element.disabled = busy;
   });
   if (!available()) $('start-service').disabled = true;

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1600" viewBox="0 0 900 1600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#6393b3"/><stop offset=".38" stop-color="#abc0c7"/><stop offset=".61" stop-color="#d9d5b9"/><stop offset="1" stop-color="#b7864c"/></linearGradient>
+    <linearGradient id="field" x2="0" y2="1"><stop stop-color="#998969"/><stop offset="1" stop-color="#c5914e"/></linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="45"/></filter>
+    <filter id="glow"><feGaussianBlur stdDeviation="80"/></filter>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h900v1600H0z"/>
+  <g filter="url(#soft)">
+    <path fill="#e3d9ae" d="M-100 850Q170 720 480 800T1020 725V1250H-100z"/>
+    <path fill="#7c815e" d="M-100 990Q100 765 310 860T650 910 1050 910V1550H-100z"/>
+    <path fill="url(#field)" d="M-100 1160Q230 895 495 1070T1020 980V1720H-100z"/>
+    <path fill="#d4a258" d="M520 920Q600 1100 500 1320L425 1700H700L695 1260Q625 1070 630 920z"/>
+    <path fill="#876d47" d="M-100 1220Q100 1100 185 1310T315 1660H-100z"/>
+  </g>
+  <ellipse cx="790" cy="815" rx="270" ry="210" fill="#f3dea0" opacity=".4" filter="url(#glow)"/>
+</svg>

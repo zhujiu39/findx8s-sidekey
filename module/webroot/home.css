@@ -1,0 +1,285 @@
+/* 家庭式界面仅用于手势、米家和设置；快捷栏继续使用原样式。 */
+.visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+body.home-interface{--home-tile:#fffef9ed;--home-ink:#232925;--home-muted:#656963;--home-glass:#24352f70;--home-line:#ffffff30;--home-accent:#f18a23;position:relative;isolation:isolate;min-height:100dvh;background:#7b9398;padding-bottom:115px}
+body.home-interface::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,#16324748,#1d292127 60%,#3b2c2045),url('home-wallpaper.svg') center/cover no-repeat}
+:root[data-appearance=dark] body.home-interface{--home-tile:#263336ed;--home-ink:#f6f7f3;--home-muted:#bcc5bf;--home-glass:#1321239c;--home-line:#ffffff1c}
+:root[data-appearance=dark] body.home-interface::before{background-image:linear-gradient(180deg,#10222b86,#10201ab3),url('home-wallpaper.svg')}
+.home-interface main.webui{grid-template-columns:190px minmax(0,900px);max-width:1210px;gap:48px;padding:0 40px 28px 0}
+.home-interface .live-preview{display:none}
+.home-interface .navigation-column{top:0;height:100dvh;border:0;background:#22363118;padding:42px 14px 24px 20px}
+.home-interface .brand{color:#fff;padding-bottom:40px}
+.home-interface .brand-icon{background:#fff3;color:#fff;border:1px solid #fff3;border-radius:14px}
+.home-interface .brand small,.home-interface .navigation-footer,.home-interface .navigation-footer small,.home-interface .small-device .sf-symbol{color:#ffffffe0}
+.home-interface .page-tabs button{color:#ffffffe6;height:50px;font-size:15px;border-radius:14px}
+.home-interface .page-tabs button[aria-selected=true]{background:#ffffffe0;color:#a85314}
+.home-interface .page-tabs button:hover:not([aria-selected=true]){background:#ffffff1f}
+.home-interface .content-region{padding-top:46px}
+.home-interface .app-header{margin:0 0 27px;color:#fff;align-items:center}
+.home-interface .app-header h1{font-size:36px;font-weight:720;letter-spacing:-1px;line-height:1.2}
+.home-interface .eyebrow{font-size:13px;font-weight:550;color:#ffffffe0;margin-bottom:8px}
+.home-interface #page-description{font-size:14px;color:#ffffffe0;margin-top:9px}
+.home-interface .app-header>.icon-button{margin:0;background:var(--home-glass);border:1px solid var(--home-line);color:white;width:44px;height:44px}
+body[data-page=mijia] .app-header{display:none}
+.home-interface .notice{background:#fff3d9ed;color:#70471c;border-radius:18px;font-size:14px}
+.home-interface .page{animation:home-page-in .28s cubic-bezier(.2,.75,.25,1)}
+.home-interface .save-bar{left:calc(max(0px,(100vw - 1210px)/2) + 238px);right:calc(max(0px,(100vw - 1210px)/2) + 40px);max-width:none;bottom:22px;background:var(--home-tile);border-color:var(--home-line);padding:14px 18px;border-radius:24px}
+.home-interface .save-bar:not(.has-changes){display:none}
+.home-interface .save-bar .primary{border-radius:22px;min-height:44px;font-size:14px;background:#c96b17}
+.home-interface .save-status strong{font-size:14px}
+.home-interface .save-status small{font-size:12px}
+.home-interface #toast{bottom:104px}
+
+/* 手势卡片使用两种尺寸；详细配置移到面板中，首页只保留动作与状态。 */
+#page-gestures>.section-heading{color:#fff;margin:27px 2px 13px}
+#page-gestures>.section-heading h2{font-size:22px;letter-spacing:-.4px}
+#page-gestures>.section-heading>span,#page-gestures>.section-footnote{color:#ffffffe0;font-size:12px}
+.home-interface .power-card{padding:17px 19px;border:1px solid var(--home-line);border-radius:24px;background:var(--home-glass);color:#fff;backdrop-filter:blur(18px);gap:13px}
+.home-interface .power-card .colored-icon{background:#ffffff20;color:#fff;align-self:center;border-radius:50%;width:42px;height:42px}
+.home-interface .power-copy h2{font-size:16px;font-weight:600}
+.home-interface .status{color:#ffffffe0;font-size:12px;margin-top:5px}
+.home-interface .status.error{color:#ffded2}
+.home-interface .status.active i{background:#8fe995}
+.home-interface .gesture-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;background:none;overflow:visible;border-radius:0}
+.home-interface .gesture-card{border:0!important;border-radius:24px;overflow:hidden}
+.home-interface .gesture-card:first-child{grid-row:span 2}
+.home-interface .gesture-open{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;position:relative;background:var(--home-tile);color:var(--home-ink);height:100%;min-height:130px;padding:19px;border-radius:24px;gap:18px;transition:transform .22s cubic-bezier(.2,.75,.25,1),background .2s;box-shadow:0 2px 6px #14271705}
+.home-interface .gesture-card:first-child .gesture-open{min-height:272px}
+.home-interface .gesture-number{width:40px;height:40px;border-radius:50%;background:#e68b2318;color:#d8781a}
+.home-interface .gesture-number .sf-symbol{width:23px;height:26px}
+.home-interface .gesture-open[data-action=torch] .gesture-number{color:#bf8900;background:#efca2f26}
+.home-interface .gesture-open[data-action=mijia] .gesture-number{color:#df7722;background:#ec8d2924}
+.home-interface .gesture-open[data-action=app] .gesture-number,.home-interface .gesture-open[data-action=app_freeform] .gesture-number{color:#397cc9;background:#3280d315}
+.home-interface .gesture-open.is-unassigned{background:var(--home-glass);color:#fff;backdrop-filter:blur(18px);border:1px solid var(--home-line)}
+.home-interface .gesture-open.is-unassigned .gesture-number{color:#fff;background:#ffffff20}
+.home-interface .gesture-copy{flex:0;gap:6px}
+.home-interface .gesture-name{font-size:13px;color:var(--home-muted);font-weight:500;line-height:1.4}
+.home-interface .gesture-value{font-size:17px;color:inherit;font-weight:650;line-height:1.4;letter-spacing:-.2px}
+.home-interface .gesture-card:first-child .gesture-value{font-size:24px;letter-spacing:-.5px}
+.home-interface .gesture-open.is-unassigned .gesture-name{color:#ffffffe0}
+.home-interface .gesture-arrow{display:none}
+.home-interface .gesture-cue{position:absolute;right:17px;top:19px;color:var(--home-muted);font-size:12px;font-weight:650}
+.home-interface .is-unassigned .gesture-cue{color:#ffffffc9}
+.home-interface #page-gestures>.feedback-row{background:var(--home-tile);color:var(--home-ink);border-radius:24px;padding:18px 20px}
+.home-interface #page-gestures>.feedback-row .feedback-copy small{color:var(--home-muted)}
+
+/* 米家首页：家庭、分类、场景、房间。状态来源与设备控制入口明确分开。 */
+.home-topline{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;color:#ffffffe6;font-size:14px;font-weight:600}
+.home-tools{display:flex;gap:4px;background:#ffffff28;border:1px solid var(--home-line);border-radius:28px;padding:3px;backdrop-filter:blur(18px)}
+.home-tools .icon-button{color:#fff;background:transparent;width:44px;height:42px;position:relative}
+.home-tools .sf-symbol{width:19px;height:19px}
+.home-tools .mijia-connection-dot{position:absolute;right:8px;top:8px;width:5px;height:5px;background:#ffffff80}
+.home-tools .mijia-connection-dot.connected{background:#99eea1}
+.home-heading{display:flex;align-items:center;gap:12px;color:#fff}
+.home-heading h1{font-size:36px;font-weight:720;letter-spacing:-1px;line-height:1.3;overflow-wrap:anywhere;min-width:0}
+.home-switcher{display:grid;place-items:center;flex:none;width:44px;height:44px;position:relative;border-radius:50%;background:#ffffff24}
+.home-switcher .sf-symbol{width:13px;height:13px}
+.home-switcher select{position:absolute;inset:0;opacity:0;width:100%;height:100%;padding:0;cursor:pointer}
+.home-switcher:focus-within{outline:3px solid #ffffffaa;outline-offset:2px}
+.home-status-line{font-size:13px;color:#ffffffe6;line-height:1.65;margin-top:9px}
+#page-mijia #mijia-message{font-size:13px;color:#fff;line-height:1.65;margin:14px 0 0;padding:12px 15px;background:var(--home-glass);border-radius:16px}
+#page-mijia #mijia-message.error{background:#ffe6d9ed;color:#7b3928}
+.home-categories{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;padding:3px 0 8px;margin:23px 0 7px}
+.home-categories:empty{display:none}
+.home-categories::-webkit-scrollbar{display:none}
+.home-category{display:flex;align-items:center;flex:none;gap:9px;min-width:111px;min-height:59px;border-radius:32px;padding:11px 17px;background:var(--home-glass);color:#fff;border:1px solid #ffffff12;text-align:left;backdrop-filter:blur(18px)}
+.home-category>.sf-symbol{width:22px;height:24px;color:#fff}
+.home-category strong{font-size:14px;display:block;font-weight:600;white-space:nowrap}
+.home-category small{display:block;margin-top:3px;font-size:11px;opacity:.82;white-space:nowrap}
+.home-category[aria-pressed=true]{background:var(--home-tile);color:var(--home-ink);border-color:transparent}
+.home-category[data-category=climate]>.sf-symbol{color:#20c8eb}
+.home-category[data-category=lights]>.sf-symbol{color:#ffd43d}
+.home-category[data-category=security]>.sf-symbol{color:#63dfc4}
+.home-category[data-category=power]>.sf-symbol{color:#a8c8ff}
+.home-category[aria-pressed=true]>.sf-symbol{color:#ca762a}
+.home-category[aria-pressed=true][data-category=climate]>.sf-symbol{color:#118cad}
+.home-category[aria-pressed=true][data-category=lights]>.sf-symbol{color:#b98404}
+.home-category[aria-pressed=true][data-category=security]>.sf-symbol{color:#16816a}
+.home-category[aria-pressed=true][data-category=power]>.sf-symbol{color:#477caf}
+.home-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#fff;margin:27px 0 13px}
+.home-section-heading h2{font-size:23px;line-height:1.3;letter-spacing:-.5px;font-weight:680}
+.home-section-heading>span,.home-section-heading h2>span{font-size:12px;color:#ffffffe0;font-weight:500;letter-spacing:0;margin-left:4px}
+.home-scenes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.home-scene{display:flex;align-items:center;gap:12px;background:var(--home-glass);color:#fff;border:1px solid var(--home-line);border-radius:22px;padding:16px;text-align:left;min-height:80px;backdrop-filter:blur(18px)}
+.home-scene-symbol{width:35px;height:35px;display:grid;place-items:center;border-radius:50%;background:#ffffff15;color:#ffd173;flex:none}
+.home-scene-symbol .sf-symbol{width:18px;height:21px}
+.home-scene>span:last-child{min-width:0}
+.home-scene strong{display:block;font-size:15px;line-height:1.4;overflow-wrap:anywhere}
+.home-scene small{display:block;font-size:11px;color:#ffffffcc;margin-top:5px}
+.home-device-heading{margin-top:28px;margin-bottom:4px}
+.home-device-tools{display:flex;align-items:center;gap:6px;min-width:0}
+#home-room{appearance:none;max-width:140px;min-height:44px;background:var(--home-glass);border:0;color:#fff;border-radius:24px;padding:10px 16px;font-size:13px;text-overflow:ellipsis}
+#home-room option{background:var(--surface);color:var(--ink)}
+.home-device-tools .icon-button{color:#fff;background:var(--home-glass)}
+.home-device-tools .sf-symbol{width:17px;height:17px}
+.home-search-row{display:flex;align-items:center;gap:10px;margin-top:15px;border-radius:16px;background:var(--home-tile);padding:0 14px;color:var(--home-muted)}
+.home-search-row .sf-symbol{width:17px;height:17px}
+#home-search{background:none;border:0;color:var(--home-ink);padding:14px 0;min-height:48px;font-size:15px}
+#home-search::placeholder{color:var(--home-muted)}
+.home-clear-filter{color:#fff;background:#ffffff26;border-radius:15px;min-height:44px;padding:10px 15px;font-size:13px;margin:12px 0 0}
+.home-room{margin-top:24px}
+.home-room-heading{color:#fff;font-size:19px;font-weight:650;letter-spacing:-.3px;line-height:1.4;margin:0 1px 11px;overflow-wrap:anywhere}
+.home-device-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.home-device{display:flex;align-items:center;gap:12px;min-height:90px;width:100%;padding:17px 15px;border-radius:23px;background:var(--home-tile);color:var(--home-ink);text-align:left}
+.home-device-symbol{flex:none;display:grid;place-items:center;width:36px;height:40px;color:#897262}
+.home-device-symbol .sf-symbol{width:27px;height:30px}
+.home-device[data-category=climate] .home-device-symbol{color:#1897b3}
+.home-device[data-category=lights] .home-device-symbol{color:#c89915}
+.home-device[data-category=security] .home-device-symbol{color:#23937b}
+.home-device[data-category=power] .home-device-symbol{color:#588dc6}
+.home-device-copy{min-width:0}
+.home-device-copy strong{display:block;font-size:15px;line-height:1.4;font-weight:650;overflow-wrap:anywhere}
+.home-device-copy small{display:block;font-size:12px;line-height:1.5;color:var(--home-muted);margin-top:5px}
+.home-device.is-offline{background:var(--home-glass);color:#fff;border:1px solid var(--home-line);backdrop-filter:blur(18px)}
+.home-device.is-offline .home-device-symbol,.home-device.is-offline small{color:#ffffffc7}
+.home-no-results{padding:35px 20px;background:var(--home-glass);border-radius:24px;text-align:center;color:#fff;margin-top:20px}
+.home-no-results>.sf-symbol{display:block;margin:0 auto 16px;width:25px;height:25px;opacity:.7}
+.home-no-results strong{font-size:16px}
+.home-no-results p{font-size:13px;margin-top:8px;line-height:1.7;color:#ffffffcf}
+.home-empty{margin-top:28px;min-height:280px;padding:40px 25px;background:var(--home-glass);color:#fff;border:1px solid var(--home-line);border-radius:30px;text-align:center;backdrop-filter:blur(22px)}
+.home-empty-icon{display:flex!important;justify-content:center;margin-bottom:22px;color:#ffda92}
+.home-empty-icon .sf-symbol{width:52px;height:52px}
+.home-empty h2{font-size:23px;font-weight:650}
+.home-empty p{font-size:14px;line-height:1.8;color:#ffffffe0;margin:13px auto 0;max-width:320px}
+.home-connect{display:inline-flex;align-items:center;justify-content:center;background:#fff5de;color:#684011;border-radius:26px;min-height:48px;padding:12px 35px;font-size:15px;font-weight:600;margin-top:25px}
+.home-empty[aria-busy=true] .home-empty-icon{animation:home-loading 1.2s ease-in-out infinite}
+.home-saved,.home-activity{margin-top:27px;border:1px solid var(--home-line);border-radius:23px;background:var(--home-glass);color:#fff;overflow:hidden;backdrop-filter:blur(16px)}
+.home-saved summary,.home-activity summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;min-height:70px;padding:17px 19px;list-style:none;font-size:16px;font-weight:600}
+.home-saved summary::-webkit-details-marker,.home-activity summary::-webkit-details-marker{display:none}
+.home-saved summary>span:first-child{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.home-saved summary small{font-size:11px;font-weight:400;color:#ffffffc9}
+.home-saved summary .sf-symbol,.home-activity summary .sf-symbol{color:#fff;width:16px;height:17px}
+.home-saved summary>span:last-child .sf-symbol,.home-activity summary>span:last-child .sf-symbol{width:10px;height:10px}
+.home-saved #mijia-bindings{padding:0 12px 12px}
+.home-saved .mijia-binding{background:#ffffffed;color:#252e29;border-radius:15px;padding:10px 14px}
+.home-saved .mijia-binding strong{font-size:14px}
+.home-saved .mijia-binding button{font-size:13px;min-height:44px;min-width:44px;color:#a85314}
+.home-activity{margin-top:12px}
+.home-activity summary{min-height:62px;font-size:14px}
+.home-activity #mijia-last{font-size:13px;line-height:1.7;margin:0;padding:0 19px 18px;color:#ffffffe0}
+.home-footnote{font-size:12px;line-height:1.7;color:#ffffffdb;margin:17px 7px 0}
+
+/* 设置保留熟悉的分组表单，背景和导航与家庭页一致。 */
+.home-interface #page-settings :is(.settings-group,.appearance-group,.feedback-row,.diagnostics){background:var(--home-tile);color:var(--home-ink);border-radius:24px}
+.home-interface #page-settings :is(.hint,.feedback-copy small,.range-ends){color:var(--home-muted)}
+.home-interface #page-settings .group-heading h2,.home-interface #page-settings .appearance-group legend{font-size:17px}
+.home-interface #page-settings .range-label{font-size:15px}
+.home-interface #page-settings .range-label output{font-size:13px;background:#de8a2317;color:#986221}
+.home-interface #page-settings .appearance-options{gap:18px}
+.home-interface #page-settings .theme-tile{height:110px;max-width:116px;background:linear-gradient(150deg,#82a8c1 10%,#c4cbb8 55%,#be8b49);padding:18px 13px;border-radius:17px;gap:8px}
+.home-interface #page-settings .theme-dark{background:linear-gradient(150deg,#2b485d,#475948 60%,#675139)}
+.home-interface #page-settings .theme-system{background:linear-gradient(90deg,#a3b7b5 50%,#31483c 50%)}
+.home-interface #page-settings .theme-tile i{background:#ffffffd9;width:26px;height:6px}
+.home-interface #page-settings .theme-tile b{height:19px;border-radius:6px;background:#ffffffcf;box-shadow:none}
+.home-interface #page-settings .theme-dark b{background:#71837d}
+.home-interface #page-settings .theme-system b{background:linear-gradient(90deg,#ffffffdb 50%,#72847d 50%)}
+.home-interface #page-settings .about,.home-interface #page-settings .about strong{color:#ffffffe0}
+.home-interface #page-settings .about strong{font-size:16px}
+.home-interface #page-settings .about p{font-size:12px}
+.home-interface #page-settings .about small{display:none}
+
+/* 配件与手势面板不改变快捷栏页面调用的旧对话框外观。 */
+.home-interface :is(#mijia-dialog,#gesture-detail){width:min(560px,calc(100vw - 40px));border:0;border-radius:30px;background:var(--bg);max-height:91dvh;box-shadow:0 25px 85px #14231d55;overscroll-behavior:contain}
+.home-interface :is(#mijia-dialog,#gesture-detail)::backdrop{background:#13251f57;backdrop-filter:blur(12px)}
+.home-interface :is(#mijia-dialog,#gesture-detail)>header{border:0;padding:15px 20px;background:var(--glass);min-height:75px}
+.home-interface :is(#mijia-dialog,#gesture-detail)>header h2{font-size:19px;letter-spacing:-.3px}
+.home-interface :is(#mijia-dialog,#gesture-detail)>header .icon-button{width:44px;height:44px;min-width:44px;background:var(--surface-secondary)}
+.home-interface :is(#mijia-dialog,#gesture-detail)>header .sf-symbol{width:14px;height:14px}
+.home-interface #gesture-detail .gesture-body{padding:10px 24px 20px}
+.home-interface #gesture-detail .gesture-edit-heading{font-size:13px;margin-bottom:18px}
+.home-interface #gesture-detail .test{border-radius:20px;padding:10px 17px;font-size:13px}
+.home-interface #gesture-detail .action-choice{padding:17px 16px;min-height:60px;border-radius:18px;background:var(--surface);font-size:16px}
+.home-interface #gesture-detail .argument>label{font-size:13px;margin-top:22px}
+.home-interface #gesture-detail .argument>p{font-size:12px}
+.home-interface #gesture-detail .app-choice{background:var(--surface);border-radius:18px;padding-block:19px}
+.home-interface #gesture-detail .app-choice strong{font-size:16px}
+.home-interface #gesture-detail .app-choice small{font-size:12px}
+.gesture-detail-footer{padding:0 24px 24px;display:grid;gap:15px}
+.gesture-detail-footer p{font-size:12px;line-height:1.7;color:var(--muted)}
+.gesture-detail-footer .primary{border-radius:24px;min-height:48px;font-size:16px}
+.home-interface #mijia-dialog #mijia-dialog-body{padding:4px 20px 20px}
+.home-interface #mijia-dialog p{font-size:13px}
+.home-interface #mijia-dialog .primary{border-radius:23px;min-height:46px;font-size:14px}
+.home-interface #mijia-dialog .secondary{border-radius:21px;font-size:13px;min-height:44px}
+.home-device-detail{display:flex;align-items:center;gap:16px;padding:20px 5px 25px}
+.home-detail-icon{display:grid;place-items:center;flex:none;width:68px;height:68px;background:var(--surface);border-radius:22px;color:#c08538}
+.home-detail-icon .sf-symbol{width:36px;height:38px}
+.home-detail-copy{min-width:0}
+.home-detail-copy strong{display:block;font-size:20px;line-height:1.4;overflow-wrap:anywhere}
+.home-detail-copy p{color:var(--muted);margin-top:5px}
+.home-reading-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.home-reading-stat{background:var(--surface);border-radius:20px;padding:19px 16px;min-width:0}
+.home-reading-stat strong{display:block;font-size:26px;font-weight:600;letter-spacing:-.8px;line-height:1.3;color:#2186ac;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.home-reading-stat strong.is-unavailable{font-size:15px;letter-spacing:0;color:var(--muted)}
+.home-reading-stat span{display:block;font-size:13px;line-height:1.5;margin-top:9px;overflow-wrap:anywhere}
+.home-reading-stat small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.home-reading-note{font-size:12px!important;color:var(--muted);margin:0 3px 15px;line-height:1.6}
+.home-interface #mijia-dialog .mijia-property{border-radius:22px;margin-top:13px;padding:18px}
+.home-interface #mijia-dialog details.mijia-property{padding:0;overflow:hidden}
+.mijia-property>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px;min-height:68px;cursor:pointer;list-style:none}
+.mijia-property>summary::-webkit-details-marker{display:none}
+.mijia-property>summary strong{display:block;font-size:16px;line-height:1.4}
+.mijia-property>summary small{display:block;line-height:1.5;margin-top:4px}
+.mijia-property>summary>.sf-symbol{width:12px;height:12px;color:var(--muted);transition:transform .2s}
+.mijia-property[open]>summary>.sf-symbol{transform:rotate(180deg)}
+.mijia-property-content{padding:0 18px 18px}
+.home-interface #mijia-dialog .mijia-reading-choice{min-height:62px}
+.home-interface #mijia-dialog .mijia-reading-choice strong{font-size:14px}
+.home-interface #mijia-dialog .mijia-reading-value{font-size:15px}
+.home-interface #mijia-dialog .mijia-reading-label{padding:10px 3px}
+.mijia-reading-label>summary{display:flex;align-items:center;gap:8px;list-style:none;font-size:12px;color:var(--accent);cursor:pointer;min-height:44px;padding:12px 0}
+.mijia-reading-label>summary::-webkit-details-marker{display:none}
+.mijia-reading-label>summary .sf-symbol{width:10px;height:10px;transition:transform .2s}
+.mijia-reading-label[open]>summary .sf-symbol{transform:rotate(180deg)}
+:root[data-appearance=dark] .home-interface #page-settings .range-label output{color:#ffd18d;background:#d19a4a25}
+.home-interface #mijia-dialog .mijia-section-title{font-size:18px;margin:28px 3px 14px}
+.home-interface #mijia-dialog .mijia-value{font-size:15px}
+.home-interface #mijia-dialog .mijia-choice{font-size:15px;min-height:55px}
+.home-scene-detail{text-align:center;padding:25px 10px 20px}
+.home-scene-detail>.sf-symbol{width:45px;height:45px;color:#da9b19;margin-bottom:20px}
+.home-scene-detail h3{font-size:22px;line-height:1.4;overflow-wrap:anywhere}
+.home-scene-detail p{color:var(--muted);margin-top:10px}
+
+@media(min-width:900px){.home-device-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.home-scenes{grid-template-columns:repeat(3,minmax(0,1fr))}.home-interface .gesture-list{grid-template-columns:repeat(3,minmax(0,1fr))}.home-interface .gesture-card:first-child{grid-row:auto}.home-interface .gesture-card .gesture-open,.home-interface .gesture-card:first-child .gesture-open{min-height:212px}.home-interface .gesture-card:first-child .gesture-value{font-size:20px}.home-interface .gesture-card .gesture-value{font-size:20px}}
+@media(max-width:1080px) and (min-width:681px){.home-interface main.webui{max-width:980px;grid-template-columns:164px minmax(0,1fr);gap:28px;padding-right:28px}.home-interface .save-bar{left:calc(max(0px,(100vw - 980px)/2) + 192px);right:calc(max(0px,(100vw - 980px)/2) + 28px)}}
+@media(max-width:680px){
+  body.home-interface{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
+  body.home-interface:has(.save-bar.has-changes){padding-bottom:calc(198px + env(safe-area-inset-bottom))}
+  .home-interface main.webui{display:block;max-width:560px;padding:0 20px 24px;margin:auto}
+  .home-interface .navigation-column{position:static;background:none;height:auto;padding:0}
+  .home-interface .content-region{padding-top:calc(22px + env(safe-area-inset-top))}
+  .home-interface .app-header{margin-bottom:24px;align-items:center}
+  .home-interface .app-header h1,.home-heading h1{font-size:34px;letter-spacing:-.9px}
+  .home-interface .app-header>.icon-button{margin:0}
+  .home-interface .page-tabs{left:16px;right:16px;bottom:calc(12px + env(safe-area-inset-bottom));max-width:490px;margin:auto;padding:5px 6px;gap:2px;border:1px solid #ffffff73;border-radius:35px;background:#fff7e6e0;backdrop-filter:blur(26px) saturate(1.2);box-shadow:0 6px 24px #43301925;overflow:hidden}
+  .home-interface .page-tabs button{min-height:54px;height:54px;gap:4px;font-size:10px;border-radius:27px;color:#59452d;padding:5px 2px}
+  .home-interface .page-tabs button[aria-selected=true]{background:#eea65438!important;color:#a4510b}
+  .home-interface .page-tabs .sf-symbol{width:23px;height:23px}
+  :root[data-appearance=dark] .home-interface .page-tabs{background:#26332ee8;border-color:#ffffff29}
+  :root[data-appearance=dark] .home-interface .page-tabs button{color:#d5dcd7}
+  :root[data-appearance=dark] .home-interface .page-tabs button[aria-selected=true]{background:#efac5b24!important;color:#ffc275}
+  .home-interface .save-bar{left:18px;right:18px;max-width:490px;bottom:calc(88px + env(safe-area-inset-bottom));padding:13px 16px;border-radius:24px}
+  .home-interface #toast{bottom:calc(178px + env(safe-area-inset-bottom));font-size:13px}
+  .home-topline{margin-top:-2px;margin-bottom:13px}
+  .home-categories{margin-inline:-20px;padding-left:20px;padding-right:20px}
+  .home-category{min-width:104px;padding:10px 15px;min-height:57px}
+  .home-device-grid,.home-scenes{gap:10px}
+  .home-device{flex-direction:column;align-items:flex-start;justify-content:space-between;min-height:148px;padding:17px;gap:15px;border-radius:23px}
+  .home-device-symbol{height:32px;width:32px}
+  .home-device-symbol .sf-symbol{width:25px;height:28px}
+  .home-device-copy strong{font-size:15px}
+  .home-device-copy small{font-size:12px}
+  .home-scene{padding:14px 12px;gap:9px;min-height:81px;border-radius:22px}
+  .home-scene-symbol{width:27px;height:30px;background:none}
+  .home-scene strong{font-size:14px}
+  .home-section-heading h2{font-size:22px}
+  .home-room-heading{font-size:19px}
+  #home-room{max-width:112px;font-size:12px;padding:10px 12px}
+  .home-interface :is(#mijia-dialog,#gesture-detail){width:100%;max-width:100%;margin:auto 0 0;max-height:92dvh;border-radius:30px 30px 0 0;padding-bottom:env(safe-area-inset-bottom)}
+  .home-interface :is(#mijia-dialog,#gesture-detail)[open]{animation:home-sheet-in .3s cubic-bezier(.2,.8,.22,1)}
+  .home-interface :is(#mijia-dialog,#gesture-detail)>header{padding:17px 20px}
+  .home-interface #mijia-dialog #mijia-dialog-body{padding:0 18px 18px}
+}
+@media(max-width:360px){.home-interface main.webui{padding-inline:16px}.home-interface .gesture-open{padding:15px}.home-interface .gesture-value{font-size:16px}.home-interface .gesture-card:first-child .gesture-value{font-size:21px}.home-device{padding:14px}.home-scenes{grid-template-columns:1fr}.home-category{min-width:101px}.home-heading h1{font-size:30px}.home-saved summary small{display:none}.home-interface .save-status strong{font-size:12px}.home-interface .save-status small{font-size:10px}}
+@keyframes home-page-in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes home-sheet-in{from{opacity:0;transform:translateY(35px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes home-loading{50%{opacity:.5}}

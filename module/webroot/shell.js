@@ -3,12 +3,14 @@ import {hydrateSymbols} from './symbols.js';
 const $ = id => document.getElementById(id);
 hydrateSymbols();
 const pages = {
-  gestures: ['侧键自定义', '一按，即达。', '把顺手的操作，交给侧边的那颗按键。'],
+  gestures: ['Find X8s', '侧键', '短按、双击与长按'],
   menu: ['快捷栏', '常用的，都在手边。', '把应用与控制放在一起，按自己的习惯排列。'],
-  mijia: ['米家', '家的状态，一眼可见。', '读数、设备和场景，都能从侧键抵达。'],
-  settings: ['设置', '调成你的手感。', '调整按压节奏，选择喜欢的界面外观。']
+  mijia: ['米家', '我的家', '家庭与设备'],
+  settings: ['侧键自定义', '设置', '外观、按键与运行状态']
 };
 document.addEventListener('sidekey-page', event => {
+  document.body.dataset.page = event.detail;
+  document.body.classList.toggle('home-interface', event.detail !== 'menu');
   const [eyebrow, title, description] = pages[event.detail] || pages.gestures;
   $('page-eyebrow').textContent = eyebrow;
   $('page-title').textContent = title;

@@ -2,6 +2,7 @@ import {symbol} from './symbols.js';
 import {mijiaRequest} from './mijia-api.js';
 import {bindingName, makePropertyAction, makeReadingAction, readingProperties, propertyValue, stateLabel} from './mijia-model.js';
 import {available} from './bridge.js';
+import {createHomeView, deviceSymbol} from './home-view.js';
 
 const $ = id => document.getElementById(id);
 const node = (tag, cls = '', text) => {
@@ -11,10 +12,10 @@ const node = (tag, cls = '', text) => {
 };
 let bindings = [], home = '', lastStatus = {}, busy = false, initialized = false;
 let attach = () => {}, loginTimer, resultTimer, loginPanel, lastFocus;
-let loginRenderKey = '', loginPollId = 0;
+let loginRenderKey = '', loginPollId = 0, dialogRevision = 0, bindingRenderKey = '';
+let homeView;
 export const mijiaBindingLabel = id => bindings.find(item => item.id === id)?.name || '米家动作（请到米家页检查）';
 export const mijiaBindingIsReading = id => bindings.find(item => item.id === id)?.kind === 'read';
-function iconChevron() { const el=node('span','mijia-chevron');el.append(symbol('chevron.right'));return el; }
 function message(text, error = false) {
   $('mijia-message').textContent = text; $('mijia-message').hidden = !text;
   $('mijia-message').classList.toggle('error', error);
@@ -26,7 +27,6 @@ function button(text, run, cls = 'secondary') {
 function textBlock(title, text) {
   const div = node('div', 'mijia-empty'); div.append(node('strong', '', title), node('p', 'hint', text)); return div;
 }
-function icon(kind) {return symbol({scene:'bolt.fill',device:'sensor',lamp:'lightbulb.fill',plug:'power'}[kind] || 'sensor');}
 async function task(work) {
   if (busy) return;
   busy = true; $('page-mijia').setAttribute('aria-busy', 'true'); message('正在处理…');
@@ -45,52 +45,22 @@ async function status() {
   $('mijia-account').textContent = lastStatus.loggedIn ? `小米账号 ${lastStatus.account} · 中国大陆` : '未登录 · 中国大陆';
   // 装饰性状态圆点不应阻断账号、家庭与设备数据的加载。
   $('mijia-connection')?.classList.toggle('connected', !!lastStatus.loggedIn);
-  $('mijia-login').textContent = lastStatus.loggedIn ? '账号管理' : '登录米家';
+  $('mijia-login').setAttribute('aria-label', lastStatus.loggedIn ? '米家账号管理' : '登录米家');
   $('mijia-home-row').hidden = !lastStatus.loggedIn;
   if (!lastStatus.loggedIn) $('mijia-count').textContent = '登录后同步家庭与设备';
   $('mijia-last').textContent = lastStatus.last?.message ? `${new Date(lastStatus.last.time).toLocaleTimeString()} · ${lastStatus.last.message}` : '暂无执行记录';
   renderBindings(); return lastStatus;
 }
 async function loadHome() {
-  $('mijia-scenes').replaceChildren(textBlock('正在读取', '同步米家手动场景…'));
-  $('mijia-devices').replaceChildren(textBlock('正在读取', '同步当前家庭设备…'));
   if (!home) return;
+  homeView.loading();
+  $('home-title').textContent = $('mijia-home').selectedOptions[0]?.textContent || '我的家';
   try {
     const data = await mijiaRequest('catalog', {home});
-    const scenes = $('mijia-scenes'); scenes.replaceChildren();
-    if (!data.scenes.length) scenes.append(textBlock('没有手动场景', data.sceneError || '在米家 App 中创建手动场景，再点击刷新。'));
-    data.scenes.forEach(scene => {
-      const item = button('', () => showScene(scene), 'mijia-scene');
-      const mark = node('span','mijia-scene-icon'), copy = node('span','mijia-scene-copy');
-      mark.append(icon('scene')); copy.append(node('strong','',scene.name),node('small','','加入快捷菜单'));
-      item.append(mark,copy,iconChevron()); scenes.append(item);
-    });
-    const devices = $('mijia-devices'); devices.replaceChildren();
-    if (!data.devices.length) devices.append(textBlock('这个家还没有设备', '请先在米家 App 添加设备，或切换家庭。'));
-    const rooms = new Map();
-    data.devices.forEach(device => {
-      const roomName = device.room || '未分组';
-      if (!rooms.has(roomName)) rooms.set(roomName, []);
-      rooms.get(roomName).push(device);
-    });
-    rooms.forEach((list, roomName) => {
-      const room = node('section','mijia-room'), heading = node('div','mijia-room-title');
-      heading.append(node('strong','',roomName),node('small','',`${list.length} 台设备`)); room.append(heading);
-      list.forEach(device => {
-        const item = button('', () => task(() => showDevice(device)), 'mijia-device');
-        const badge = node('span', 'mijia-device-icon'), copy = node('span','mijia-device-copy');
-        badge.append(icon(/light|lamp/.test(device.model) ? 'lamp' : /plug|outlet/.test(device.model) ? 'plug' : 'device'));
-        copy.append(node('strong','',device.name),node('small','','查看读数与控制'));
-        item.append(badge,copy,node('span',device.online ? 'mijia-device-state' : 'mijia-device-state offline',device.online ? '在线' : '离线'));
-        room.append(item);
-      });
-      devices.append(room);
-    });
-    $('mijia-count').textContent = `${data.devices.length} 台设备 · ${data.scenes.length} 个场景`;
-    message(data.sceneError ? `设备已同步；场景读取失败：${data.sceneError}` : `已同步 ${data.devices.length} 台设备 · ${data.scenes.length} 个场景`, !!data.sceneError);
+    homeView.show(data);
+    message(data.sceneError ? `设备已同步；场景读取失败：${data.sceneError}` : '', !!data.sceneError);
   } catch (error) {
-    $('mijia-scenes').replaceChildren(textBlock('同步失败', '点击刷新重新读取。'));
-    $('mijia-devices').replaceChildren(textBlock('设备未更新', '请检查网络和米家账号。'));
+    homeView.empty('暂时无法同步', '请检查网络和米家账号，再点击右上角刷新。');
     $('mijia-count').textContent = '同步失败，可点击刷新重试';
     throw error;
   }
@@ -98,8 +68,8 @@ async function loadHome() {
 async function refresh() {
   const account = await status();
   if (!account.loggedIn) {
-    $('mijia-scenes').replaceChildren(textBlock('让侧键连接你的家', '登录后，你的手动场景会显示在这里。'));
-    $('mijia-devices').replaceChildren(textBlock('登录后同步设备', '使用米家扫一扫授权，无需在此输入密码。'));
+    home = ''; homeView.reset(); $('home-title').textContent = '我的家';
+    homeView.empty('连接米家', '用米家 App 扫码，同步你的家庭、设备与手动场景。', true);
     message(''); initialized = true; return;
   }
   const data = await mijiaRequest('homes'), homes = data.homes;
@@ -107,28 +77,38 @@ async function refresh() {
   $('mijia-home').replaceChildren(...homes.map(item => new Option(item.name, item.id)));
   $('mijia-home').value = home;
   if (!homes.length) {
-    $('mijia-scenes').replaceChildren(textBlock('没有可用家庭', '请先在米家 App 创建或加入家庭。'));
-    $('mijia-devices').replaceChildren(); message('当前账号没有可用家庭'); return;
+    homeView.empty('还没有家庭', '在米家 App 创建或加入家庭后，点击右上角刷新。');
+    $('mijia-count').textContent = '当前账号没有可用家庭'; message(''); initialized = true; return;
   }
   await loadHome(); initialized = true;
 }
 function openDialog(title) {
   closeDialog(); lastFocus = document.activeElement;
+  dialogRevision++;
   const dialog = $('mijia-dialog'); $('mijia-dialog-title').textContent = title; $('mijia-dialog-body').replaceChildren();
   $('mijia-dialog-message').textContent = ''; dialog.showModal(); return $('mijia-dialog-body');
 }
 function closeDialog() {
+  dialogRevision++; delete $('mijia-dialog').dataset.busy;
   clearTimeout(loginTimer); loginPanel = null; loginRenderKey=''; loginPollId++;
   if ($('mijia-dialog').open) $('mijia-dialog').close();
 }
 async function dialogTask(work) {
   const dialog = $('mijia-dialog'); if (dialog.dataset.busy === 'true') return;
+  const revision = dialogRevision;
   dialog.dataset.busy = 'true'; $('mijia-dialog-message').textContent = '正在处理…';
   const controls = [...dialog.querySelectorAll('button:not(#mijia-dialog-close),input,select')];
   controls.forEach(item => item.disabled = true);
-  try { await work(); }
-  catch (error) { $('mijia-dialog-message').textContent = error.message; }
-  finally { delete dialog.dataset.busy; controls.forEach(item => { if (item.isConnected) item.disabled = false; }); }
+  try {
+    await work();
+    if (revision === dialogRevision && $('mijia-dialog-message').textContent === '正在处理…') $('mijia-dialog-message').textContent = '';
+  }
+  catch (error) { if (revision === dialogRevision) $('mijia-dialog-message').textContent = error.message; }
+  finally {
+    if (revision === dialogRevision) {
+      delete dialog.dataset.busy; controls.forEach(item => { if (item.isConnected) item.disabled = false; });
+    }
+  }
 }
 function bindingTools(body, makeAction, name, title = '加入快捷菜单') {
   body.append(button(title, () => dialogTask(async () => {
@@ -139,7 +119,9 @@ function bindingTools(body, makeAction, name, title = '加入快捷菜单') {
 }
 function showScene(scene) {
   const body = openDialog(scene.name); const action = {kind:'scene',home:scene.home,scene:scene.id};
-  body.append(node('p','hint','将米家 App 中的手动场景加入快捷菜单，之后从侧键弹出的菜单执行。'));
+  const hero = node('div','home-scene-detail');
+  hero.append(symbol('bolt.fill'),node('h3','',scene.name),node('p','','米家手动场景'));
+  body.append(hero,node('p','hint','加入后保存设置，即可从侧键快捷菜单执行此场景。'));
   bindingTools(body, () => action, bindingName(scene.name, '场景'));
 }
 function valueInput(property, state) {
@@ -159,7 +141,9 @@ function valueInput(property, state) {
   input.setAttribute('aria-label', property.name); return input;
 }
 function readingLabelEditor(property, value) {
-  const field = node('div','mijia-reading-label'), label = node('label','mijia-field','数值前文案');
+  const compact = document.body.dataset.page !== 'menu';
+  const field = node(compact ? 'details' : 'div','mijia-reading-label'), label = node('label','mijia-field','数值前文案');
+  if (compact) { const heading = node('summary','','自定义读数文案'); heading.append(symbol('chevron.down')); field.append(heading); }
   const input = node('input'); input.type='text'; input.maxLength=60;
   input.value=property.label ?? property.displayName ?? property.name;
   input.placeholder='留空只显示数值';
@@ -190,15 +174,51 @@ export async function editReadingLabels(id) {
     $('mijia-dialog-message').textContent='';
   });
 }
+function propertyGroup(title, detail, open = false) {
+  const group = node('details','mijia-property'); group.open = open;
+  const heading = node('summary'), copy = node('span');
+  copy.append(node('strong','',title)); if (detail) copy.append(node('small','',detail));
+  heading.append(copy,symbol('chevron.down'));
+  const content = node('div','mijia-property-content'); group.append(heading,content);
+  return {group,content};
+}
 async function showDevice(device) {
-  const data = await mijiaRequest('device', {home:device.home,did:device.did});
-  message('设备信息已读取'); const body = openDialog(device.name);
-  body.append(node('p', 'hint', '选择要显示的读数，或添加控制动作。'));
-  body.append(button('刷新设备状态', () => dialogTask(async () => { await showDevice(device); })));
-  if (data.stateError) body.append(node('p', 'hint', data.stateError));
+  const body = openDialog(device.name);
+  await dialogTask(() => loadDevice(body, device));
+}
+async function loadDevice(body, device) {
+  const loading = node('p','hint','正在读取设备状态…'); body.replaceChildren(loading);
+  let data;
+  try { data = await mijiaRequest('device', {home:device.home,did:device.did}); }
+  catch (error) {
+    if (loading.isConnected && $('mijia-dialog').open) {
+      loading.textContent = '暂时无法读取设备';
+      body.append(button('重新读取', () => dialogTask(() => loadDevice(body,device))));
+    }
+    throw error;
+  }
+  // 关闭面板或切换设备后，旧的请求不能重新打开或覆盖新面板。
+  if (!loading.isConnected || !$('mijia-dialog').open) return;
+  device = data.device || device; body.replaceChildren();
+  const hero = node('div','home-device-detail'), mark = node('span','home-detail-icon'), copy = node('div','home-detail-copy');
+  mark.append(symbol(deviceSymbol(device)));
+  copy.append(node('strong','',device.name),node('p','',`${device.room || '未分组'} · ${device.online ? '在线' : '离线'}`));
+  hero.append(mark,copy); body.append(hero);
   const readings = data.spec.properties.filter(property => property.reading);
-  const measurements = node('section', 'mijia-property mijia-readings');
-  measurements.append(node('h3','','设备读数'),node('p','hint','勾选 1～4 项合并为一张卡片，可添加多张。温度读取实际测量值；设定温度在下方单独列出。'));
+  if (readings.length) {
+    const overview = node('div','home-reading-overview');
+    readings.slice(0,4).forEach(property => {
+      const state = data.states.find(item => item.siid === property.siid && item.piid === property.piid);
+      const tile = node('div','home-reading-stat'), value = node('strong',state?.code === 0 && state.value != null ? '' : 'is-unavailable',stateLabel(property,state));
+      tile.append(value,node('span','',property.displayName || property.name),node('small','',property.service)); overview.append(tile);
+    });
+    body.append(overview,node('p','home-reading-note',device.online ? '米家云端最近上报值' : '设备离线 · 以下为云端最近上报值，可能不是当前状态'));
+  }
+  body.append(button('刷新设备状态', () => dialogTask(() => loadDevice(body, device))));
+  if (data.stateError) body.append(node('p', 'hint', data.stateError));
+  const readingGroup = propertyGroup('配置读数卡片', readings.length ? `${readings.length} 项可用读数 · 选择要显示的内容` : '查看设备是否支持只读数据');
+  const measurements = readingGroup.content;
+  measurements.append(node('p','hint','每张卡片选择 1～4 项，可添加多张。设定温度与实际测量值分开显示。'));
   if (readings.length) {
     const selected = new Set(readings.filter(property => /^(?:temperature|relative-humidity)$/.test(property.type)).slice(0,4));
     const count = node('p','mijia-value');
@@ -227,15 +247,16 @@ async function showDevice(device) {
       ()=>bindingName(device.name,chosen().map(property => property.displayName || property.name).join(' / ')), '添加读数卡片');
     measurements.append(node('p','hint','展开快捷栏时获取云端最近上报值。离线时仍会标明离线；没有上报数据的项目显示“暂无数据”。'));
   } else measurements.append(node('p','hint','该设备的 MIOT 规格没有可显示的只读数据；不会用目标温度冒充当前温度。'));
-  body.append(measurements);
+  body.append(readingGroup.group);
   if (data.spec.properties.some(property => property.write || property.setpoint) || data.spec.actions.length)
     body.append(node('h3','mijia-section-title','控制与设定'));
   data.spec.properties.forEach(property => {
     if (!property.write && !property.setpoint) return;
-    const card = node('section', 'mijia-property'), state = data.states.find(item => item.siid === property.siid && item.piid === property.piid);
-    card.append(node('small','hint',property.service), node('h3','',property.displayName || property.name), node('p','mijia-value',property.read || property.notify ? stateLabel(property,state) : '只写属性'));
+    const state = data.states.find(item => item.siid === property.siid && item.piid === property.piid);
+    const control = propertyGroup(property.displayName || property.name, `${property.service} · ${property.read || property.notify ? stateLabel(property,state) : '只写属性'}`), card = control.content;
+    card.append(node('p','mijia-value',property.read || property.notify ? stateLabel(property,state) : '只写属性'));
     if (property.setpoint) card.append(node('p','hint','这是设定值，不是设备当前测量温度。'));
-    if (!property.write) { body.append(card); return; }
+    if (!property.write) { body.append(control.group); return; }
     if (property.format === 'bool' && !property.values?.length) {
       const choice = node('select'); choice.setAttribute('aria-label', property.name + '快捷菜单动作');
       choice.add(new Option('开启','true')); choice.add(new Option('关闭','false'));
@@ -250,10 +271,10 @@ async function showDevice(device) {
       const action = () => makePropertyAction(device.home,device,property,'set',input.value);
       bindingTools(card,action,()=>bindingName(device.name,property.name+' · '+(input.tagName==='SELECT' ? input.selectedOptions[0].textContent : input.value)));
     }
-    body.append(card);
+    body.append(control.group);
   });
   data.spec.actions.forEach(action => {
-    const card = node('section','mijia-property'); card.append(node('small','hint',action.service),node('h3','',action.name));
+    const control = propertyGroup(action.name, action.service), card = control.content;
     const inputs = action.in.map(piid => {
       const property = data.spec.properties.find(item => item.siid === action.siid && item.piid === piid);
       if (!property) return null;
@@ -264,10 +285,13 @@ async function showDevice(device) {
       const descriptor = () => ({kind:'action',home:device.home,did:device.did,siid:action.siid,aiid:action.aiid,values:inputs.map(item => propertyValue(item.property,item.input.value))});
       bindingTools(card,descriptor,bindingName(device.name,action.name));
     }
-    body.append(card);
+    body.append(control.group);
   });
 }
 function renderBindings() {
+  const key = JSON.stringify(bindings);
+  if (key === bindingRenderKey) return;
+  bindingRenderKey = key;
   const host = $('mijia-bindings'); host.replaceChildren();
   $('mijia-bindings-section').hidden = !bindings.length;
   bindings.forEach(entry => {
@@ -340,14 +364,19 @@ async function accountDialog() {
 }
 export function initMijia(onAttach) {
   attach=onAttach;
+  homeView = createHomeView({openDevice:showDevice, openScene:showScene, openAccount:()=>$('mijia-login').click()});
   $('mijia-refresh').addEventListener('click',()=>task(refresh));
   $('mijia-home').addEventListener('change',()=>{
     if (busy) { $('mijia-home').value=home; return; }
-    home=$('mijia-home').value;task(loadHome);
+    home=$('mijia-home').value;homeView.reset();task(loadHome);
   });
   $('mijia-login').addEventListener('click',()=>task(async()=>{await status();message('');await accountDialog();}));
   $('mijia-dialog-close').addEventListener('click',closeDialog);
-  $('mijia-dialog').addEventListener('close',()=>{clearTimeout(loginTimer);loginPanel=null;loginRenderKey='';loginPollId++;lastFocus?.focus();});
+  $('mijia-dialog').addEventListener('close',()=>{
+    if ($('mijia-dialog').open) return;
+    dialogRevision++; delete $('mijia-dialog').dataset.busy;
+    clearTimeout(loginTimer);loginPanel=null;loginRenderKey='';loginPollId++;lastFocus?.focus();
+  });
   document.addEventListener('sidekey-page',event=>{
     clearTimeout(resultTimer);
     if (event.detail!=='mijia') return;

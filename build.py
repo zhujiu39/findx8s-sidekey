@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.2.0-test.4'
-VERSION_CODE = 117
+VERSION = '1.2.0-test.5'
+VERSION_CODE = 118
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -249,7 +249,8 @@ def main():
                 'uninstall.sh', 'scripts/control.sh', 'scripts/app-launch.sh', 'bin/sidekey', 'lib/torch.jar', 'lib/sidekey-menu.apk', 'scripts/menu-install.sh', 'webroot/index.html',
                 'LICENSES/sidekey-LICENSE.txt', 'lib/mijia.jar', 'lib/mijia-source.zip', 'scripts/mijia.sh',
                 'webroot/mijia.js', 'webroot/clipboard.js', 'webroot/log-export.js', 'scripts/logs.sh', 'scripts/surfing.sh', 'LICENSES/mijia-GPL-3.0.txt', 'LICENSES/micloud-MIT.txt',
-                'webroot/shell.js', 'webroot/symbols.js', 'webroot/side-panel.js', 'webroot/action-picker.js', 'webroot/assets/symbols.js', 'webroot/assets/sources.json', 'LICENSES/SF-Symbols-notice.txt'}
+                'webroot/shell.js', 'webroot/symbols.js', 'webroot/side-panel.js', 'webroot/action-picker.js', 'webroot/assets/symbols.js', 'webroot/assets/sources.json', 'LICENSES/SF-Symbols-notice.txt',
+                'webroot/home.css', 'webroot/home-view.js', 'webroot/home-wallpaper.svg'}
     if not required.issubset({path.relative_to(MODULE).as_posix() for path in files}):
         raise RuntimeError('模块文件不完整')
     for path in files:
@@ -264,7 +265,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_修复WebUI图标与米家加载')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_家庭风格WebUI重排')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -295,14 +296,15 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '本版修复 WebUI 图标持续显示占位以及米家页面的 classList 空引用错误。'
-        '米家账号状态圆点已恢复，装饰元素缺失不再中断账号、家庭和设备加载。'
-        'WebUI 图标按可见范围主动加载，切页、弹窗及滚动后补充读取；应用列表初始化或刷新后恢复现有图标请求。'
-        '相同应用合并请求，每批最多两张 PNG；成功解码后显示，失败不永久缓存为空，并在应用选择和快捷栏页显示具体提示。'
-        '保留原 Apple 风格、手机应用实际图标、配置、签名和业务接口。\n\n'
+        '本版参考 Apple 家庭 App 重排手势、米家和设置页面。'
+        '使用原创柔焦壁纸、半透明分类与导航、两列设备卡片、房间分组和底部详情面板；继续使用已有 SF Symbols。'
+        '米家增加类别、房间和名称筛选，设备详情先展示真实读数，再展开读数卡配置、控制动作和自定义文案。'
+        '手势首页改为动作卡片，点按后配置；有未保存修改时显示保存条。'
+        '按用户要求，快捷栏编辑页、布局预览和原生快捷栏 UI 保持不变。配置格式、签名和业务接口不变。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'
+        'Java 编译保留 AppCatalog 使用已过时 API 的原有提示，本版未修改该接口；编译、DEX 和签名正常完成。'
         + ('本次运行自动测试。' if args.test else '按项目要求，本次未运行自动测试或界面测试；真机反馈见验证记录。') +
         '本次 UI 与触控尚未实机验证；真机步骤见“本版变化与真机实测.md”。'
         'Surfing 统计需已安装并配置 Surfing 与 SurfingTile 6.0.0 的本机 HTTP API。'
