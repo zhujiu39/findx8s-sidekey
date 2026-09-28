@@ -161,7 +161,7 @@ public final class MenuActivity extends Activity {
         pendingInk = Color.parseColor("#173D52");
         warning = Color.parseColor("#634814");
         panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(10), dp(10), dp(10), dp(12));
+        panel.setPadding(dp(10), 0, dp(10), dp(12));
         GradientDrawable backdrop = background(surface, 26); backdrop.setStroke(dp(1), stroke);
         panel.setBackground(backdrop); panel.setElevation(dp(12)); panel.setClipToOutline(true);
         panel.setAlpha(0); panel.setClickable(true);
@@ -360,11 +360,10 @@ public final class MenuActivity extends Activity {
     }
 
     private final class SwitchRow extends LinearLayout {
-        final LinearLayout card;
+        final LinearLayout card, header;
         final TextView name, status;
         final ReadingContent readings;
         final ImageView mark;
-        final View markBalance;
         final SurfingContent trafficPanel;
         boolean mijia, surfing;
         int index, markColor, lastFill;
@@ -376,7 +375,7 @@ public final class MenuActivity extends Activity {
             card.setPadding(horizontal, dp(8), horizontal, dp(8)); card.setBackground(background(tileTop, 16));
             card.setClipToOutline(true);
             pressFeedback(card);
-            LinearLayout header = new LinearLayout(MenuActivity.this); header.setGravity(Gravity.CENTER_VERTICAL);
+            header = new LinearLayout(MenuActivity.this); header.setGravity(Gravity.CENTER_VERTICAL);
             header.setOrientation(LinearLayout.HORIZONTAL);
             mark = new ImageView(MenuActivity.this); mark.setScaleType(ImageView.ScaleType.FIT_CENTER);
             mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -384,19 +383,14 @@ public final class MenuActivity extends Activity {
             LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(iconWidth, dp(22)); iconSize.rightMargin = iconGap;
             header.addView(mark, iconSize); mark.setVisibility(widthDp < 220 ? View.GONE : View.VISIBLE);
             name = text("", 12, foreground); name.setMaxLines(1); name.setEllipsize(TextUtils.TruncateAt.END);
-            name.setGravity(Gravity.CENTER);
             name.setAutoSizeTextTypeUniformWithConfiguration(10, 12, 1, TypedValue.COMPLEX_UNIT_SP);
             name.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
             LinearLayout labels = new LinearLayout(MenuActivity.this); labels.setOrientation(VERTICAL);
             labels.addView(name, new LinearLayout.LayoutParams(-1, -2));
             status = text("", 10, muted); status.setMaxLines(2); status.setEllipsize(TextUtils.TruncateAt.END);
-            status.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams statusSize = new LinearLayout.LayoutParams(-1, -2); statusSize.topMargin = dp(4);
             labels.addView(status, statusSize); status.setVisibility(View.GONE);
             header.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
-            markBalance = new View(MenuActivity.this); markBalance.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            markBalance.setVisibility(mark.getVisibility());
-            header.addView(markBalance, new LinearLayout.LayoutParams(iconWidth + iconGap, dp(22)));
             header.setMinimumHeight(dp(32)); card.addView(header, new LinearLayout.LayoutParams(-1, -2));
             readings = new ReadingContent(MenuActivity.this, muted); readings.setVisibility(View.GONE);
             card.addView(readings, new LinearLayout.LayoutParams(-1, -2));
@@ -406,6 +400,7 @@ public final class MenuActivity extends Activity {
         }
         void bind(JSONObject item) {
             card.setScaleX(1); card.setScaleY(1);
+            header.setMinimumHeight(dp(32));
             type = item.optString("type"); name.setText(item.optString("name"));
             mijia = "mijia".equals(type); index = item.optInt("index", -1);
             surfing = "surfing".equals(type); trafficPanel.setVisibility(View.GONE);
@@ -452,6 +447,7 @@ public final class MenuActivity extends Activity {
             status.setVisibility(View.GONE); status.setText("");
             // 只有确认开启时显示统计，关闭、切换中或状态未知均不占位、不朗读旧数据。
             boolean showDetails = !submitting && value.power() == '1';
+            header.setMinimumHeight(dp(showDetails ? 24 : 32));
             trafficPanel.setVisibility(showDetails ? View.VISIBLE : View.GONE);
             if (showDetails) trafficPanel.update(value);
             String state = submitting ? "切换中…" : value.status();
@@ -476,7 +472,6 @@ public final class MenuActivity extends Activity {
                 displayOnly ? "thermometer.medium" : SfSymbols.action(type);
             SfSymbols.apply(mark, icon, colored ? ink : markColor);
             mark.setVisibility(pending || unknown || widthDp >= 220 ? View.VISIBLE : View.GONE);
-            markBalance.setVisibility(mark.getVisibility());
         }
     }
 

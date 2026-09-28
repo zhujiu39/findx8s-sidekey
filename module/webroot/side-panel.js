@@ -1,6 +1,6 @@
 import {symbol, actionSymbols} from './symbols.js';
 import {appIcon, releaseAppIcons} from './app-icons.js';
-import {surfingFields, surfingText, surfingMask} from './model.js';
+import {surfingFields, surfingText, surfingTextDefaults, surfingMask} from './model.js';
 import {mijiaBindingIsReading} from './mijia.js';
 
 const $ = id => document.getElementById(id);
@@ -11,6 +11,7 @@ const el = (tag, cls = '', text) => {
 };
 let draft, dialogConfig, lastFocus, closeTimer;
 let previewSurfingOn = false;
+const compactTrafficLabels = {up:'↑速率', down:'↓速率', upload:'↑流量', download:'↓流量'};
 
 function control(item, interactive = false) {
   const row = el(interactive ? 'button' : 'div', 'panel-control');
@@ -43,7 +44,13 @@ function surfing(item) {
   for (const [key, , bit] of surfingFields.slice(0, 4)) {
     if (!(mask & bit)) continue;
     const cell = el('div');
-    if (labels[key]) cell.append(el('span', '', labels[key]));
+    if (labels[key]) {
+      const label = el('span', 'traffic-label');
+      if (labels[key] === surfingTextDefaults[key]) {
+        label.append(el('span', 'traffic-label-full', labels[key]), el('span', 'traffic-label-short', compactTrafficLabels[key]));
+      } else label.textContent = labels[key];
+      cell.append(label, document.createTextNode(' '));
+    }
     cell.append(el('strong', '', '—')); grid.append(cell);
   }
   if (mask & 15) {
@@ -53,8 +60,11 @@ function surfing(item) {
   if (mask & 16) {
     const quota = el('section', 'subscription');
     if (labels.quota) quota.append(el('h4', '', labels.quota));
-    quota.append(el('p', '', (labels.used ? labels.used + '：' : '') + '—'));
-    quota.append(el('p', '', (labels.total ? labels.total + '：' : '') + '—'));
+    for (const key of ['used', 'total']) {
+      const row = el('p', 'quota-value');
+      if (labels[key]) row.append(el('span', '', labels[key]), document.createTextNode(' '));
+      row.append(el('strong', '', '—')); quota.append(row);
+    }
     details.append(quota);
   }
   updatePreviewSurfing(card);
@@ -73,6 +83,8 @@ function render(host, config, modal = false) {
   releaseAppIcons(host); host.replaceChildren();
   host.classList.toggle('from-left', config.menu_side === 'left');
   host.classList.toggle('compact', config.menu_width < 195);
+  host.classList.toggle('narrow-traffic', config.menu_width < 180);
+  host.style.setProperty('--traffic-columns', config.menu_width >= 300 ? 2 : 1);
   host.style.setProperty('--sidebar-width', config.menu_width + 'px');
   host.style.setProperty('--app-gap', config.menu_gap + 'px');
   const entries = config.menu.filter(item => item.type !== 'none');
