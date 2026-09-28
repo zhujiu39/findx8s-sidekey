@@ -18,9 +18,8 @@ function control(item, interactive = false) {
   const name = el('span', 'panel-name');
   const stateful = ['torch', 'mijia', 'surfing'].includes(item.type);
   name.append(el('strong', '', item.name)); name.title = item.name;
-  const indicator = el('span', 'power-button');
-  indicator.append(symbol(stateful ? 'power' : 'chevron.right'));
-  row.append(symbol(actionSymbols[item.type] || 'app.fill'), name, indicator);
+  row.append(symbol(actionSymbols[item.type] || 'app.fill'), name);
+  if (stateful && !interactive) row.title = '布局预览不读取开关状态';
   return row;
 }
 function reading(item) {
@@ -63,7 +62,8 @@ function surfing(item) {
 }
 function updatePreviewSurfing(card) {
   const header = card.querySelector('.panel-control');
-  header.classList.toggle('is-on', previewSurfingOn);
+  card.classList.toggle('is-on', previewSurfingOn);
+  card.classList.toggle('is-off', !previewSurfingOn);
   header.setAttribute('aria-pressed', String(previewSurfingOn));
   card.querySelector('.surfing-preview-details').hidden = !previewSurfingOn;
 }
@@ -84,7 +84,11 @@ function render(host, config, modal = false) {
   for (const item of visible.filter(item => !['app', 'app_freeform'].includes(item.type))) {
     if (item.type === 'mijia' && mijiaBindingIsReading(item.argument)) stack.append(reading(item));
     else if (item.type === 'surfing') stack.append(surfing(item));
-    else { const card = el('article', 'panel-card'); card.append(control(item)); stack.append(card); }
+    else {
+      const card = el('article', 'panel-card');
+      if (['torch', 'mijia'].includes(item.type)) card.classList.add('is-unknown');
+      card.append(control(item)); stack.append(card);
+    }
   }
   const apps = visible.filter(item => ['app', 'app_freeform'].includes(item.type));
   if (apps.length) {

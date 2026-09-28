@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.2.0-test.9'
-VERSION_CODE = 122
+VERSION = '1.2.0-test.10'
+VERSION_CODE = 123
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -265,7 +265,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_KernelSU原生图标与逐项诊断')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_卡片颜色与紧凑读数')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -296,13 +296,14 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '本版接入 KernelSU 官方 ksu://icon 本机图标接口：检测到 listPackages 且 Android 用户为 0 时优先由管理器提供图片。'
-        '同步放行网页图片策略中的 ksu://icon，直接用 img 显示，不通过 fetch 或跨域 Canvas。'
-        '接口不可用、图标失败或等待超过 8 秒时，对该应用使用原来的 Root PNG 路径；其他用户仍明确按用户读取。'
-        'Root 路径每批两张，批量请求失败时拆成单应用各重试一次；失败保留包名和原因，不无限重试。'
-        '选择器新增复制图标诊断按钮，记录接口支持情况、包名、请求来源、响应及图片显示阶段；不包含图片数据或账号凭据。'
-        '应用首屏、搜索、滚动与已选应用沿用主动加载。'
-        '本版未变更紧凑开关布局、Surfing 显示条件、深浅色外观、原生菜单实现、配置格式或签名证书。\n\n'
+        '按用户截图调整原生快捷菜单：删除正常读数卡片的“云端上报”行，保留未确认数据的异常提示。'
+        '每项名称与数值同行，温湿度显示为“温度 24.5°C”“湿度 73%”两行；这里的数值仅为排版例子，实际仍由米家提供。'
+        '缩小读数字号和上下间距，自定义文案过长时自然换行，文案留空时只显示数值。'
+        '取消独立开关按钮，整卡点击继续执行原动作；开启用绿色卡片、关闭用中性灰卡片，切换中为蓝色并显示刷新标记，未知或离线为琥珀色并显示异常标记。'
+        '只按真实读回状态着色，保留禁用及无障碍状态，普通动作与只读卡片不冒充开关。'
+        '标题最大字号由 13 sp 调整为 12 sp，随可用宽度在 10～12 sp 间适配，取消右侧按钮后普通字体下最窄栏可容纳五字标题。'
+        '保留至少 48 dp 整卡触控高度；WebUI 布局预览同步卡片颜色与无按钮布局。'
+        '沿用 test.9 的 KernelSU 原生图标及复制诊断、Surfing 显示条件、深浅色、配置格式与签名证书。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'

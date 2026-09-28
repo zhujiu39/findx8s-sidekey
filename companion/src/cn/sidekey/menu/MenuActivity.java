@@ -26,6 +26,7 @@ import java.io.ByteArrayOutputStream;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.text.TextUtils;
+import android.util.TypedValue;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.InputStream;
@@ -47,7 +48,7 @@ public final class MenuActivity extends Activity {
     private boolean closing, dispatched, entered, selecting;
     private int selection = -1, position, widthDp, appGapDp;
     private boolean right;
-    private int foreground, muted, surface, tileTop, stroke, powerOff, powerInk, accent, green;
+    private int foreground, muted, surface, tileTop, stroke, accent, tileOn, tileOff, tilePending, tileUnknown, warning;
     private JSONArray currentItems;
 
     private static final class Session {
@@ -58,7 +59,7 @@ public final class MenuActivity extends Activity {
         volatile String[] mijiaReadings;
         volatile boolean pendingMijia;
         volatile int mijiaRevision;
-        boolean mijiaOperating;
+        boolean mijiaOperating, torchSelecting;
         boolean hasSurfing, surfingSelecting, surfingAwaitingResult;
         volatile int surfingRevision;
         volatile SurfingState surfing = SurfingState.unknown();
@@ -147,14 +148,16 @@ public final class MenuActivity extends Activity {
     private void build(JSONArray items) throws Exception {
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
         foreground = Color.parseColor(dark ? "#F5F5F7" : "#1D1D1F");
-        powerOff = Color.parseColor(dark ? "#3A3A3C" : "#F2F2F7");
-        powerInk = Color.parseColor(dark ? "#EBEBF5" : "#636366");
         muted = Color.parseColor(dark ? "#AEAEB2" : "#6E6E73");
         surface = Color.parseColor(dark ? "#F2262629" : "#F2F5F5F7");
         tileTop = Color.parseColor(dark ? "#363639" : "#FFFFFF");
         stroke = Color.parseColor(dark ? "#24FFFFFF" : "#20FFFFFF");
         accent = Color.parseColor(dark ? "#409CFF" : "#007AFF");
-        green = Color.parseColor(dark ? "#30D158" : "#34C759");
+        tileOn = Color.parseColor(dark ? "#244C31" : "#DDF6E4");
+        tileOff = Color.parseColor(dark ? "#2C2C2E" : "#EFEFF2");
+        tilePending = Color.parseColor(dark ? "#213C58" : "#E8F2FF");
+        tileUnknown = Color.parseColor(dark ? "#4B3B20" : "#FFF4DF");
+        warning = Color.parseColor(dark ? "#FFD580" : "#8A5900");
         panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(dp(14), dp(12), dp(14), dp(16));
         GradientDrawable backdrop = background(surface, 26); backdrop.setStroke(dp(1), stroke);
@@ -258,6 +261,7 @@ public final class MenuActivity extends Activity {
             updateSwitches();
         }
         selecting = true;
+        if ("torch".equals(type)) { current.torchSelecting = true; updateSwitches(); }
         network.execute(() -> {
             boolean accepted = request(current, "SELECT " + index);
             if (surfing) readSurfing(current);
@@ -269,7 +273,7 @@ public final class MenuActivity extends Activity {
                     if (surfing) current.surfingAwaitingResult = false;
                     Toast.makeText(getApplicationContext(), "快捷开关请求未确认，请查看运行日志", Toast.LENGTH_SHORT).show();
                 }
-                if ("torch".equals(type)) current.torchState = -1;
+                if ("torch".equals(type)) { current.torchSelecting = false; current.torchState = -1; }
                 if (mijia) pollMijia(current, current.mijiaRevision);
                 updateSwitches();
             });
@@ -363,15 +367,14 @@ public final class MenuActivity extends Activity {
         final TextView name, status;
         final ReadingContent readings;
         final ImageView mark;
-        final SwitchGlyph control;
         final SurfingContent trafficPanel;
         boolean mijia, surfing;
-        int index, markColor;
+        int index, markColor, lastFill;
         String type;
         SwitchRow() {
             super(MenuActivity.this); setOrientation(VERTICAL);
             card = new LinearLayout(MenuActivity.this); card.setOrientation(VERTICAL);
-            int horizontal = dp(widthDp < 160 ? 8 : 10);
+            int horizontal = dp(widthDp < 160 ? 6 : 10);
             card.setPadding(horizontal, dp(8), horizontal, dp(8)); card.setBackground(background(tileTop, 16));
             pressFeedback(card);
             LinearLayout header = new LinearLayout(MenuActivity.this); header.setGravity(Gravity.CENTER_VERTICAL);
@@ -380,7 +383,8 @@ public final class MenuActivity extends Activity {
             mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(dp(18), dp(22)); iconSize.rightMargin = dp(8);
             header.addView(mark, iconSize); mark.setVisibility(widthDp < 220 ? View.GONE : View.VISIBLE);
-            name = text("", 13, foreground); name.setSingleLine(); name.setEllipsize(TextUtils.TruncateAt.END);
+            name = text("", 12, foreground); name.setMaxLines(1); name.setEllipsize(TextUtils.TruncateAt.END);
+            name.setAutoSizeTextTypeUniformWithConfiguration(10, 12, 1, TypedValue.COMPLEX_UNIT_SP);
             name.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
             LinearLayout labels = new LinearLayout(MenuActivity.this); labels.setOrientation(VERTICAL);
             labels.addView(name, new LinearLayout.LayoutParams(-1, -2));
@@ -388,11 +392,8 @@ public final class MenuActivity extends Activity {
             LinearLayout.LayoutParams statusSize = new LinearLayout.LayoutParams(-1, -2); statusSize.topMargin = dp(4);
             labels.addView(status, statusSize); status.setVisibility(View.GONE);
             header.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
-            control = new SwitchGlyph();
-            LinearLayout.LayoutParams controlSize = new LinearLayout.LayoutParams(dp(32), dp(32));
-            controlSize.leftMargin = dp(6);
-            header.addView(control, controlSize); header.setMinimumHeight(dp(32)); card.addView(header, new LinearLayout.LayoutParams(-1, -2));
-            readings = new ReadingContent(MenuActivity.this, muted, widthDp); readings.setVisibility(View.GONE);
+            header.setMinimumHeight(dp(32)); card.addView(header, new LinearLayout.LayoutParams(-1, -2));
+            readings = new ReadingContent(MenuActivity.this, muted); readings.setVisibility(View.GONE);
             card.addView(readings, new LinearLayout.LayoutParams(-1, -2));
             trafficPanel = new SurfingContent(MenuActivity.this, foreground, muted, accent, widthDp);
             card.addView(trafficPanel, new LinearLayout.LayoutParams(-1, -2));
@@ -400,7 +401,7 @@ public final class MenuActivity extends Activity {
         }
         void bind(JSONObject item) {
             card.setScaleX(1); card.setScaleY(1);
-            type = item.optString("type"); name.setText(item.optString("name")); control.stateful = "torch".equals(type);
+            type = item.optString("type"); name.setText(item.optString("name"));
             mijia = "mijia".equals(type); index = item.optInt("index", -1);
             surfing = "surfing".equals(type); trafficPanel.setVisibility(View.GONE);
             if (surfing) trafficPanel.bind(item);
@@ -412,37 +413,38 @@ public final class MenuActivity extends Activity {
             if (surfing) { updateSurfing(); return; }
             char value = session == null ? '?' : MijiaSwitchState.at(session.mijiaStates, index, session.pendingMijia);
             boolean displayOnly = mijia && MijiaSwitchState.displayOnly(value);
-            control.setVisibility(displayOnly ? View.GONE : View.VISIBLE);
             readings.setVisibility(displayOnly ? View.VISIBLE : View.GONE);
-            SfSymbols.apply(mark, displayOnly ? "thermometer.medium" : SfSymbols.action(type), markColor);
             String[] texts = session == null ? null : session.mijiaReadings;
             String reading = texts != null && index >= 0 && index < texts.length ? texts[index] : null;
             if (displayOnly) readings.update(reading == null || reading.isEmpty() ? "暂无数据" : reading, value == 's' || value == 'q' ? muted : foreground);
-            control.power = mijia && MijiaSwitchState.power(value); control.powerState = value;
-            control.state = session == null ? -1 : session.torchState;
-            status.setVisibility(displayOnly ? View.VISIBLE : View.GONE);
+            boolean torch = "torch".equals(type);
+            int torchState = session == null ? -1 : session.torchState;
+            boolean torchPending = torch && session != null && session.torchSelecting;
+            char appearance = mijia ? MijiaSwitchState.power(value) ? value : 'a' :
+                torch ? torchPending ? '~' : torchState == 1 ? '1' : torchState == 0 ? '0' : '?' : 'a';
+            boolean unconfirmedReading = displayOnly && value != 'r';
+            status.setVisibility(unconfirmedReading ? View.VISIBLE : View.GONE);
             if (mijia) {
                 String description = session != null && session.mijiaOperating && value == '~' ? "执行并刷新中" : MijiaSwitchState.description(value);
-                status.setText(displayOnly ? value == 'r' ? "云端上报" : "最近上报 · 待确认" : "");
+                status.setText(unconfirmedReading ? "最近上报 · 待确认" : "");
                 card.setContentDescription(name.getText() + "，" + description + (displayOnly ? "，" + readings.value() : ""));
                 card.setStateDescription(description);
                 card.setTooltipText(name.getText() + "，" + description);
             } else {
-                String description = control.stateful ? control.state == 1 ? "已开启" : control.state == 0 ? "已关闭" : "状态未确认" : "轻触执行";
+                String description = torch ? torchPending ? "切换中" : torchState == 1 ? "已开启" : torchState == 0 ? "已关闭" : "状态未确认" : "轻触执行";
                 status.setText(""); card.setStateDescription(description);
                 card.setContentDescription(name.getText() + "，" + description);
                 card.setTooltipText(name.getText() + "，" + description);
             }
             boolean waiting = mijia && session != null && session.mijiaOperating;
-            card.setEnabled(!waiting && (!mijia || MijiaSwitchState.enabled(value)));
+            card.setEnabled(!torchPending && !waiting && (!mijia || MijiaSwitchState.enabled(value)));
             card.setAlpha(mijia && !displayOnly && !MijiaSwitchState.enabled(value) ? 0.60f : 1f);
-            control.render();
+            renderCard(appearance, displayOnly);
         }
         void updateSurfing() {
             SurfingState value = session == null ? SurfingState.unknown() : session.surfing;
             boolean submitting = session != null && session.surfingSelecting;
-            readings.setVisibility(View.GONE); control.setVisibility(View.VISIBLE);
-            control.power = true; control.powerState = submitting ? '~' : value.power();
+            readings.setVisibility(View.GONE);
             status.setVisibility(View.GONE); status.setText("");
             // 只有确认开启时显示统计，关闭、切换中或状态未知均不占位、不朗读旧数据。
             boolean showDetails = !submitting && value.power() == '1';
@@ -453,24 +455,19 @@ public final class MenuActivity extends Activity {
             if (showDetails) description.append(trafficPanel.description());
             card.setContentDescription(description.toString()); card.setStateDescription(state);
             card.setTooltipText(name.getText() + "，" + state);
-            card.setEnabled(!submitting && value.canToggle()); card.setAlpha(1f); control.render();
+            card.setEnabled(!submitting && value.canToggle()); card.setAlpha(1f);
+            renderCard(submitting ? '~' : value.power(), false);
         }
-    }
-
-    private final class SwitchGlyph extends ImageView {
-        boolean stateful, power;
-        char powerState;
-        int state = -1, lastBackground;
-        SwitchGlyph() {
-            super(MenuActivity.this); setScaleType(ImageView.ScaleType.FIT_CENTER);
-            setPadding(dp(9), dp(9), dp(9), dp(9)); setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        }
-        void render() {
-            char value = power ? powerState : stateful ? state == 1 ? '1' : state == 0 ? '0' : '?' : 'a';
-            boolean on = value == '1'; int fill = on ? green : powerOff;
-            if (lastBackground != fill) { setBackground(background(fill, 16)); lastBackground = fill; }
-            String icon = value == '1' || value == '0' ? "power" : value == '~' ? "arrow.clockwise" : value == 'a' || value == 'n' ? "chevron.right" : "minus";
-            SfSymbols.apply(this, icon, on ? Color.WHITE : powerInk);
+        void renderCard(char value, boolean displayOnly) {
+            boolean pending = value == '~', unknown = value == '?' || value == 'u' || value == 'o';
+            int fill = value == '1' ? tileOn : value == '0' ? tileOff : pending ? tilePending : unknown ? tileUnknown : tileTop;
+            if (lastFill != fill) { card.setBackground(background(fill, 16)); lastFill = fill; }
+            card.setActivated(value == '1');
+            // 只按读回状态着色；未知与切换中保留标记，不把它们当成关闭。
+            String icon = pending ? "arrow.clockwise" : unknown ? "exclamationmark.circle.fill" :
+                displayOnly ? "thermometer.medium" : SfSymbols.action(type);
+            SfSymbols.apply(mark, icon, unknown ? warning : pending ? accent : markColor);
+            mark.setVisibility(pending || unknown || widthDp >= 220 ? View.VISIBLE : View.GONE);
         }
     }
 
