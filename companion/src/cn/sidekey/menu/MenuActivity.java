@@ -161,7 +161,7 @@ public final class MenuActivity extends Activity {
         pendingInk = Color.parseColor("#173D52");
         warning = Color.parseColor("#634814");
         panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(10), 0, dp(10), dp(12));
+        panel.setPadding(dp(10), dp(10), dp(10), dp(10));
         GradientDrawable backdrop = background(surface, 26); backdrop.setStroke(dp(1), stroke);
         panel.setBackground(backdrop); panel.setElevation(dp(12)); panel.setClipToOutline(true);
         panel.setAlpha(0); panel.setClickable(true);

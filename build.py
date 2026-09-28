@@ -20,8 +20,8 @@ ZIG_SHA256 = '3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c'
 ZIG_URL = 'https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip'
 BUILD = ROOT / 'build'
 LOG = []
-VERSION = '1.2.0-test.14'
-VERSION_CODE = 127
+VERSION = '1.2.0-test.15'
+VERSION_CODE = 128
 PACKAGE_PREFIX = 'test' if '-' in VERSION else 'release'
 EDITION = '本地测试包' if PACKAGE_PREFIX == 'test' else '正式版'
 
@@ -265,7 +265,7 @@ def main():
             run([node, '--check', path])
 
     now = datetime.now().astimezone()
-    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_左对齐与代理卡片紧凑排版')
+    delivery = ROOT / '交付文件' / (now.strftime('%Y%m%d_%H%M%S_%f') + f'_{PACKAGE_PREFIX}_v{VERSION}_恢复四周等距留白')
     delivery.mkdir(parents=True, exist_ok=False)
     package = delivery / f'{PACKAGE_PREFIX}_oppo_sidekey_v{VERSION}.zip'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -296,12 +296,10 @@ def main():
     (delivery / '交付说明.md').write_text(
         f'# 侧键自定义 v{VERSION} {EDITION}\n\n'
         f'构建时间：{now.isoformat(timespec="seconds")}\n\n'
-        '卡片标题和辅助文字恢复左对齐，移除居中所用右侧空位；顶部横条继续移除，并把面板顶部边距设为 0，第一张卡片直接从顶部开始。'
-        'Surfing 四项统计采用名称与数值同行，窄栏默认标签显示为 ↑速率、↓速率、↑流量、↓流量；自定义文案保持原文。'
-        '订阅名称、已用、总额、进度条与更新时间采用紧凑行距，数字与单位紧邻；保留核心统计说明、异常、缓存及缺失提示。'
-        '仅在确认开启时显示详情；继续整卡点击，以 #0DCD94、#66CCFF、#F4C66A 表示原有状态。'
-        'WebUI 布局预览同步左对齐、去顶端空白和紧凑统计行。120 dp 窄栏采用单列，300 dp 及以上采用两列统计。'
-        '长文案或大字体允许换行，不以省略号截断数值或单位；数据接口、配置格式、图标和 APK 签名沿用。\n\n'
+        '修正 test.14 对顶部留白的错误处理：原生菜单上、右、下、左统一为 10 dp，第一张卡片与面板外框保留和侧边相同的距离。'
+        'WebUI 布局预览四周同步为 10 px。顶部横条及其原 44 dp 专属占位保持删除，正常边距保留。'
+        '沿用 test.14 的标题左对齐、代理统计与订阅用量同行、紧凑间距、整卡点击及指定配色，确认开启后才显示详情。'
+        '本次界面代码仅调整原生面板和预览容器两处内边距；其他变更为版本和交付说明。\n\n'
         f'安装文件：{package.name}。在 KernelSU 中覆盖安装并重启，已有手势和快捷栏配置保留。'
         '目标为 OPPO Find X8s、Android 15 / ColorOS 15、原版 KernelSU。\n\n'
         '构建入口：python build.py。编译、APK 签名与 ZIP 校验结果见“构建日志.txt”。'
